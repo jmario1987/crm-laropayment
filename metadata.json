@@ -1,0 +1,6 @@
+{
+  "name": "CRM Laro Payment",
+  "description": "Un sistema de CRM (Customer Relationship Management) para el seguimiento de prospectos de ventas, con un pipeline visual tipo Kanban, un dashboard de análisis y funciones de IA para generar correos de seguimiento.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
