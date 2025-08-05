@@ -27,15 +27,16 @@ const Sidebar: React.FC = () => {
                     Laro<span className="font-light">Payment</span>
                 </h1>
             </div>
-            <nav className="flex-1 p-4 space-y-2">
-                <NavLink to="/dashboard" className={getNavLinkClass}>
-                    <NavIcon path="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>" />
-                    <span className="ml-4">Dashboard</span>
-                </NavLink>
-                <NavLink to="/pipeline" className={getNavLinkClass}>
-                    <NavIcon path="M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/><path d="M9 14l2-2 2 2m-4-6h8"/>" />
-                    <span className="ml-4">Pipeline</span>
-                </NavLink>
+<nav className="flex-1 p-4 space-y-2">
+  <NavLink to="/dashboard" className="flex items-center p-2 text-gray-700 rounded-lg hover:bg-gray-100">
+    <NavIcon path="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+    <span className="ml-4">Dashboard</span>
+  </NavLink>
+  <NavLink to="/pipeline" className="flex items-center p-2 text-gray-700 rounded-lg hover:bg-gray-100">
+    <NavIcon path="M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z" />
+    <span className="ml-4">Pipeline</span>
+  </NavLink>
+</nav>
                 {user?.role === USER_ROLES.Admin && (
                     <>
                         <NavLink to="/users" className={getNavLinkClass}>
