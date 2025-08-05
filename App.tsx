@@ -1,9 +1,9 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
-// Importa los componentes que hemos creado
-import Sidebar from './components/layout/Sidebar'; 
-import LoginPage from './components/layout/LoginPage';
+// RUTAS CORREGIDAS: Ahora apuntan directamente a la carpeta 'components'.
+import Sidebar from './components/Sidebar';
+import LoginPage from './components/LoginPage';
 
 // --- Componentes de ejemplo para las páginas internas ---
 const Dashboard = () => (
@@ -23,6 +23,7 @@ const Pipeline = () => (
 
 
 // --- Layout principal de la App (cuando el usuario ya inició sesión) ---
+// Lo definimos aquí mismo para simplificar.
 const MainLayout = () => {
   return (
     <div className="flex bg-gray-50 min-h-screen">
@@ -48,6 +49,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
 
         {/* Cuando el usuario vaya a cualquier otra ruta, se muestra el layout principal */}
+        {/* El '/*' es un comodín que atrapa /dashboard, /pipeline, etc. */}
         <Route path="/*" element={<MainLayout />} />
 
         {/* Redirección: Si alguien entra a la raíz, lo enviamos a /login */}
