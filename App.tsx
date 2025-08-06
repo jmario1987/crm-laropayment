@@ -4,8 +4,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 // Importa los componentes de layout y seguridad
 import Sidebar from './components/layout/Sidebar';
 import LoginPage from './components/layout/LoginPage';
-import ProtectedRoute from './components/auth/ProtectedRoute'; // ¡Importamos al guardia!
-import { USER_ROLES } from './types'; // Importamos los roles
+import ProtectedRoute from './components/auth/ProtectedRoute';
+import { USER_ROLES } from './types';
 
 // Importa los componentes REALES de las páginas
 import Dashboard from './components/dashboard/Dashboard';
@@ -17,11 +17,15 @@ import Stages from './pages/Stages';
 
 // --- Layout principal de la App ---
 const MainLayout = () => {
+  // (Este layout ya no necesita ser modificado, lo dejamos como estaba)
   return (
     <div className="flex bg-gray-50 min-h-screen">
       <Sidebar />
       <main className="flex-grow p-8">
         <Routes>
+          {/* La primera ruta que ve un usuario logueado es el dashboard */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
           {/* Rutas Públicas (accesibles para todos los usuarios logueados) */}
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/pipeline" element={<Pipeline />} />
@@ -57,13 +61,15 @@ const MainLayout = () => {
 function App() {
   return (
     <Routes>
+      {/* Ruta pública para el login */}
       <Route path="/login" element={<LoginPage />} />
+
+      {/* Todas las demás rutas están protegidas por el guardia */}
       <Route path="/*" element={
         <ProtectedRoute>
           <MainLayout />
         </ProtectedRoute>
       } />
-      <Route path="/" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }
