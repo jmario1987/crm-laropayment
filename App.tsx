@@ -4,9 +4,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/layout/Sidebar';
 import LoginPage from './components/layout/LoginPage';
 
-// RUTA DEFINITIVA Y CORRECTA
-// Apunta a la CARPETA 'dashboard'
-import Dashboard from './components/auth/dashboard'; 
+// RUTA FINAL, EXPLÍCITA Y DEFINITIVA
+// Le decimos que entre a la carpeta 'dashboard' Y busque el archivo 'Dashboard'
+import Dashboard from './components/auth/dashboard/Dashboard'; 
 
 // --- Componente de ejemplo para Pipeline ---
 const Pipeline = () => (
