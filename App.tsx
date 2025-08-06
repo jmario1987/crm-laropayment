@@ -9,7 +9,8 @@ import LoginPage from './components/layout/LoginPage';
 import Dashboard from './components/dashboard/Dashboard';
 import Pipeline from './components/pipeline/Pipeline';
 import Users from './pages/Users';
-import Products from './pages/Products'; // ¡Importamos la página de Productos!
+import Products from './pages/Products';
+import Providers from './pages/Providers'; // ¡Importamos la página de Proveedores!
 
 // --- Layout principal de la App ---
 const MainLayout = () => {
@@ -22,7 +23,8 @@ const MainLayout = () => {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/users" element={<Users />} />
-          <Route path="/products" element={<Products />} /> {/* ¡Añadimos la nueva ruta! */}
+          <Route path="/products" element={<Products />} />
+          <Route path="/providers" element={<Providers />} /> {/* ¡Añadimos la nueva ruta! */}
         </Routes>
       </main>
     </div>
