@@ -8,7 +8,8 @@ import LoginPage from './components/layout/LoginPage';
 // Importa los componentes REALES de las páginas
 import Dashboard from './components/dashboard/Dashboard';
 import Pipeline from './components/pipeline/Pipeline';
-import Users from './pages/Users'; // ¡Importamos la página de Usuarios!
+import Users from './pages/Users';
+import Products from './pages/Products'; // ¡Importamos la página de Productos!
 
 // --- Layout principal de la App ---
 const MainLayout = () => {
@@ -20,7 +21,8 @@ const MainLayout = () => {
           {/* Las rutas ahora usan los componentes reales que importamos */}
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/pipeline" element={<Pipeline />} />
-          <Route path="/users" element={<Users />} /> {/* ¡Añadimos la nueva ruta! */}
+          <Route path="/users" element={<Users />} />
+          <Route path="/products" element={<Products />} /> {/* ¡Añadimos la nueva ruta! */}
         </Routes>
       </main>
     </div>
