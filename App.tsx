@@ -1,10 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+
+// Importa la lógica de autenticación
+import { useAuth } from './hooks/useAuth';
 
 // Importa los componentes de layout y seguridad
 import Sidebar from './components/layout/Sidebar';
 import LoginPage from './components/layout/LoginPage';
+import Header from './components/layout/Header'; // Importamos el Header
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import Modal from './components/ui/Modal';
+import LeadForm from './components/leads/LeadForm';
 import { USER_ROLES } from './types';
 
 // Importa los componentes REALES de las páginas
@@ -17,43 +23,42 @@ import Stages from './pages/Stages';
 
 // --- Layout principal de la App ---
 const MainLayout = () => {
-  // (Este layout ya no necesita ser modificado, lo dejamos como estaba)
+  const { user, logout } = useAuth();
+  const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
+
   return (
-    <div className="flex bg-gray-50 min-h-screen">
-      <Sidebar />
-      <main className="flex-grow p-8">
-        <Routes>
-          {/* La primera ruta que ve un usuario logueado es el dashboard */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+    <>
+      <div className="flex bg-gray-50 min-h-screen">
+        <Sidebar />
+        <div className="flex-1 flex flex-col h-screen">
+          {/* Añadimos el Header aquí, pasándole la información que necesita */}
+          <Header 
+            userName={user?.name} 
+            onLogout={logout}
+            onNewLeadClick={() => setIsNewLeadModalOpen(true)}
+          />
+          {/* El contenido principal ahora tiene un scroll si es necesario */}
+          <main className="flex-grow p-8 overflow-y-auto">
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/pipeline" element={<Pipeline />} />
+              <Route path="/users" element={<ProtectedRoute roles={[USER_ROLES.Admin]}><Users /></ProtectedRoute>} />
+              <Route path="/products" element={<ProtectedRoute roles={[USER_ROLES.Admin]}><Products /></ProtectedRoute>} />
+              <Route path="/providers" element={<ProtectedRoute roles={[USER_ROLES.Admin]}><Providers /></ProtectedRoute>} />
+              <Route path="/stages" element={<ProtectedRoute roles={[USER_ROLES.Admin]}><Stages /></ProtectedRoute>} />
+            </Routes>
+          </main>
+        </div>
+      </div>
 
-          {/* Rutas Públicas (accesibles para todos los usuarios logueados) */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/pipeline" element={<Pipeline />} />
-
-          {/* Rutas Protegidas (solo para Administradores) */}
-          <Route path="/users" element={
-            <ProtectedRoute roles={[USER_ROLES.Admin]}>
-              <Users />
-            </ProtectedRoute>
-          } />
-          <Route path="/products" element={
-            <ProtectedRoute roles={[USER_ROLES.Admin]}>
-              <Products />
-            </ProtectedRoute>
-          } />
-          <Route path="/providers" element={
-            <ProtectedRoute roles={[USER_ROLES.Admin]}>
-              <Providers />
-            </ProtectedRoute>
-          } />
-          <Route path="/stages" element={
-            <ProtectedRoute roles={[USER_ROLES.Admin]}>
-              <Stages />
-            </ProtectedRoute>
-          } />
-        </Routes>
-      </main>
-    </div>
+      {/* Modal para crear un nuevo prospecto, controlado por el Header */}
+      {isNewLeadModalOpen && (
+        <Modal isOpen={isNewLeadModalOpen} onClose={() => setIsNewLeadModalOpen(false)} title="Crear Nuevo Prospecto">
+          <LeadForm onSuccess={() => setIsNewLeadModalOpen(false)} />
+        </Modal>
+      )}
+    </>
   );
 };
 
@@ -61,10 +66,7 @@ const MainLayout = () => {
 function App() {
   return (
     <Routes>
-      {/* Ruta pública para el login */}
       <Route path="/login" element={<LoginPage />} />
-
-      {/* Todas las demás rutas están protegidas por el guardia */}
       <Route path="/*" element={
         <ProtectedRoute>
           <MainLayout />
