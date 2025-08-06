@@ -39,10 +39,14 @@ const Sidebar = () => {
                <NavIcon path="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
               <span className="ml-4">Productos</span>
             </NavLink>
-            {/* ¡Añadimos el nuevo enlace a Proveedores! */}
             <NavLink to="/providers" className="flex items-center p-2 text-gray-700 rounded-lg hover:bg-gray-100">
                <NavIcon path="M20 6h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zM10 4h4v2h-4V4z" />
               <span className="ml-4">Proveedores</span>
+            </NavLink>
+            {/* ¡Añadimos el último enlace a Etapas! */}
+            <NavLink to="/stages" className="flex items-center p-2 text-gray-700 rounded-lg hover:bg-gray-100">
+                <NavIcon path="M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z" />
+               <span className="ml-4">Etapas</span>
             </NavLink>
           </nav>
         </div>
