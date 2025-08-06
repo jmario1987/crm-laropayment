@@ -7,10 +7,9 @@ import { useAuth } from './hooks/useAuth';
 // Importa los componentes de layout
 import Sidebar from './components/layout/Sidebar';
 import LoginPage from './components/layout/LoginPage';
-import Header from './components/layout/Header'; // ¡Importamos el Header!
-import Modal from './components/ui/Modal';       // Necesario para el botón "Nuevo Prospecto"
-import LeadForm from './components/leads/LeadForm'; // Necesario para el botón "Nuevo Prospecto"
-
+import Header from './components/layout/Header';
+import Modal from './components/ui/Modal';
+import LeadForm from './components/leads/LeadForm';
 
 // Importa los componentes REALES de las páginas
 import Dashboard from './components/dashboard/Dashboard';
