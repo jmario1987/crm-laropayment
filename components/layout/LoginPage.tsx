@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import Button from '../components/ui/Button';
-import Spinner from '../components/ui/Spinner';
+import Button from '../ui/Button';
+import Spinner from '../ui/Spinner';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
