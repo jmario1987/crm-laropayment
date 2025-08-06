@@ -1,18 +1,14 @@
 import React from 'react';
-// Se elimina la importación de BrowserRouter de aquí
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
+// Importa los componentes de layout
 import Sidebar from './components/layout/Sidebar';
 import LoginPage from './components/layout/LoginPage';
 
-// --- Componentes de ejemplo ---
-const Dashboard = () => (
-  <div>
-    <h1 className="text-3xl font-bold">Dashboard</h1>
-    <p>Bienvenido a tu panel de control.</p>
-  </div>
-);
+// ¡IMPORTANTE! Importamos el Dashboard real desde su ubicación correcta
+import Dashboard from './components/auth/Dashboard';
 
+// --- Componente de ejemplo para Pipeline (lo reemplazaremos después) ---
 const Pipeline = () => (
   <div>
     <h1 className="text-3xl font-bold">Pipeline</h1>
@@ -27,6 +23,7 @@ const MainLayout = () => {
       <Sidebar />
       <main className="flex-grow p-8">
         <Routes>
+          {/* La ruta ahora usa el Dashboard real que importamos */}
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/pipeline" element={<Pipeline />} />
         </Routes>
@@ -35,9 +32,8 @@ const MainLayout = () => {
   );
 };
 
-// --- App principal ---
+// --- El componente App principal ---
 function App() {
-  // Se eliminó el <BrowserRouter> que envolvía todo
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
