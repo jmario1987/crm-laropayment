@@ -10,7 +10,8 @@ import Dashboard from './components/dashboard/Dashboard';
 import Pipeline from './components/pipeline/Pipeline';
 import Users from './pages/Users';
 import Products from './pages/Products';
-import Providers from './pages/Providers'; // ¡Importamos la página de Proveedores!
+import Providers from './pages/Providers';
+import Stages from './pages/Stages'; // ¡Importamos la página de Etapas!
 
 // --- Layout principal de la App ---
 const MainLayout = () => {
@@ -19,12 +20,13 @@ const MainLayout = () => {
       <Sidebar />
       <main className="flex-grow p-8">
         <Routes>
-          {/* Las rutas ahora usan los componentes reales que importamos */}
+          {/* Todas las rutas de la aplicación */}
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/users" element={<Users />} />
           <Route path="/products" element={<Products />} />
-          <Route path="/providers" element={<Providers />} /> {/* ¡Añadimos la nueva ruta! */}
+          <Route path="/providers" element={<Providers />} />
+          <Route path="/stages" element={<Stages />} /> {/* ¡Añadimos la última ruta! */}
         </Routes>
       </main>
     </div>
