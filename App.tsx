@@ -1,11 +1,14 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
-// Rutas verificadas según tu estructura de archivos
+// Importa los componentes de layout
 import Sidebar from './components/layout/Sidebar';
 import LoginPage from './components/layout/LoginPage';
+
+// Importa los componentes REALES de las páginas
 import Dashboard from './components/dashboard/Dashboard';
 import Pipeline from './components/pipeline/Pipeline';
+import Users from './pages/Users'; // ¡Importamos la página de Usuarios!
 
 // --- Layout principal de la App ---
 const MainLayout = () => {
@@ -14,9 +17,10 @@ const MainLayout = () => {
       <Sidebar />
       <main className="flex-grow p-8">
         <Routes>
-          {/* Las rutas ahora usan los componentes reales importados correctamente */}
+          {/* Las rutas ahora usan los componentes reales que importamos */}
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/pipeline" element={<Pipeline />} />
+          <Route path="/users" element={<Users />} /> {/* ¡Añadimos la nueva ruta! */}
         </Routes>
       </main>
     </div>
