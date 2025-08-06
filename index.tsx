@@ -1,25 +1,19 @@
+// Pega este código en tu archivo index.tsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { HashRouter } from 'react-router-dom';
 import App from './App';
-import { LeadProvider } from './context/LeadContext';
-import { AuthProvider } from './context/AuthContext';
 import './index.css';
+import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
 
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("No se pudo encontrar el elemento raíz para montar la aplicación.");
-}
-
-const root = ReactDOM.createRoot(rootElement);
-root.render(
+// El código que une todo.
+// Nota cómo <AuthProvider> envuelve a <App />.
+ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <HashRouter>
-      <LeadProvider>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </LeadProvider>
-    </HashRouter>
+    <BrowserRouter>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </BrowserRouter>
   </React.StrictMode>
 );
