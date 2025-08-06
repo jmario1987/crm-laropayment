@@ -1,18 +1,13 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
-// Rutas verificadas y corregidas según tu última captura de pantalla
+// Importa los componentes de layout
 import Sidebar from './components/layout/Sidebar';
 import LoginPage from './components/layout/LoginPage';
-import Dashboard from './components/dashboard/Dashboard'; // ¡LA RUTA CORRECTA!
 
-// --- Componente de ejemplo para Pipeline ---
-const Pipeline = () => (
-  <div>
-    <h1 className="text-3xl font-bold">Pipeline</h1>
-    <p>Aquí verás el estado de tus prospectos.</p>
-  </div>
-);
+// Importa los componentes REALES de las páginas
+import Dashboard from './components/dashboard/Dashboard';
+import Pipeline from './components/pipeline/Pipeline'; // ¡Importamos el Pipeline real!
 
 // --- Layout principal de la App ---
 const MainLayout = () => {
@@ -21,7 +16,7 @@ const MainLayout = () => {
       <Sidebar />
       <main className="flex-grow p-8">
         <Routes>
-          {/* La ruta ahora usa el Dashboard real importado correctamente */}
+          {/* Las rutas ahora usan los componentes reales que importamos */}
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/pipeline" element={<Pipeline />} />
         </Routes>
