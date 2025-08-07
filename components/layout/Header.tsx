@@ -63,7 +63,7 @@ const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout }) =
       case '/stages':
           return 'Gestionar Etapas del Pipeline';
       default:
-        return 'CRM';
+        return 'Ganados';
     }
   };
 
