@@ -2,7 +2,6 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { USER_ROLES } from '../../types';
 
-// CORRECCIÓN 1: Le decimos a TypeScript que 'path' es de tipo 'string'
 const NavIcon = ({ path }: { path: string }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -25,8 +24,7 @@ const Sidebar = () => {
       <div className="flex flex-col h-screen p-3 bg-white shadow w-60">
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            {/* Aquí puedes cambiar el nombre si quieres */}
-            <h2 className="text-xl font-bold">Laro Payment</h2>
+            <h2 className="text-xl font-bold">Mi CRM</h2>
           </div>
           <nav className="flex-1 p-4 space-y-2">
             <NavLink to="/dashboard" className="flex items-center p-2 text-gray-700 rounded-lg hover:bg-gray-100">
@@ -37,6 +35,14 @@ const Sidebar = () => {
               <NavIcon path="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               <span className="ml-4">Pipeline</span>
             </NavLink>
+
+            {/* ¡Añadimos el nuevo enlace a Ganados! */}
+            <NavLink to="/won-leads" className="flex items-center p-2 text-gray-700 rounded-lg hover:bg-gray-100">
+               <NavIcon path="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" />
+               <path d="M12 18a6 6 0 006-6c0-2-1-3.9-3-5" />
+              <span className="ml-4">Ganados</span>
+            </NavLink>
+
             {isAdmin && (
               <>
                 <NavLink to="/users" className="flex items-center p-2 text-gray-700 rounded-lg hover:bg-gray-100">
