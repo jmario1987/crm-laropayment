@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai"; // Volvemos al nombre original
+import { GoogleGenAI } from "@google/genai";
 import { Lead } from '../types';
 
 const apiKey = import.meta.env.VITE_API_KEY;
@@ -7,7 +7,7 @@ if (!apiKey) {
   console.warn("La clave de API de Gemini no está configurada. Las funciones de IA estarán deshabilitadas.");
 }
 
-const genAI = new GoogleGenAI(apiKey!);
+const ai = new GoogleGenAI(apiKey!);
 
 export const generateFollowUpEmail = async (lead: Lead): Promise<string> => {
   if (!apiKey) {
@@ -26,18 +26,19 @@ export const generateFollowUpEmail = async (lead: Lead): Promise<string> => {
     1.  El tono debe ser amigable pero profesional.
     2.  El correo debe ser breve y directo.
     3.  El objetivo es reanudar la conversación y mover al prospecto al siguiente paso.
-    4.  Personaliza el mensaje basado en su estado actual. Por ejemplo, si el estado es 'Contactado', el correo podría ser para agendar una reunión. Si es 'Propuesta Enviada', podría ser para preguntar si tienen alguna duda sobre la propuesta.
+    4.  Personaliza el mensaje basado en su estado actual.
     5.  No incluyas un asunto, solo el cuerpo del correo.
-    6.  Usa placeholders como "[Tu Nombre]" para que el usuario pueda personalizarlo.
+    6.  Usa placeholders como "[Tu Nombre]".
     7.  El correo debe estar en español.
   `;
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
+    // CORRECCIÓN FINAL: Usamos la sintaxis original que es compatible con tu versión
+    const model = ai.getGenerativeModel({ model: "gemini-pro" }); // Usamos gemini-pro que es más estándar
     const result = await model.generateContent(prompt);
-    const response = result.response;
+    const response = await result.response;
     const text = response.text();
-    return text;
+    return text;
   } catch (error) {
     console.error("Error al generar el correo con Gemini:", error);
     throw new Error("No se pudo generar el contenido del correo electrónico.");
