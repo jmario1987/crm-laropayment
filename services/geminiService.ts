@@ -1,14 +1,12 @@
 import { GoogleGenAI } from "@google/genai";
 import { Lead } from '../types';
 
-// Se cambia 'process.env.API_KEY' por 'import.meta.env.VITE_API_KEY'
 const apiKey = import.meta.env.VITE_API_KEY;
 
 if (!apiKey) {
   console.warn("La clave de API de Gemini no está configurada. Las funciones de IA estarán deshabilitadas.");
 }
 
-// Usamos la nueva variable 'apiKey' que es más segura
 const ai = new GoogleGenAI({ apiKey: apiKey! });
 
 export const generateFollowUpEmail = async (lead: Lead): Promise<string> => {
@@ -22,16 +20,16 @@ export const generateFollowUpEmail = async (lead: Lead): Promise<string> => {
     Información del Prospecto:
     - Nombre: ${lead.name}
     - Empresa: ${lead.company}
-    - Estado Actual en el Pipeline: ${lead.status || 'No definido'}
+    - Estado Actual en el Pipeline: ${lead.status ?? 'No definido'}
 
     Instrucciones:
-    1.  El tono debe ser amigable pero profesional.
-    2.  El correo debe ser breve y directo.
-    3.  El objetivo es reanudar la conversación y mover al prospecto al siguiente paso.
-    4.  Personaliza el mensaje basado en su estado actual. Por ejemplo, si el estado es 'Contactado', el correo podría ser para agendar una reunión. Si es 'Propuesta Enviada', podría ser para preguntar si tienen alguna duda sobre la propuesta.
-    5.  No incluyas un asunto, solo el cuerpo del correo.
-    6.  Usa placeholders como "[Tu Nombre]" para que el usuario pueda personalizarlo.
-    7.  El correo debe estar en español.
+    1.  El tono debe ser amigable pero profesional.
+    2.  El correo debe ser breve y directo.
+    3.  El objetivo es reanudar la conversación y mover al prospecto al siguiente paso.
+    4.  Personaliza el mensaje basado en su estado actual. Por ejemplo, si el estado es 'Contactado', el correo podría ser para agendar una reunión. Si es 'Propuesta Enviada', podría ser para preguntar si tienen alguna duda sobre la propuesta.
+    5.  No incluyas un asunto, solo el cuerpo del correo.
+    6.  Usa placeholders como "[Tu Nombre]" para que el usuario pueda personalizarlo.
+    7.  El correo debe estar en español.
   `;
 
   try {
