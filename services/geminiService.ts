@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI, Content } from "@google/genai"; // Importamos más tipos
 import { Lead } from '../types';
 
 const apiKey = import.meta.env.VITE_API_KEY;
@@ -7,7 +7,8 @@ if (!apiKey) {
   console.warn("La clave de API de Gemini no está configurada. Las funciones de IA estarán deshabilitadas.");
 }
 
-const ai = new GoogleGenAI({ apiKey: apiKey! });
+// Renombramos la variable para evitar conflictos
+const genAI = new GoogleGenerativeAI(apiKey!);
 
 export const generateFollowUpEmail = async (lead: Lead): Promise<string> => {
   if (!apiKey) {
@@ -33,14 +34,12 @@ export const generateFollowUpEmail = async (lead: Lead): Promise<string> => {
   `;
 
   try {
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-          temperature: 0.7,
-        }
-    });
-    return response.text;
+    // CORRECCIÓN FINAL: Usamos la estructura que la librería espera
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+    return text;
   } catch (error) {
     console.error("Error al generar el correo con Gemini:", error);
     throw new Error("No se pudo generar el contenido del correo electrónico.");
