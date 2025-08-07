@@ -4,83 +4,75 @@ import { useAuth } from '../../hooks/useAuth';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
 
-const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
-  const navigate = useNavigate();
+const LoginPage: React.FC = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
+  const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    const success = await login(email, password);
-    setLoading(false);
-    if (success) {
-      navigate('/dashboard');
-    } else {
-      setError('Credenciales incorrectas. Por favor, intente de nuevo.');
-    }
-  };
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    const success = await login(email, password);
+    setLoading(false);
+    if (success) {
+      navigate('/dashboard');
+    } else {
+      setError('Credenciales incorrectas. Por favor, intente de nuevo.');
+    }
+  };
 
-  return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="w-full max-w-md p-8 space-y-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-        <div className="text-center">
-            <h1 className="text-3xl font-bold text-primary-600 dark:text-primary-400 tracking-wider">
-                Laro Payment CRM
-            </h1>
-        </div>
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-              placeholder="admin@crm.com"
-            />
-          </div>
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Contraseña</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-              placeholder="password"
-            />
-          </div>
-          {error && <p className="text-sm text-red-500">{error}</p>}
-          <div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? <Spinner size="sm"/> : 'Iniciar Sesión'}
-            </Button>
-          </div>
-        </form>
-        <div className="text-xs text-center text-gray-500 dark:text-gray-400">
-            <p className="font-bold">Usuarios de prueba:</p>
-            <p>admin@crm.com (Admin)</p>
-            <p>supervisor@crm.com (Supervisor)</p>
-            <p>vendedor1@crm.com (Vendedor)</p>
-            <p>vendedor2@crm.com (Vendedor)</p>
-            <p>vendedor3@crm.com (Vendedor)</p>
-            <p>Contraseña para todos: <strong>password</strong></p>
-        </div>
-      </div>
-    </div>
-  );
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="p-8 bg-white rounded-lg shadow-md w-full max-w-sm">
+        <h2 className="text-2xl font-bold text-center mb-6">Laro Payment CRM</h2>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              placeholder="Tu correo electrónico"
+              required
+            />
+          </div>
+          <div className="mb-6">
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
+              Contraseña
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline"
+              placeholder="******************"
+              required
+            />
+          </div>
+          {error && <p className="text-sm text-red-500 text-center mb-4">{error}</p>}
+          <div className="flex items-center justify-between">
+            <Button
+              className="w-full"
+              type="submit"
+              disabled={loading}
+            >
+              {loading ? <Spinner size="sm"/> : 'Iniciar Sesión'}
+            </Button>
+          </div>
+        </form>
+        {/* El bloque de texto con los usuarios de prueba ha sido eliminado de aquí */}
+      </div>
+    </div>
+  );
 };
 
-export default Login;
+export default LoginPage;
