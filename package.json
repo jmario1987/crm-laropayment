@@ -1,20 +1,21 @@
 {
-  "name": "crm-laro-payment",
+  "name": "crm-laropayment",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings-0",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/genai": "^0.14.0",
+    "firebase": "^10.12.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.22.3",
+    "react-router-dom": "^6.23.1",
     "recharts": "^2.12.7",
-    "@types/recharts": "^1.8.29",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
