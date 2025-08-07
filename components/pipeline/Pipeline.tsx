@@ -4,7 +4,6 @@ import { useLeads } from '../../hooks/useLeads';
 import { USER_ROLES } from '../../types';
 import PipelineColumn from './PipelineColumn';
 import { useAuth } from '../../hooks/useAuth';
-import { Stage } from '../../types';
 import Button from '../ui/Button';
 import BulkImportModal from './BulkImportModal';
 
