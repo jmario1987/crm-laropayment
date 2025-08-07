@@ -33,12 +33,11 @@ export const generateFollowUpEmail = async (lead: Lead): Promise<string> => {
   `;
 
   try {
-    // CORRECCIÓN FINAL: Usamos la sintaxis original que es compatible con tu versión
-    const model = ai.getGenerativeModel({ model: "gemini-pro" }); // Usamos gemini-pro que es más estándar
-    const result = await model.generateContent(prompt);
+    // CORRECCIÓN FINAL: Usamos la sintaxis más básica y compatible.
+    const result = await ai.getGenerativeModel({ model: "gemini-pro" }).generateContent(prompt);
     const response = await result.response;
-    const text = response.text();
-    return text;
+    return response.text();
+
   } catch (error) {
     console.error("Error al generar el correo con Gemini:", error);
     throw new Error("No se pudo generar el contenido del correo electrónico.");
