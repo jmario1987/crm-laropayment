@@ -22,7 +22,7 @@ export const generateFollowUpEmail = async (lead: Lead): Promise<string> => {
     Información del Prospecto:
     - Nombre: ${lead.name}
     - Empresa: ${lead.company}
-    - Estado Actual en el Pipeline: ${lead.status}
+    - Estado Actual en el Pipeline: ${lead.status || 'No definido'}
 
     Instrucciones:
     1.  El tono debe ser amigable pero profesional.
