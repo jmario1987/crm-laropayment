@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/genai";
 import { Lead } from '../types';
 
 const apiKey = import.meta.env.VITE_API_KEY;
@@ -7,7 +7,9 @@ if (!apiKey) {
   console.warn("La clave de API de Gemini no está configurada. Las funciones de IA estarán deshabilitadas.");
 }
 
-const ai = new GoogleGenAI(apiKey!);
+// Usamos el nombre 'GoogleGenerativeAI' que es el correcto para las versiones nuevas
+const genAI = new GoogleGenerativeAI(apiKey!);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
 
 export const generateFollowUpEmail = async (lead: Lead): Promise<string> => {
   if (!apiKey) {
@@ -33,9 +35,9 @@ export const generateFollowUpEmail = async (lead: Lead): Promise<string> => {
   `;
 
   try {
-    // CORRECCIÓN FINAL: Usamos la sintaxis más básica y compatible.
-    const result = await ai.getGenerativeModel({ model: "gemini-pro" }).generateContent(prompt);
-    const response = await result.response;
+    // Usamos la sintaxis moderna que es compatible con la nueva versión
+    const result = await model.generateContent(prompt);
+    const response = result.response;
     return response.text();
 
   } catch (error) {
