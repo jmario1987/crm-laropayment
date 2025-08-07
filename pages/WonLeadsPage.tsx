@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useLeads } from '../hooks/useLeads';
-import { Lead } from '../types';
+import { useAuth } from '../hooks/useAuth'; // 1. Importamos useAuth
+import { Lead, USER_ROLES } from '../types'; // 2. Importamos USER_ROLES
 
 // Un componente pequeño para dibujar cada fila de la tabla
 const WonLeadRow: React.FC<{ lead: Lead }> = ({ lead }) => (
@@ -17,11 +18,21 @@ const WonLeadRow: React.FC<{ lead: Lead }> = ({ lead }) => (
 // El componente principal de la página
 const WonLeadsPage: React.FC = () => {
     const { allLeads, stages } = useLeads();
+    const { user } = useAuth(); // 3. Obtenemos el usuario actual
 
     const wonLeads = useMemo(() => {
         const wonStageIds = stages.filter(s => s.type === 'won').map(s => s.id);
-        return allLeads.filter(lead => wonStageIds.includes(lead.status));
-    }, [allLeads, stages]);
+        const allWonLeads = allLeads.filter(lead => wonStageIds.includes(lead.status));
+
+        // 4. Aplicamos el filtro de visibilidad según el rol
+        if (!user) return []; // Si no hay usuario, no mostrar nada
+        if (user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor) {
+            return allWonLeads; // Admin y Supervisor ven todo
+        }
+        // Los vendedores solo ven los suyos
+        return allWonLeads.filter(lead => lead.ownerId === user.id);
+
+    }, [allLeads, stages, user]);
 
     return (
         <div className="space-y-8">
