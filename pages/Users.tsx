@@ -27,13 +27,13 @@ const UserRow: React.FC<UserRowProps> = ({ user, onEdit, onResetPassword }) => (
         </td>
         <td className="px-6 py-4 text-right space-x-4">
             <button onClick={() => onEdit(user)} className="font-medium text-primary-600 dark:text-primary-500 hover:underline">Editar</button>
-            {/* SE ELIMINÓ LA CONDICIÓN 'user.role !== USER_ROLES.Admin' DE AQUÍ */}
             <button onClick={() => onResetPassword(user)} className="font-medium text-yellow-600 dark:text-yellow-500 hover:underline">
                 Resetear Contraseña
             </button>
         </td>
     </tr>
 );
+
 
 const Users: React.FC = () => {
     const { users, roles, dispatch } = useLeads();
@@ -154,7 +154,7 @@ const Users: React.FC = () => {
                 >
                     <UserForm 
                         userToEdit={selectedUser} 
-          _              onSuccess={handleCloseEditModal} 
+                        onSuccess={handleCloseEditModal} 
                     />
                 </Modal>
             )}
@@ -164,7 +164,7 @@ const Users: React.FC = () => {
                 onClose={handleCloseCreateModal}
                 title="Crear Nuevo Usuario"
             >
-    _           <UserForm onSuccess={handleCloseCreateModal} />
+                <UserForm onSuccess={handleCloseCreateModal} />
             </Modal>
 
             {userToReset && (
