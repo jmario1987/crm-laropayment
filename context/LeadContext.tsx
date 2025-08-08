@@ -4,6 +4,7 @@ import { initialLeads, initialUsers, initialRoles, initialProducts, initialProvi
 import { db } from '../firebaseConfig';
 import { collection, getDocs, writeBatch, doc, setDoc, deleteDoc } from 'firebase/firestore';
 
+// Lista completa de acciones
 type Action =
   | { type: 'SET_STATE'; payload: State }
   | { type: 'ADD_LEAD'; payload: Lead }
@@ -25,6 +26,7 @@ type Action =
   | { type: 'DELETE_STAGE'; payload: string }
   | { type: 'UPDATE_STAGES_ORDER'; payload: Stage[] };
 
+// Definición del estado
 interface State {
   leads: Lead[];
   users: User[];
@@ -41,36 +43,69 @@ export const LeadContext = createContext<{ state: State; dispatch: Dispatch<Acti
   dispatch: () => null,
 });
 
-// The reducer now handles writing changes to Firestore
+// Reducer COMPLETO con guardado en Firestore para CADA ACCIÓN
 const leadReducer = (state: State, action: Action): State => {
-    switch (action.type) {
-        case 'SET_STATE':
-            return { ...action.payload };
-
-        // --- USER ACTIONS ---
-        case 'ADD_USER':
-            setDoc(doc(db, 'users', action.payload.id), action.payload);
-            return { ...state, users: [...state.users, action.payload] };
-        case 'UPDATE_USER':
-            setDoc(doc(db, 'users', action.payload.id), action.payload, { merge: true });
-            return { ...state, users: state.users.map(u => u.id === action.payload.id ? action.payload : u) };
-
-        // --- LEAD ACTIONS ---
-        case 'ADD_LEAD':
-            setDoc(doc(db, 'leads', action.payload.id), action.payload);
-            return { ...state, leads: [action.payload, ...state.leads] };
-        case 'UPDATE_LEAD':
-            setDoc(doc(db, 'leads', action.payload.id), action.payload, { merge: true });
-            return { ...state, leads: state.leads.map(l => l.id === action.payload.id ? action.payload : l) };
-        case 'DELETE_LEAD':
-            deleteDoc(doc(db, 'leads', action.payload));
-            return { ...state, leads: state.leads.filter(l => l.id !== action.payload) };
-
-        // Add other actions here as needed...
-
-        default:
-            return state;
+  switch (action.type) {
+    case 'SET_STATE':
+        return { ...action.payload };
+    case 'ADD_LEAD':
+      setDoc(doc(db, 'leads', action.payload.id), action.payload);
+      return { ...state, leads: [action.payload, ...state.leads] };
+    case 'ADD_BULK_LEADS': {
+      const batch = writeBatch(db);
+      action.payload.forEach(lead => batch.set(doc(db, "leads", lead.id), lead));
+      batch.commit();
+      return { ...state, leads: [...action.payload, ...state.leads] };
     }
+    case 'UPDATE_LEAD':
+      setDoc(doc(db, 'leads', action.payload.id), action.payload, { merge: true });
+      return { ...state, leads: state.leads.map(l => l.id === action.payload.id ? action.payload : l) };
+    case 'DELETE_LEAD':
+      deleteDoc(doc(db, 'leads', action.payload));
+      return { ...state, leads: state.leads.filter(l => l.id !== action.payload) };
+    case 'ADD_USER':
+      setDoc(doc(db, 'users', action.payload.id), action.payload);
+      return { ...state, users: [...state.users, action.payload] };
+    case 'UPDATE_USER':
+      setDoc(doc(db, 'users', action.payload.id), action.payload, { merge: true });
+      return { ...state, users: state.users.map(u => u.id === action.payload.id ? action.payload : u) };
+    case 'ADD_PRODUCT':
+      setDoc(doc(db, 'products', action.payload.id), action.payload);
+      return { ...state, products: [...state.products, action.payload] };
+    case 'UPDATE_PRODUCT':
+      setDoc(doc(db, 'products', action.payload.id), action.payload, { merge: true });
+      return { ...state, products: state.products.map(p => p.id === action.payload.id ? action.payload : p) };
+    case 'DELETE_PRODUCT':
+      deleteDoc(doc(db, 'products', action.payload));
+      return { ...state, products: state.products.filter(p => p.id !== action.payload) };
+    case 'ADD_PROVIDER':
+      setDoc(doc(db, 'providers', action.payload.id), action.payload);
+      return { ...state, providers: [...state.providers, action.payload] };
+    case 'UPDATE_PROVIDER':
+      setDoc(doc(db, 'providers', action.payload.id), action.payload, { merge: true });
+      return { ...state, providers: state.providers.map(p => p.id === action.payload.id ? action.payload : p) };
+    case 'DELETE_PROVIDER':
+      deleteDoc(doc(db, 'providers', action.payload));
+      return { ...state, providers: state.providers.filter(p => p.id !== action.payload) };
+    case 'ADD_STAGE':
+      setDoc(doc(db, 'stages', action.payload.id), action.payload);
+      return { ...state, stages: [...state.stages, action.payload] };
+    case 'UPDATE_STAGE':
+      setDoc(doc(db, 'stages', action.payload.id), action.payload, { merge: true });
+      return { ...state, stages: state.stages.map(s => s.id === action.payload.id ? action.payload : s) };
+    case 'DELETE_STAGE':
+      deleteDoc(doc(db, 'stages', action.payload));
+      return { ...state, stages: state.stages.filter(s => s.id !== action.payload) };
+    case 'UPDATE_STAGES_ORDER': {
+      const batch = writeBatch(db);
+      action.payload.forEach(stage => batch.set(doc(db, "stages", stage.id), stage));
+      batch.commit();
+      return { ...state, stages: action.payload };
+    }
+    // Omitimos los roles, ya que son estáticos por ahora
+    default:
+      return state;
+  }
 };
 
 export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -93,22 +128,31 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           dispatch({ type: 'SET_STATE', payload: { leads: initialLeads, users: initialUsers, roles: initialRoles, products: initialProducts, providers: initialProviders, stages: initialStages }});
         } else {
           console.log("Cargando datos desde Firestore...");
-          const leadsData = (await getDocs(collection(db, "leads"))).docs.map(doc => doc.data() as Lead);
-          const usersData = usersSnapshot.docs.map(doc => doc.data() as User);
-          const stagesData = (await getDocs(collection(db, "stages"))).docs.map(doc => doc.data() as Stage);
-          const productsData = (await getDocs(collection(db, "products"))).docs.map(doc => doc.data() as Product);
-          const providersData = (await getDocs(collection(db, "providers"))).docs.map(doc => doc.data() as Provider);
-          dispatch({ type: 'SET_STATE', payload: { leads: leadsData, users: usersData, roles: initialRoles, products: productsData, providers: providersData, stages: stagesData }});
+          const allData = await Promise.all([
+            getDocs(collection(db, "leads")),
+            getDocs(collection(db, "users")),
+            getDocs(collection(db, "stages")),
+            getDocs(collection(db, "products")),
+            getDocs(collection(db, "providers"))
+          ]);
+          dispatch({ type: 'SET_STATE', payload: { 
+            leads: allData[0].docs.map(doc => doc.data() as Lead), 
+            users: allData[1].docs.map(doc => doc.data() as User), 
+            stages: allData[2].docs.map(doc => doc.data() as Stage),
+            products: allData[3].docs.map(doc => doc.data() as Product), 
+            providers: allData[4].docs.map(doc => doc.data() as Provider),
+            roles: initialRoles 
+          }});
         }
       } catch (error) {
         console.error("Error al cargar los datos: ", error);
       }
     };
-
-    if (!isInitialized.current) {
-        fetchData();
-        isInitialized.current = true;
-    }
+        
+        if (!isInitialized.current) {
+            fetchData();
+            isInitialized.current = true;
+        }
   }, []);
 
   return (
