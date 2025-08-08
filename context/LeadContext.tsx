@@ -41,31 +41,36 @@ export const LeadContext = createContext<{ state: State; dispatch: Dispatch<Acti
   dispatch: () => null,
 });
 
-// El reducer ahora también actualiza Firestore
+// The reducer now handles writing changes to Firestore
 const leadReducer = (state: State, action: Action): State => {
-    let newState = { ...state };
     switch (action.type) {
         case 'SET_STATE':
-            newState = { ...action.payload };
-            break;
+            return { ...action.payload };
+
+        // --- USER ACTIONS ---
+        case 'ADD_USER':
+            setDoc(doc(db, 'users', action.payload.id), action.payload);
+            return { ...state, users: [...state.users, action.payload] };
+        case 'UPDATE_USER':
+            setDoc(doc(db, 'users', action.payload.id), action.payload, { merge: true });
+            return { ...state, users: state.users.map(u => u.id === action.payload.id ? action.payload : u) };
+
+        // --- LEAD ACTIONS ---
         case 'ADD_LEAD':
-            newState = { ...state, leads: [action.payload, ...state.leads] };
             setDoc(doc(db, 'leads', action.payload.id), action.payload);
-            break;
+            return { ...state, leads: [action.payload, ...state.leads] };
         case 'UPDATE_LEAD':
-            newState = { ...state, leads: state.leads.map(l => l.id === action.payload.id ? action.payload : l) };
             setDoc(doc(db, 'leads', action.payload.id), action.payload, { merge: true });
-            break;
+            return { ...state, leads: state.leads.map(l => l.id === action.payload.id ? action.payload : l) };
         case 'DELETE_LEAD':
-            newState = { ...state, leads: state.leads.filter(l => l.id !== action.payload) };
             deleteDoc(doc(db, 'leads', action.payload));
-            break;
-        // Aquí irían los casos para las otras acciones (UPDATE_USER, ADD_PRODUCT, etc.) que también escribirían en la BD.
-        // Por simplicidad, nos enfocamos en que la carga inicial funcione.
+            return { ...state, leads: state.leads.filter(l => l.id !== action.payload) };
+
+        // Add other actions here as needed...
+
         default:
-            newState = state;
+            return state;
     }
-    return newState;
 };
 
 export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -76,7 +81,6 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const fetchData = async () => {
       try {
         const usersSnapshot = await getDocs(collection(db, "users"));
-        
         if (usersSnapshot.empty) {
           console.log("Base de datos vacía. Subiendo datos iniciales...");
           const batch = writeBatch(db);
@@ -86,7 +90,6 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           initialProducts.forEach(product => batch.set(doc(db, "products", product.id), product));
           initialProviders.forEach(provider => batch.set(doc(db, "providers", provider.id), provider));
           await batch.commit();
-          
           dispatch({ type: 'SET_STATE', payload: { leads: initialLeads, users: initialUsers, roles: initialRoles, products: initialProducts, providers: initialProviders, stages: initialStages }});
         } else {
           console.log("Cargando datos desde Firestore...");
@@ -95,7 +98,6 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const stagesData = (await getDocs(collection(db, "stages"))).docs.map(doc => doc.data() as Stage);
           const productsData = (await getDocs(collection(db, "products"))).docs.map(doc => doc.data() as Product);
           const providersData = (await getDocs(collection(db, "providers"))).docs.map(doc => doc.data() as Provider);
-          
           dispatch({ type: 'SET_STATE', payload: { leads: leadsData, users: usersData, roles: initialRoles, products: productsData, providers: providersData, stages: stagesData }});
         }
       } catch (error) {
