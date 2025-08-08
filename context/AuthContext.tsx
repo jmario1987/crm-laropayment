@@ -45,14 +45,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     const usersRef = collection(db, "users");
     const q = query(usersRef, where("email", "==", email));
-    const querySnapshot = await getDocs(q);
 
-    if (querySnapshot.empty) {
-        // Usuario no encontrado. ¿Está la base de datos vacía?
-        const allUsersSnapshot = await getDocs(usersRef);
-        if (allUsersSnapshot.empty) {
-            // SÍ, la base de datos está vacía. La "sembramos".
-            try {
+    try {
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            const allUsersSnapshot = await getDocs(usersRef);
+            if (allUsersSnapshot.empty) {
                 console.log("Base de datos vacía. Subiendo datos iniciales...");
                 const batch = writeBatch(db);
                 initialUsers.forEach(u => batch.set(doc(db, "users", u.id), u));
@@ -62,26 +61,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 initialProviders.forEach(p => batch.set(doc(db, "providers", p.id), p));
                 await batch.commit();
                 alert("La base de datos ha sido inicializada. Por favor, intente iniciar sesión de nuevo.");
-                return false; // El login falla esta vez, pero la próxima funcionará.
-            } catch (seedError) {
-                console.error("Fallo al inicializar la base de datos:", seedError);
-                alert("Error al inicializar la base de datos. Verifique las reglas de seguridad.");
                 return false;
             }
-        } else {
-            // La BD no está vacía, simplemente el usuario es incorrecto.
             return false;
         }
-    }
 
-    const foundUser = querySnapshot.docs[0].data() as User;
-    if (foundUser.password === password) {
-      const userWithLoginDate = { ...foundUser, lastLogin: new Date().toISOString() };
-      await setDoc(doc(db, 'users', userWithLoginDate.id), userWithLoginDate, { merge: true });
-      const { password: _, ...userToStore } = userWithLoginDate;
-      setUser(userToStore);
-      localStorage.setItem('crm-user', JSON.stringify(userToStore));
-      return true;
+        const foundUser = querySnapshot.docs[0].data() as User;
+        if (foundUser.password === password) {
+          const userWithLoginDate = { ...foundUser, lastLogin: new Date().toISOString() };
+          await setDoc(doc(db, 'users', userWithLoginDate.id), userWithLoginDate, { merge: true });
+          const { password: _, ...userToStore } = userWithLoginDate;
+          setUser(userToStore);
+          localStorage.setItem('crm-user', JSON.stringify(userToStore));
+          return true;
+        }
+    } catch (error) {
+        console.error("Error en el login:", error);
+        alert("Ocurrió un error al intentar iniciar sesión. Verifique las reglas de seguridad de Firebase.");
+        return false;
     }
     return false;
   }, [navigate]);
