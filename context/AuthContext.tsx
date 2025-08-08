@@ -2,12 +2,13 @@ import React, { createContext, useState, useEffect, ReactNode, useCallback } fro
 import { User } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebaseConfig';
-import { collection, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, writeBatch } from 'firebase/firestore';
+import { initialLeads, initialUsers, initialStages, initialProducts, initialProviders } from '../data/mockData';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  loading: boolean; // La nueva señal
+  loading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   updateCurrentUser: (updatedUser: Omit<User, 'password'>) => void;
@@ -16,7 +17,7 @@ interface AuthContextType {
 export const AuthContext = createContext<AuthContextType>({
   user: null,
   isAuthenticated: false,
-  loading: true, // Empieza como 'cargando'
+  loading: true,
   login: async () => false,
   logout: () => {},
   updateCurrentUser: () => {},
@@ -37,7 +38,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error("Error al cargar usuario", error);
       setUser(null);
     } finally {
-      setLoading(false); // Termina de cargar
+      setLoading(false);
     }
   }, []);
 
@@ -45,15 +46,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const usersRef = collection(db, "users");
     const q = query(usersRef, where("email", "==", email));
     const querySnapshot = await getDocs(q);
-    if (querySnapshot.empty) return false;
+
+    if (querySnapshot.empty) {
+        // Usuario no encontrado. ¿Está la base de datos vacía?
+        const allUsersSnapshot = await getDocs(usersRef);
+        if (allUsersSnapshot.empty) {
+            // SÍ, la base de datos está vacía. La "sembramos".
+            try {
+                console.log("Base de datos vacía. Subiendo datos iniciales...");
+                const batch = writeBatch(db);
+                initialUsers.forEach(u => batch.set(doc(db, "users", u.id), u));
+                initialLeads.forEach(l => batch.set(doc(db, "leads", l.id), l));
+                initialStages.forEach(s => batch.set(doc(db, "stages", s.id), s));
+                initialProducts.forEach(p => batch.set(doc(db, "products", p.id), p));
+                initialProviders.forEach(p => batch.set(doc(db, "providers", p.id), p));
+                await batch.commit();
+                alert("La base de datos ha sido inicializada. Por favor, intente iniciar sesión de nuevo.");
+                return false; // El login falla esta vez, pero la próxima funcionará.
+            } catch (seedError) {
+                console.error("Fallo al inicializar la base de datos:", seedError);
+                alert("Error al inicializar la base de datos. Verifique las reglas de seguridad.");
+                return false;
+            }
+        } else {
+            // La BD no está vacía, simplemente el usuario es incorrecto.
+            return false;
+        }
+    }
 
     const foundUser = querySnapshot.docs[0].data() as User;
     if (foundUser.password === password) {
       const userWithLoginDate = { ...foundUser, lastLogin: new Date().toISOString() };
-
-      // Actualiza la fecha de login en Firestore
       await setDoc(doc(db, 'users', userWithLoginDate.id), userWithLoginDate, { merge: true });
-
       const { password: _, ...userToStore } = userWithLoginDate;
       setUser(userToStore);
       localStorage.setItem('crm-user', JSON.stringify(userToStore));
