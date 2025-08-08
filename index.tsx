@@ -4,17 +4,17 @@ import App from './App';
 import './index.css';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import { LeadProvider } from './context/LeadContext'; // ¡El cerebro de los datos!
+import { LeadProvider } from './context/LeadContext';
 
-// El código final que une toda la lógica.
+// ORDEN CORREGIDO: AuthProvider envuelve a LeadProvider
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <LeadProvider>
-        <AuthProvider>
+      <AuthProvider>
+        <LeadProvider>
           <App />
-        </AuthProvider>
-      </LeadProvider>
+        </LeadProvider>
+      </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>
 );
