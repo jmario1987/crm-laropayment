@@ -67,6 +67,7 @@ const leadReducer = (state: State, action: Action): State => {
       setDoc(doc(db, 'users', action.payload.id), action.payload);
       return { ...state, users: [...state.users, action.payload] };
     case 'UPDATE_USER':
+      // ¡ESTA ES LA LÍNEA CLAVE QUE FALTABA!
       setDoc(doc(db, 'users', action.payload.id), action.payload, { merge: true });
       return { ...state, users: state.users.map(u => u.id === action.payload.id ? action.payload : u) };
     case 'ADD_PRODUCT':
