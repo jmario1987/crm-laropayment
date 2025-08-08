@@ -145,3 +145,19 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           }});
         }
       } catch (error) {
+        console.error("Error al cargar los datos: ", error);
+      }
+    };
+        
+        if (!isInitialized.current) {
+            fetchData();
+            isInitialized.current = true;
+        }
+  }, []);
+
+  return (
+    <LeadContext.Provider value={{ state, dispatch }}>
+      {children}
+    </LeadContext.Provider>
+  );
+};
