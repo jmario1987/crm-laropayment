@@ -102,7 +102,6 @@ const leadReducer = (state: State, action: Action): State => {
       batch.commit();
       return { ...state, stages: action.payload };
     }
-    // Omitimos los roles, ya que son estáticos por ahora
     default:
       return state;
   }
@@ -148,11 +147,11 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.error("Error al cargar los datos: ", error);
       }
     };
-        
-        if (!isInitialized.current) {
-            fetchData();
-            isInitialized.current = true;
-        }
+
+    if (!isInitialized.current) {
+        fetchData();
+        isInitialized.current = true;
+    }
   }, []);
 
   return (
