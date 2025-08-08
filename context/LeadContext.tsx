@@ -3,6 +3,7 @@ import { Lead, User, UserRole, Product, Provider, Stage } from '../types';
 import { initialLeads, initialUsers, initialRoles, initialProducts, initialProviders, initialStages } from '../data/mockData';
 import { db } from '../firebaseConfig';
 import { collection, getDocs, writeBatch, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { useAuth } from '../hooks/useAuth';
 
 // Lista completa de acciones
 type Action =
@@ -108,33 +109,34 @@ const leadReducer = (state: State, action: Action): State => {
 };
 
 export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [state, dispatch] = useReducer(leadReducer, initialState);
-  const isInitialized = useRef(false);
+  const [state, dispatch] = useReducer(leadReducer, initialState);
+  const isInitialized = useRef(false);
+  const { user, loading: authLoading } = useAuth();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const usersSnapshot = await getDocs(collection(db, "users"));
-        if (usersSnapshot.empty) {
-          console.log("Base de datos vacía. Subiendo datos iniciales...");
-          const batch = writeBatch(db);
-          initialUsers.forEach(user => batch.set(doc(db, "users", user.id), user));
-          initialLeads.forEach(lead => batch.set(doc(db, "leads", lead.id), lead));
-          initialStages.forEach(stage => batch.set(doc(db, "stages", stage.id), stage));
-          initialProducts.forEach(product => batch.set(doc(db, "products", product.id), product));
-          initialProviders.forEach(provider => batch.set(doc(db, "providers", provider.id), provider));
-          await batch.commit();
-          dispatch({ type: 'SET_STATE', payload: { leads: initialLeads, users: initialUsers, roles: initialRoles, products: initialProducts, providers: initialProviders, stages: initialStages }});
-        } else {
-          console.log("Cargando datos desde Firestore...");
-          const allData = await Promise.all([
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const usersSnapshot = await getDocs(collection(db, "users"));
+        if (usersSnapshot.empty) {
+          console.log("Base de datos vacía. Subiendo datos iniciales...");
+          const batch = writeBatch(db);
+          initialUsers.forEach(user => batch.set(doc(db, "users", user.id), user));
+          initialLeads.forEach(lead => batch.set(doc(db, "leads", lead.id), lead));
+          initialStages.forEach(stage => batch.set(doc(db, "stages", stage.id), stage));
+          initialProducts.forEach(product => batch.set(doc(db, "products", product.id), product));
+          initialProviders.forEach(provider => batch.set(doc(db, "providers", provider.id), provider));
+          await batch.commit();
+          dispatch({ type: 'SET_STATE', payload: { leads: initialLeads, users: initialUsers, roles: initialRoles, products: initialProducts, providers: initialProviders, stages: initialStages }});
+        } else {
+          console.log("Cargando datos desde Firestore...");
+          const allData = await Promise.all([
             getDocs(collection(db, "leads")),
             getDocs(collection(db, "users")),
             getDocs(collection(db, "stages")),
             getDocs(collection(db, "products")),
             getDocs(collection(db, "providers"))
           ]);
-          dispatch({ type: 'SET_STATE', payload: { 
+          dispatch({ type: 'SET_STATE', payload: { 
             leads: allData[0].docs.map(doc => doc.data() as Lead), 
             users: allData[1].docs.map(doc => doc.data() as User), 
             stages: allData[2].docs.map(doc => doc.data() as Stage),
@@ -142,21 +144,21 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             providers: allData[4].docs.map(doc => doc.data() as Provider),
             roles: initialRoles 
           }});
-        }
-      } catch (error) {
-        console.error("Error al cargar los datos: ", error);
-      }
-    };
+        }
+      } catch (error) {
+        console.error("Error al cargar los datos: ", error);
+      }
+    };
 
-    if (!isInitialized.current) {
+    if (!authLoading && user && !isInitialized.current) {
         fetchData();
         isInitialized.current = true;
     }
-  }, []);
+  }, [user, authLoading]);
 
-  return (
-    <LeadContext.Provider value={{ state, dispatch }}>
-      {children}
-    </LeadContext.Provider>
-  );
+  return (
+    <LeadContext.Provider value={{ state, dispatch }}>
+      {children}
+    </LeadContext.Provider>
+  );
 };

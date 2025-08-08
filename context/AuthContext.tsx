@@ -2,89 +2,80 @@ import React, { createContext, useState, useEffect, ReactNode, useCallback } fro
 import { User } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { useLeads } from '../hooks/useLeads';
-import { db } from '../firebaseConfig'; // Importamos la conexión a Firestore
-import { collection, query, where, getDocs } from 'firebase/firestore'; // Importamos funciones de consulta
+import { db } from '../firebaseConfig';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 interface AuthContextType {
-  user: User | null;
-  isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
-  updateCurrentUser: (updatedUser: Omit<User, 'password'>) => void;
+  user: User | null;
+  isAuthenticated: boolean;
+  loading: boolean; // La nueva señal
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => void;
+  updateCurrentUser: (updatedUser: Omit<User, 'password'>) => void;
 }
 
 export const AuthContext = createContext<AuthContextType>({
-  user: null,
-  isAuthenticated: false,
-  login: async () => false,
-  logout: () => {},
-  updateCurrentUser: () => {},
+  user: null,
+  isAuthenticated: false,
+  loading: true, // Empieza como 'cargando'
+  login: async () => false,
+  logout: () => {},
+  updateCurrentUser: () => {},
 });
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const navigate = useNavigate();
-  const { dispatch } = useLeads();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true); // Empieza como 'cargando'
+  const navigate = useNavigate();
+  const { dispatch } = useLeads();
 
-  useEffect(() => {
-    // Intenta cargar el usuario desde localStorage al iniciar la app
-    try {
-      const storedUser = localStorage.getItem('crm-user');
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
-      }
-    } catch (error) {
-      console.error("Error al cargar usuario desde localStorage", error);
-      setUser(null);
-    }
-  }, []);
+  useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem('crm-user');
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
+    } catch (error) {
+      console.error("Error al cargar usuario", error);
+      setUser(null);
+    } finally {
+      setLoading(false); // Termina de cargar
+    }
+  }, []);
 
-  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
-    // LÓGICA CORREGIDA: Consultamos directamente a Firestore
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, where("email", "==", email));
-
-    const querySnapshot = await getDocs(q);
-
-    if (querySnapshot.empty) {
-        // No se encontró el usuario por email
-        return false;
-    }
-
+  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("email", "==", email));
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) return false;
     const foundUser = querySnapshot.docs[0].data() as User;
+    if (foundUser.password === password) {
+      const userWithLoginDate = { ...foundUser, lastLogin: new Date().toISOString() };
+      if (dispatch) {
+        dispatch({ type: 'UPDATE_USER', payload: userWithLoginDate });
+      }
+      const { password: _, ...userToStore } = userWithLoginDate;
+      setUser(userToStore);
+      localStorage.setItem('crm-user', JSON.stringify(userToStore));
+      return true;
+    }
+    return false;
+  }, [dispatch]);
 
-    if (foundUser.password === password) {
-      const userWithLoginDate = { ...foundUser, lastLogin: new Date().toISOString() };
-      
-      // Actualizamos el usuario en el estado de LeadsContext para persistir la fecha de login en Firestore
-      if (dispatch) {
-        dispatch({ type: 'UPDATE_USER', payload: userWithLoginDate });
-      }
-      
-      // No almacenar la contraseña en el estado local o en localStorage
-      const { password: foundUserPassword, ...userToStore } = userWithLoginDate;
-      setUser(userToStore);
-      localStorage.setItem('crm-user', JSON.stringify(userToStore));
-      return true;
-    }
+  const logout = useCallback(() => {
+    setUser(null);
+    localStorage.removeItem('crm-user');
+    navigate('/login');
+  }, [navigate]);
 
-    return false; // La contraseña no coincide
-  }, [dispatch]);
+  const updateCurrentUser = useCallback((updatedUser: Omit<User, 'password'>) => {
+    setUser(updatedUser);
+    localStorage.setItem('crm-user', JSON.stringify(updatedUser));
+  }, []);
 
-  const logout = useCallback(() => {
-    setUser(null);
-    localStorage.removeItem('crm-user');
-    navigate('/login');
-  }, [navigate]);
-
-  const updateCurrentUser = useCallback((updatedUser: Omit<User, 'password'>) => {
-    setUser(updatedUser);
-    localStorage.setItem('crm-user', JSON.stringify(updatedUser));
-  }, []);
-
-  return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, updateCurrentUser }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return (
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, login, logout, updateCurrentUser }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
