@@ -45,8 +45,8 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const loadData = async () => {
       if (authLoading || !user || isDataLoaded.current) return;
-
-      isDataLoaded.current = true; // Marcamos como cargando para evitar re-ejecuciones
+      
+      isDataLoaded.current = true;
       try {
         console.log("Cargando datos desde Firestore...");
         const allData = await Promise.all([
@@ -72,7 +72,6 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     loadData();
   }, [user, authLoading]);
 
-  // Efecto para resetear el estado cuando el usuario cierra sesión
   useEffect(() => {
     if (!user && !authLoading) {
       dispatch({ type: 'SET_STATE', payload: initialState });

@@ -9,14 +9,12 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, roles }) => {
-  const { isAuthenticated, user, loading } = useAuth(); // Obtenemos el estado de carga
+  const { isAuthenticated, user, loading } = useAuth();
   const location = useLocation();
 
-  // Si todavía estamos verificando quién es el usuario, mostramos una pantalla de carga
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        {/* Aquí podrías poner un Spinner o un logo */}
         <p>Cargando...</p>
       </div>
     );

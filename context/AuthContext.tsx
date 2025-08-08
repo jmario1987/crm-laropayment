@@ -45,7 +45,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     const usersRef = collection(db, "users");
     const q = query(usersRef, where("email", "==", email));
-
+    
     try {
         const querySnapshot = await getDocs(q);
 
