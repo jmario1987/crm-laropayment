@@ -69,6 +69,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Función restaurada
   const updateCurrentUser = useCallback((updatedUser: Omit<User, 'password'>) => {
     setUser(updatedUser);
+    // También actualizamos la sesión guardada en el navegador
     localStorage.setItem('crm-user', JSON.stringify(updatedUser));
   }, []);
 
