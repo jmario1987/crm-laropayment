@@ -7,20 +7,20 @@ import { signInWithEmailAndPassword, onAuthStateChanged, signOut, User as Fireba
 
 interface AuthContextType {
   user: User | null;
-  isAuthenticated: boolean; // Propiedad restaurada
+  isAuthenticated: boolean;
   loading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  updateCurrentUser: (updatedUser: Omit<User, 'password'>) => void; // Propiedad restaurada
+  updateCurrentUser: (updatedUser: Omit<User, 'password'>) => void;
 }
 
 export const AuthContext = createContext<AuthContextType>({
   user: null,
-  isAuthenticated: false, // Propiedad restaurada
+  isAuthenticated: false,
   loading: true,
   login: async () => false,
   logout: () => {},
-  updateCurrentUser: () => {}, // Propiedad restaurada
+  updateCurrentUser: () => {},
 });
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -48,28 +48,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+    setLoading(true); // Ponemos en estado de carga
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      return true;
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+
+      // Inmediatamente después del login, buscamos el perfil del usuario
+      const userDocSnap = await getDocs(query(collection(db, "users"), where("id", "==", firebaseUser.uid)));
+      if (!userDocSnap.empty) {
+          const userData = userDocSnap.docs[0].data() as User;
+          setUser(userData); // Actualizamos el estado del usuario ANTES de redirigir
+          return true;
+      }
+      // Si no se encuentra el perfil, el login falla
+      await signOut(auth);
+      return false;
     } catch (error) {
       console.error("Error en el inicio de sesión de Firebase:", error);
       return false;
+    } finally {
+        setLoading(false); // Quitamos el estado de carga
     }
   }, []);
 
   const logout = useCallback(async () => {
     try {
         await signOut(auth);
+        setUser(null); // Limpiamos el usuario localmente
         navigate('/login');
     } catch (error) {
         console.error("Error al cerrar sesión:", error);
     }
   }, [navigate]);
 
-  // Función restaurada
   const updateCurrentUser = useCallback((updatedUser: Omit<User, 'password'>) => {
     setUser(updatedUser);
-    // También actualizamos la sesión guardada en el navegador
     localStorage.setItem('crm-user', JSON.stringify(updatedUser));
   }, []);
 
