@@ -1,7 +1,8 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth"; // 1. Importamos el servicio de autenticación
 
-// ASEGÚRATE DE QUE ESTE OBJETO CONTENGA TUS PROPIAS LLAVES DE FIREBASE
+// Reemplaza este objeto con el tuyo que copiaste de la consola de Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyCoqFHPcxmvLS0LZyRnGcKO5XDMHvmC8f0",
   authDomain: "crm-laropayment-app.firebaseapp.com",
@@ -14,8 +15,6 @@ const firebaseConfig = {
 // Inicializa Firebase
 const app = initializeApp(firebaseConfig);
 
-// Obtiene la instancia de la base de datos
-const db = getFirestore(app);
-
-// Exportamos la base de datos de la forma más explícita posible
-export { db };
+// Exportamos la instancia de la base de datos y la autenticación
+export const db = getFirestore(app);
+export const auth = getAuth(app); // 2. Exportamos el servicio de autenticación

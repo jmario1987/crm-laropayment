@@ -1,9 +1,9 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { User } from '../types';
 import { useNavigate } from 'react-router-dom';
-import { db } from '../firebaseConfig';
-import { collection, query, where, getDocs, doc, setDoc, writeBatch } from 'firebase/firestore';
-import { initialLeads, initialUsers, initialStages, initialProducts, initialProviders } from '../data/mockData';
+import { db, auth } from '../firebaseConfig'; // Importamos 'auth'
+import { collection, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth'; // Importamos funciones de Auth
 
 interface AuthContextType {
   user: User | null;
@@ -11,7 +11,6 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  updateCurrentUser: (updatedUser: Omit<User, 'password'>) => void;
 }
 
 export const AuthContext = createContext<AuthContextType>({
@@ -20,7 +19,6 @@ export const AuthContext = createContext<AuthContextType>({
   loading: true,
   login: async () => false,
   logout: () => {},
-  updateCurrentUser: () => {},
 });
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -29,73 +27,50 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const navigate = useNavigate();
 
   useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem('crm-user');
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+    // Firebase nos dirá quién está logueado
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        // Si hay un usuario de Firebase, buscamos su perfil en nuestra base de datos
+        const userDocRef = doc(db, "users", firebaseUser.uid);
+        const userDocSnap = await getDocs(query(collection(db, "users"), where("id", "==", firebaseUser.uid)));
+        if (!userDocSnap.empty) {
+            const userData = userDocSnap.docs[0].data() as User;
+            setUser(userData);
+        } else {
+            // Esto no debería pasar si los datos están sincronizados
+            setUser(null);
+        }
+      } else {
+        setUser(null);
       }
-    } catch (error) {
-      console.error("Error al cargar usuario", error);
-      setUser(null);
-    } finally {
       setLoading(false);
-    }
+    });
+
+    return () => unsubscribe(); // Limpiamos el listener al desmontar
   }, []);
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, where("email", "==", email));
-    
     try {
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-            const allUsersSnapshot = await getDocs(usersRef);
-            if (allUsersSnapshot.empty) {
-                console.log("Base de datos vacía. Subiendo datos iniciales...");
-                const batch = writeBatch(db);
-                initialUsers.forEach(u => batch.set(doc(db, "users", u.id), u));
-                initialLeads.forEach(l => batch.set(doc(db, "leads", l.id), l));
-                initialStages.forEach(s => batch.set(doc(db, "stages", s.id), s));
-                initialProducts.forEach(p => batch.set(doc(db, "products", p.id), p));
-                initialProviders.forEach(p => batch.set(doc(db, "providers", p.id), p));
-                await batch.commit();
-                alert("La base de datos ha sido inicializada. Por favor, intente iniciar sesión de nuevo.");
-                return false;
-            }
-            return false;
-        }
-
-        const foundUser = querySnapshot.docs[0].data() as User;
-        if (foundUser.password === password) {
-          const userWithLoginDate = { ...foundUser, lastLogin: new Date().toISOString() };
-          await setDoc(doc(db, 'users', userWithLoginDate.id), userWithLoginDate, { merge: true });
-          const { password: _, ...userToStore } = userWithLoginDate;
-          setUser(userToStore);
-          localStorage.setItem('crm-user', JSON.stringify(userToStore));
-          return true;
-        }
+      // Usamos la función oficial de Firebase para iniciar sesión
+      await signInWithEmailAndPassword(auth, email, password);
+      return true;
     } catch (error) {
-        console.error("Error en el login:", error);
-        alert("Ocurrió un error al intentar iniciar sesión. Verifique las reglas de seguridad de Firebase.");
-        return false;
+      console.error("Error en el inicio de sesión de Firebase:", error);
+      return false;
     }
-    return false;
-  }, [navigate]);
-
-  const logout = useCallback(() => {
-    setUser(null);
-    localStorage.removeItem('crm-user');
-    navigate('/login');
-  }, [navigate]);
-
-  const updateCurrentUser = useCallback((updatedUser: Omit<User, 'password'>) => {
-    setUser(updatedUser);
-    localStorage.setItem('crm-user', JSON.stringify(updatedUser));
   }, []);
 
+  const logout = useCallback(async () => {
+    try {
+        await signOut(auth); // Usamos la función oficial para cerrar sesión
+        navigate('/login');
+    } catch (error) {
+        console.error("Error al cerrar sesión:", error);
+    }
+  }, [navigate]);
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, login, logout, updateCurrentUser }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
