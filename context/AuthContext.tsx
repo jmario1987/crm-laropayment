@@ -1,9 +1,9 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { User } from '../types';
 import { useNavigate } from 'react-router-dom';
-import { db, auth } from '../firebaseConfig'; // Importamos 'auth'
+import { db, auth } from '../firebaseConfig';
 import { collection, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
-import { signInWithEmailAndPassword, onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth'; // Importamos funciones de Auth
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -11,6 +11,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
+  updateCurrentUser: (updatedUser: Omit<User, 'password'>) => void; // Función restaurada
 }
 
 export const AuthContext = createContext<AuthContextType>({
@@ -19,6 +20,7 @@ export const AuthContext = createContext<AuthContextType>({
   loading: true,
   login: async () => false,
   logout: () => {},
+  updateCurrentUser: () => {}, // Función restaurada
 });
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -27,17 +29,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Firebase nos dirá quién está logueado
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        // Si hay un usuario de Firebase, buscamos su perfil en nuestra base de datos
-        const userDocRef = doc(db, "users", firebaseUser.uid);
         const userDocSnap = await getDocs(query(collection(db, "users"), where("id", "==", firebaseUser.uid)));
         if (!userDocSnap.empty) {
             const userData = userDocSnap.docs[0].data() as User;
             setUser(userData);
         } else {
-            // Esto no debería pasar si los datos están sincronizados
             setUser(null);
         }
       } else {
@@ -46,12 +44,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setLoading(false);
     });
 
-    return () => unsubscribe(); // Limpiamos el listener al desmontar
+    return () => unsubscribe();
   }, []);
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
-      // Usamos la función oficial de Firebase para iniciar sesión
       await signInWithEmailAndPassword(auth, email, password);
       return true;
     } catch (error) {
@@ -62,15 +59,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = useCallback(async () => {
     try {
-        await signOut(auth); // Usamos la función oficial para cerrar sesión
+        await signOut(auth);
         navigate('/login');
     } catch (error) {
         console.error("Error al cerrar sesión:", error);
     }
   }, [navigate]);
 
+  // Función restaurada
+  const updateCurrentUser = useCallback((updatedUser: Omit<User, 'password'>) => {
+    setUser(updatedUser);
+    // También actualizamos la sesión guardada en el navegador
+    localStorage.setItem('crm-user', JSON.stringify(updatedUser));
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, login, logout, updateCurrentUser }}>
       {children}
     </AuthContext.Provider>
   );
