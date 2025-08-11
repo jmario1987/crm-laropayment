@@ -7,39 +7,43 @@ import { signInWithEmailAndPassword, onAuthStateChanged, signOut, User as Fireba
 
 interface AuthContextType {
   user: User | null;
-  firebaseUser: FirebaseUser | null;
+  isAuthenticated: boolean; // Propiedad restaurada
   loading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
+  updateCurrentUser: (updatedUser: Omit<User, 'password'>) => void; // Propiedad restaurada
 }
 
 export const AuthContext = createContext<AuthContextType>({
   user: null,
-  firebaseUser: null,
+  isAuthenticated: false, // Propiedad restaurada
   loading: true,
   login: async () => false,
   logout: () => {},
+  updateCurrentUser: () => {}, // Propiedad restaurada
 });
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null); // Perfil de Firestore
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null); // Usuario de Authentication
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      setFirebaseUser(fbUser);
-      if (fbUser) {
-        const userDocSnap = await getDocs(query(collection(db, "users"), where("id", "==", fbUser.uid)));
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        const userDocSnap = await getDocs(query(collection(db, "users"), where("id", "==", firebaseUser.uid)));
         if (!userDocSnap.empty) {
-          setUser(userDocSnap.docs[0].data() as User);
+            const userData = userDocSnap.docs[0].data() as User;
+            setUser(userData);
+        } else {
+            setUser(null);
         }
       } else {
         setUser(null);
       }
       setLoading(false);
     });
+
     return () => unsubscribe();
   }, []);
 
@@ -55,15 +59,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = useCallback(async () => {
     try {
-      await signOut(auth);
-      navigate('/login');
+        await signOut(auth);
+        navigate('/login');
     } catch (error) {
-      console.error("Error al cerrar sesión:", error);
+        console.error("Error al cerrar sesión:", error);
     }
   }, [navigate]);
 
+  // Función restaurada
+  const updateCurrentUser = useCallback((updatedUser: Omit<User, 'password'>) => {
+    setUser(updatedUser);
+    localStorage.setItem('crm-user', JSON.stringify(updatedUser));
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, firebaseUser, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, login, logout, updateCurrentUser }}>
       {children}
     </AuthContext.Provider>
   );
