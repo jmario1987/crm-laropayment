@@ -1,9 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react'; // 1. Importamos useState
 import { useLeads } from '../hooks/useLeads';
 import { useAuth } from '../hooks/useAuth';
 import { Lead, USER_ROLES } from '../types';
 
-// Componente para una fila de la tabla
+// Componente para una fila de la tabla (no cambia)
 const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
     const { getUserById, getStageById } = useLeads();
 
@@ -11,7 +11,6 @@ const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
     const stage = getStageById(lead.status);
     const stageName = stage?.name || 'Desconocido';
     
-    // Obtenemos la fecha de la última modificación del historial
     const lastModification = useMemo(() => {
         if (lead.statusHistory && lead.statusHistory.length > 0) {
             const lastEntry = lead.statusHistory[lead.statusHistory.length - 1];
@@ -37,24 +36,48 @@ const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
     );
 };
 
-// Componente principal de la página
+// Componente principal de la página (con la nueva lógica de filtro)
 const LeadsListPage: React.FC = () => {
-    const { allLeads } = useLeads();
+    const { allLeads, sellers } = useLeads(); // 2. Obtenemos la lista de vendedores
     const { user } = useAuth();
+    const [selectedSellerId, setSelectedSellerId] = useState('all'); // 3. Estado para el filtro
 
-    // Filtramos los prospectos visibles según el rol del usuario
+    const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
+
     const visibleLeads = useMemo(() => {
-        if (!user) return [];
-        if (user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor) {
-            return allLeads; // Admin y Supervisor ven todos los prospectos
+        let leadsToDisplay = allLeads;
+        // Filtro por rol
+        if (!isManager) {
+            leadsToDisplay = allLeads.filter(lead => lead.ownerId === user?.id);
         }
-        // Los vendedores solo ven los suyos
-        return allLeads.filter(lead => lead.ownerId === user.id);
-    }, [allLeads, user]);
+        // Filtro por vendedor seleccionado
+        if (isManager && selectedSellerId !== 'all') {
+            leadsToDisplay = leadsToDisplay.filter(lead => lead.ownerId === selectedSellerId);
+        }
+        return leadsToDisplay;
+    }, [allLeads, user, isManager, selectedSellerId]);
 
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-            <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">Listado de Prospectos</h3>
+            <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Listado de Prospectos</h3>
+                {/* 4. Añadimos el dropdown del filtro */}
+                {isManager && (
+                    <div className="w-full sm:w-64">
+                        <select
+                            id="seller-filter"
+                            value={selectedSellerId}
+                            onChange={(e) => setSelectedSellerId(e.target.value)}
+                            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        >
+                            <option value="all">Todos los vendedores</option>
+                            {sellers.map((seller) => (
+                                <option key={seller.id} value={seller.id}>{seller.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+            </div>
             <div className="relative overflow-x-auto shadow-md sm:rounded-lg">
                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
