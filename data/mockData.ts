@@ -9,11 +9,11 @@ export const initialRoles: UserRole[] = [
 ];
 
 export const initialStages: Stage[] = [
-    { id: 'stage-1', name: 'Nuevo', color: '#3b82f6', type: 'open', order: 0 },
-    { id: 'stage-2', name: 'Contactado', color: '#8b5cf6', type: 'open', order: 1 },
-    { id: 'stage-3', name: 'Calificado', color: '#a855f7', type: 'open', order: 2 },
-    { id: 'stage-4', name: 'Propuesta Enviada', color: '#f59e0b', type: 'open', order: 3 },
-    { id: 'stage-5', name: 'Ganado', color: '#22c55e', type: 'won', order: 4 },
+    { id: 'stage-1', name: 'Nuevo', color: '#FB8500', type: 'open', order: 0 },
+    { id: 'stage-2', name: 'Contactado', color: '#FFB703', type: 'open', order: 1 },
+    { id: 'stage-3', name: 'Calificado', color: '#023047', type: 'open', order: 2 },
+    { id: 'stage-4', name: 'Propuesta Enviada', color: '#219EBC', type: 'open', order: 3 },
+    { id: 'stage-5', name: 'Ganado', color: '#8ECAE6', type: 'won', order: 4 },
     { id: 'stage-6', name: 'Perdido', color: '#ef4444', type: 'lost', order: 5 },
 ];
 
