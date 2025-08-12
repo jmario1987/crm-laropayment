@@ -3,8 +3,13 @@ import { useLeads } from '../../hooks/useLeads';
 import { useAuth } from '../../hooks/useAuth';
 import { User, UserRole } from '../../types';
 import Button from '../ui/Button';
-import { auth } from '../../firebaseConfig'; // Importamos la autenticación
-import { createUserWithEmailAndPassword } from 'firebase/auth'; // Importamos la función para crear usuarios
+import { firebaseConfig } from '../../firebaseConfig'; // Importamos la configuración
+import { initializeApp } from 'firebase/app'; // Importamos la función de inicialización
+import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth'; // Importamos las funciones de Auth
+
+// Creamos una app secundaria de Firebase para no afectar la sesión del admin
+const secondaryApp = initializeApp(firebaseConfig, 'secondaryApp');
+const secondaryAuth = getAuth(secondaryApp);
 
 interface UserFormProps {
   userToEdit?: User;
@@ -12,7 +17,7 @@ interface UserFormProps {
 }
 
 const UserForm: React.FC<UserFormProps> = ({ userToEdit, onSuccess }) => {
-  const { dispatch, users: allUsers, roles } = useLeads();
+  const { dispatch, roles } = useLeads();
   const { user: currentUser, updateCurrentUser } = useAuth();
   
   const isEditMode = !!userToEdit;
@@ -20,7 +25,7 @@ const UserForm: React.FC<UserFormProps> = ({ userToEdit, onSuccess }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    password: '', // Este campo solo se usará para la creación
+    password: '',
     role: roles.length > 0 ? roles[0] : '',
   });
   
@@ -29,12 +34,7 @@ const UserForm: React.FC<UserFormProps> = ({ userToEdit, onSuccess }) => {
 
   useEffect(() => {
     if (userToEdit) {
-      setFormData({
-        name: userToEdit.name,
-        email: userToEdit.email,
-        password: '',
-        role: userToEdit.role,
-      });
+      setFormData({ name: userToEdit.name, email: userToEdit.email, password: '', role: userToEdit.role });
     }
   }, [userToEdit]);
 
@@ -49,28 +49,20 @@ const UserForm: React.FC<UserFormProps> = ({ userToEdit, onSuccess }) => {
     setLoading(true);
 
     if (isEditMode) {
-      // MODO EDICIÓN: Solo actualiza los datos del perfil en Firestore
-      const updatedUser: User = {
-        ...userToEdit!,
-        name: formData.name,
-        email: formData.email,
-        role: formData.role as UserRole,
-      };
+      const updatedUser: User = { ...userToEdit!, name: formData.name, email: formData.email, role: formData.role as UserRole };
+      delete updatedUser.password;
       dispatch({ type: 'UPDATE_USER', payload: updatedUser });
-
       if (currentUser?.id === updatedUser.id) {
         updateCurrentUser(updatedUser);
       }
     } else {
-      // MODO CREACIÓN: Crea el usuario en Authentication y luego en Firestore
       try {
-        // Paso 1: Crear el usuario en Firebase Authentication
-        const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+        // Usamos la "línea secundaria" para crear el usuario sin afectar la sesión actual
+        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, formData.email, formData.password);
         const newFirebaseUser = userCredential.user;
 
-        // Paso 2: Crear el perfil de datos en Firestore usando el UID del nuevo usuario
         const newUserProfile: User = {
-          id: newFirebaseUser.uid, // Usamos el UID de Authentication
+          id: newFirebaseUser.uid,
           name: formData.name,
           email: formData.email,
           role: formData.role as UserRole,
@@ -83,7 +75,7 @@ const UserForm: React.FC<UserFormProps> = ({ userToEdit, onSuccess }) => {
           setError('Ocurrió un error al crear el usuario.');
         }
         setLoading(false);
-        return; // Detenemos la ejecución si hay un error
+        return;
       }
     }
     
