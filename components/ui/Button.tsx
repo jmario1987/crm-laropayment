@@ -1,31 +1,32 @@
-
 import React from 'react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
-  variant?: 'primary' | 'secondary' | 'danger';
+  variant?: 'primary' | 'secondary';
   size?: 'sm' | 'md' | 'lg';
 }
 
-const Button: React.FC<ButtonProps> = ({ children, variant = 'primary', size = 'md', className = '', ...props }) => {
-  const baseStyles = 'inline-flex items-center justify-center rounded-md font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+const Button: React.FC<ButtonProps> = ({ children, className = '', variant = 'primary', size = 'md', ...props }) => {
 
-  const variantStyles = {
-    primary: 'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500',
-    secondary: 'bg-gray-200 text-gray-800 hover:bg-gray-300 focus:ring-gray-400',
-    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
+  const baseClasses = "flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50";
+
+  // Hemos cambiado 'blue' por 'sky-950' y ajustado los colores relacionados
+  const variantClasses = {
+    primary: "text-white bg-sky-950 hover:bg-sky-800 focus:ring-sky-700",
+    secondary: "text-gray-700 bg-gray-100 hover:bg-gray-200 focus:ring-sky-500 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
   };
 
-  const sizeStyles = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-sm',
-    lg: 'px-6 py-3 text-base',
+  const sizeClasses = {
+    sm: "px-2.5 py-1.5 text-xs",
+    md: "px-4 py-2 text-sm",
+    lg: "px-6 py-3 text-base"
   };
-
-  const combinedClassName = `${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`;
 
   return (
-    <button className={combinedClassName} {...props}>
+    <button 
+      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`} 
+      {...props}
+    >
       {children}
     </button>
   );
