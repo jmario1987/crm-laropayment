@@ -30,7 +30,7 @@ const LoginPage: React.FC = () => {
       <div className="p-8 bg-white rounded-lg shadow-md w-full max-w-sm">
 
         {/* Restauramos un título de texto simple */}
-        <h2 className="text-2xl font-bold text-center mb-6">Bienvenido al CRM</h2>
+        <h2 className="text-2xl font-bold text-center mb-6">CRM Laro Payment</h2>
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
