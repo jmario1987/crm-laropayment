@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import Sidebar from './components/layout/Sidebar';
@@ -14,7 +14,8 @@ import Users from './pages/Users';
 import Products from './pages/Products';
 import Providers from './pages/Providers';
 import Stages from './pages/Stages';
-import WonLeadsPage from './pages/WonLeadsPage'; // ¡Importamos la nueva página!
+import WonLeadsPage from './pages/WonLeadsPage';
+import LeadsListPage from './pages/LeadsListPage'; // ¡Importamos la nueva página!
 
 const MainLayout = () => {
   const { user, logout } = useAuth();
@@ -35,7 +36,8 @@ const MainLayout = () => {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/pipeline" element={<Pipeline />} />
-              <Route path="/won-leads" element={<WonLeadsPage />} /> {/* ¡Añadimos la nueva ruta! */}
+              <Route path="/won-leads" element={<WonLeadsPage />} />
+              <Route path="/leads" element={<LeadsListPage />} /> {/* ¡Añadimos la nueva ruta! */}
 
               {/* Rutas Protegidas (solo para Administradores) */}
               <Route path="/users" element={<ProtectedRoute roles={[USER_ROLES.Admin]}><Users /></ProtectedRoute>} />
