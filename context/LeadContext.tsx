@@ -12,23 +12,96 @@ const initialState: State = { leads: [], users: [], roles: [], products: [], pro
 const leadReducer = (state: State, action: Action): State => {
     switch (action.type) {
         case 'SET_STATE': return { ...action.payload };
-        case 'ADD_LEAD': setDoc(doc(db, 'leads', action.payload.id), action.payload); return { ...state, leads: [action.payload, ...state.leads] };
-        case 'ADD_BULK_LEADS': { const batch = writeBatch(db); action.payload.forEach(lead => batch.set(doc(db, "leads", lead.id), lead)); batch.commit(); return { ...state, leads: [...action.payload, ...state.leads] }; }
-        case 'UPDATE_LEAD': setDoc(doc(db, 'leads', action.payload.id), action.payload, { merge: true }); return { ...state, leads: state.leads.map(l => l.id === action.payload.id ? action.payload : l) };
-        case 'DELETE_LEAD': deleteDoc(doc(db, 'leads', action.payload)); return { ...state, leads: state.leads.filter(l => l.id !== action.payload) };
-        case 'ADD_USER': setDoc(doc(db, 'users', action.payload.id), action.payload); return { ...state, users: [...state.users, action.payload] };
-        case 'UPDATE_USER': setDoc(doc(db, 'users', action.payload.id), action.payload, { merge: true }); return { ...state, users: state.users.map(u => u.id === action.payload.id ? action.payload : u) };
-        case 'ADD_PRODUCT': setDoc(doc(db, 'products', action.payload.id), action.payload); return { ...state, products: [...state.products, action.payload] };
-        case 'UPDATE_PRODUCT': setDoc(doc(db, 'products', action.payload.id), action.payload, { merge: true }); return { ...state, products: state.products.map(p => p.id === action.payload.id ? action.payload : p) };
-        case 'DELETE_PRODUCT': deleteDoc(doc(db, 'products', action.payload)); return { ...state, products: state.products.filter(p => p.id !== action.payload) };
-        case 'ADD_PROVIDER': setDoc(doc(db, 'providers', action.payload.id), action.payload); return { ...state, providers: [...state.providers, action.payload] };
-        case 'UPDATE_PROVIDER': setDoc(doc(db, 'providers', action.payload.id), action.payload, { merge: true }); return { ...state, providers: state.providers.map(p => p.id === action.payload.id ? action.payload : p) };
-        case 'DELETE_PROVIDER': deleteDoc(doc(db, 'providers', action.payload)); return { ...state, providers: state.providers.filter(p => p.id !== action.payload) };
-        case 'ADD_STAGE': setDoc(doc(db, 'stages', action.payload.id), action.payload); return { ...state, stages: [...state.stages, action.payload] };
-        case 'UPDATE_STAGE': setDoc(doc(db, 'stages', action.payload.id), action.payload, { merge: true }); return { ...state, stages: state.stages.map(s => s.id === action.payload.id ? action.payload : s) };
-        case 'DELETE_STAGE': deleteDoc(doc(db, 'stages', action.payload)); return { ...state, stages: state.stages.filter(s => s.id !== action.payload) };
-        case 'UPDATE_STAGES_ORDER': { const batch = writeBatch(db); action.payload.forEach(stage => batch.set(doc(db, "stages", stage.id), stage)); batch.commit(); return { ...state, stages: action.payload }; }
-        default: return state;
+
+        case 'UPDATE_LEAD': {
+            const updatedLeadPayload = action.payload;
+            const leadToUpdate = state.leads.find(l => l.id === updatedLeadPayload.id);
+
+            if (!leadToUpdate) return state;
+
+            // LÓGICA CORREGIDA PARA EL HISTORIAL
+            // Verificamos si el estado ha cambiado
+            if (leadToUpdate.status !== updatedLeadPayload.status) {
+                const newHistoryEntry = {
+                    status: updatedLeadPayload.status,
+                    date: new Date().toISOString()
+                };
+                // Nos aseguramos de que el historial exista y añadimos la nueva entrada
+                const currentHistory = leadToUpdate.statusHistory || [{ status: leadToUpdate.status, date: leadToUpdate.createdAt }];
+                updatedLeadPayload.statusHistory = [...currentHistory, newHistoryEntry];
+            }
+
+            setDoc(doc(db, 'leads', updatedLeadPayload.id), updatedLeadPayload, { merge: true });
+            return { ...state, leads: state.leads.map((lead) => lead.id === updatedLeadPayload.id ? updatedLeadPayload : lead) };
+        }
+
+        case 'ADD_LEAD':
+            setDoc(doc(db, 'leads', action.payload.id), action.payload);
+            return { ...state, leads: [action.payload, ...state.leads] };
+
+        case 'ADD_BULK_LEADS': {
+            const batch = writeBatch(db);
+            action.payload.forEach(lead => batch.set(doc(db, "leads", lead.id), lead));
+            batch.commit();
+            return { ...state, leads: [...action.payload, ...state.leads] };
+        }
+
+        case 'DELETE_LEAD':
+            deleteDoc(doc(db, 'leads', action.payload));
+            return { ...state, leads: state.leads.filter(l => l.id !== action.payload) };
+
+        case 'ADD_USER':
+            setDoc(doc(db, 'users', action.payload.id), action.payload);
+            return { ...state, users: [...state.users, action.payload] };
+
+        case 'UPDATE_USER':
+            setDoc(doc(db, 'users', action.payload.id), action.payload, { merge: true });
+            return { ...state, users: state.users.map(u => u.id === action.payload.id ? action.payload : u) };
+
+        case 'ADD_PRODUCT':
+            setDoc(doc(db, 'products', action.payload.id), action.payload);
+            return { ...state, products: [...state.products, action.payload] };
+
+        case 'UPDATE_PRODUCT':
+            setDoc(doc(db, 'products', action.payload.id), action.payload, { merge: true });
+            return { ...state, products: state.products.map(p => p.id === action.payload.id ? action.payload : p) };
+
+        case 'DELETE_PRODUCT':
+            deleteDoc(doc(db, 'products', action.payload));
+            return { ...state, products: state.products.filter(p => p.id !== action.payload) };
+
+        case 'ADD_PROVIDER':
+            setDoc(doc(db, 'providers', action.payload.id), action.payload);
+            return { ...state, providers: [...state.providers, action.payload] };
+
+        case 'UPDATE_PROVIDER':
+            setDoc(doc(db, 'providers', action.payload.id), action.payload, { merge: true });
+            return { ...state, providers: state.providers.map(p => p.id === action.payload.id ? action.payload : p) };
+
+        case 'DELETE_PROVIDER':
+            deleteDoc(doc(db, 'providers', action.payload));
+            return { ...state, providers: state.providers.filter(p => p.id !== action.payload) };
+
+        case 'ADD_STAGE':
+            setDoc(doc(db, 'stages', action.payload.id), action.payload);
+            return { ...state, stages: [...state.stages, action.payload] };
+
+        case 'UPDATE_STAGE':
+            setDoc(doc(db, 'stages', action.payload.id), action.payload, { merge: true });
+            return { ...state, stages: state.stages.map(s => s.id === action.payload.id ? action.payload : s) };
+
+        case 'DELETE_STAGE':
+            deleteDoc(doc(db, 'stages', action.payload));
+            return { ...state, stages: state.stages.filter(s => s.id !== action.payload) };
+
+        case 'UPDATE_STAGES_ORDER': {
+            const batch = writeBatch(db);
+            action.payload.forEach(stage => batch.set(doc(db, "stages", stage.id), stage));
+            batch.commit();
+            return { ...state, stages: action.payload };
+        }
+        default:
+            return state;
     }
 };
 
@@ -48,25 +121,32 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       isDataLoaded.current = true;
 
       try {
-        const leadsSnapshot = await getDocs(collection(db, "leads"));
-        if (leadsSnapshot.empty && user.role === USER_ROLES.Admin) {
-          console.log("Colección de Leads vacía y el usuario es Admin. Subiendo datos de prueba...");
+        const usersSnapshot = await getDocs(collection(db, "users"));
+        if (usersSnapshot.empty && user.role === USER_ROLES.Admin) {
+          console.log("Base de datos vacía y el usuario es Admin. Subiendo datos iniciales...");
           const batch = writeBatch(db);
 
-          const otherUsers = initialUsers.filter(u => u.email !== 'admin@crm.com');
-          otherUsers.forEach(u => batch.set(doc(db, "users", u.id), u));
+          const initialUsersWithAuthId = initialUsers.map(u => u.email === user.email ? { ...u, id: user.id } : u);
+
+          initialUsersWithAuthId.forEach(u => batch.set(doc(db, "users", u.id), u));
           initialLeads.forEach(l => batch.set(doc(db, "leads", l.id), l));
           initialStages.forEach(s => batch.set(doc(db, "stages", s.id), s));
           initialProducts.forEach(p => batch.set(doc(db, "products", p.id), p));
           initialProviders.forEach(p => batch.set(doc(db, "providers", p.id), p));
           await batch.commit();
-          // Volvemos a cargar todo para tener un estado consistente
           const allData = await Promise.all([ getDocs(collection(db, "leads")), getDocs(collection(db, "users")), getDocs(collection(db, "stages")), getDocs(collection(db, "products")), getDocs(collection(db, "providers")) ]);
           dispatch({ type: 'SET_STATE', payload: { leads: allData[0].docs.map(doc => doc.data() as Lead), users: allData[1].docs.map(doc => doc.data() as User), stages: allData[2].docs.map(doc => doc.data() as Stage), products: allData[3].docs.map(doc => doc.data() as Product), providers: allData[4].docs.map(doc => doc.data() as Provider), roles: initialRoles }});
         } else {
           console.log("Cargando datos desde Firestore...");
           const allData = await Promise.all([ getDocs(collection(db, "leads")), getDocs(collection(db, "users")), getDocs(collection(db, "stages")), getDocs(collection(db, "products")), getDocs(collection(db, "providers")) ]);
-          dispatch({ type: 'SET_STATE', payload: { leads: allData[0].docs.map(doc => doc.data() as Lead), users: allData[1].docs.map(doc => doc.data() as User), stages: allData[2].docs.map(doc => doc.data() as Stage), products: allData[3].docs.map(doc => doc.data() as Product), providers: allData[4].docs.map(doc => doc.data() as Provider), roles: initialRoles }});
+          dispatch({ type: 'SET_STATE', payload: { 
+            leads: allData[0].docs.map(doc => doc.data() as Lead), 
+            users: allData[1].docs.map(doc => doc.data() as User), 
+            stages: allData[2].docs.map(doc => doc.data() as Stage),
+            products: allData[3].docs.map(doc => doc.data() as Product), 
+            providers: allData[4].docs.map(doc => doc.data() as Provider),
+            roles: initialRoles 
+          }});
         }
       } catch (error) {
         console.error("Error al inicializar los datos: ", error);
@@ -76,7 +156,6 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     initializeAndLoadData();
   }, [user, authLoading]);
 
-  // Efecto para resetear el estado cuando el usuario cierra sesión
   useEffect(() => {
     if (!user && !authLoading) {
       dispatch({ type: 'SET_STATE', payload: initialState });
