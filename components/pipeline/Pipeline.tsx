@@ -1,4 +1,4 @@
-// components/pipeline/Pipeline.tsx (Versión Corregida y Final)
+// components/pipeline/Pipeline.tsx (Versión Final con Scroll Corregido)
 
 import React, { useState, useMemo } from 'react';
 import { useLeads } from '../../hooks/useLeads';
@@ -15,7 +15,8 @@ const Pipeline: React.FC = () => {
   const { user } = useAuth();
   const [selectedSellerId, setSelectedSellerId] = useState('all');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+
   const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
   const isAdmin = user?.role === USER_ROLES.Admin;
 
@@ -31,7 +32,6 @@ const Pipeline: React.FC = () => {
     setSelectedSellerId(e.target.value);
   };
 
-  // La nueva función onDragEnd que maneja toda la lógica
   const onDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
 
@@ -79,18 +79,18 @@ const Pipeline: React.FC = () => {
         )}
         
         <DragDropContext onDragEnd={onDragEnd}>
-          <div className="flex-grow flex space-x-4 pb-4 overflow-x-auto">
+          {/* Este contenedor ahora maneja todo el scroll */}
+          <div className="flex-grow flex space-x-4 pb-4 overflow-auto">
             {pipelineStages.map((stage) => {
               const leadsInStage = visibleLeads.filter((lead) => lead.status === stage.id);
               return (
-                <div key={stage.id} className="flex-shrink-0 w-80 flex flex-col bg-transparent rounded-lg">
+                <div key={stage.id} className="flex-shrink-0 w-80 flex flex-col bg-gray-100 dark:bg-gray-900 rounded-lg shadow-md">
                   <div className={`px-3 py-2 font-semibold text-lg text-gray-700 dark:text-gray-200 border-t-4 rounded-t-lg flex justify-between items-center bg-white dark:bg-gray-800`} style={{ borderTopColor: stage.color }}>
                     <span>{stage.name}</span>
                     <span className="px-2 py-1 text-sm font-bold rounded-full text-white" style={{ backgroundColor: stage.color }}>{leadsInStage.length}</span>
                   </div>
-                  <div className="bg-gray-100 dark:bg-gray-900 rounded-b-lg flex-1">
-                    <PipelineColumn stage={stage} leads={leadsInStage} />
-                  </div>
+                  {/* PipelineColumn ahora es más simple y se adapta al contenido */}
+                  <PipelineColumn stage={stage} leads={leadsInStage} />
                 </div>
               );
             })}
@@ -99,6 +99,9 @@ const Pipeline: React.FC = () => {
       </div>
 
       {isImportModalOpen && <BulkImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />}
+      
+      {/* Tu modal de detalles sigue igual, pero lo he quitado de LeadCard y lo he puesto aquí para un mejor control */}
+      {selectedLead && <LeadDetailsModal lead={selectedLead} isOpen={!!selectedLead} onClose={() => setSelectedLead(null)} />}
     </>
   );
 };
