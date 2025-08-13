@@ -114,10 +114,14 @@ const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout, onM
                   </div>
               )}
           </div>
-          <Button onClick={onNewLeadClick} className="hidden sm:flex">
+
+          {/* --- LÍNEA CORREGIDA --- */}
+          {/* Se cambió "hidden sm:flex" por "flex" para que el botón siempre sea visible. */}
+          <Button onClick={onNewLeadClick} className="flex">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             Nuevo Prospecto
           </Button>
+          
           <div className="relative">
               <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="flex items-center space-x-2">
                   <span className="hidden sm:inline text-gray-700 dark:text-gray-300">Hola, {firstName}</span>
