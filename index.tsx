@@ -6,15 +6,13 @@ import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { LeadProvider } from './context/LeadContext';
 
-// ORDEN CORREGIDO: AuthProvider envuelve a LeadProvider
+// El único cambio es que hemos eliminado las etiquetas <React.StrictMode>
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <LeadProvider>
-          <App />
-        </LeadProvider>
-      </AuthProvider>
-    </BrowserRouter>
-  </React.StrictMode>
+  <BrowserRouter>
+    <AuthProvider>
+      <LeadProvider>
+        <App />
+      </LeadProvider>
+    </AuthProvider>
+  </BrowserRouter>
 );
