@@ -13,6 +13,7 @@
     "@google/genai": "^0.14.0",
     "@types/react-beautiful-dnd": "^13.1.8",
     "firebase": "^10.12.2",
+    "mobile-drag-drop": "^3.0.0-rc.0",
     "react": "^18.2.0",
     "react-beautiful-dnd": "^13.1.1",
     "react-dom": "^18.2.0",
