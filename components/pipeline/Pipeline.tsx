@@ -41,6 +41,8 @@ const Pipeline: React.FC = () => {
     e.preventDefault();
   };
 
+  // --- FUNCIÓN CORREGIDA ---
+  // Esta es la versión de handleDrop que guarda el historial correctamente.
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, newStatusId: string) => {
     e.preventDefault();
     const leadId = e.dataTransfer.getData('leadId');
@@ -50,10 +52,32 @@ const Pipeline: React.FC = () => {
     
     if (newStatusId !== originalStatus) {
       const leadToUpdate = allLeads.find(lead => lead.id === leadId);
+
       if (leadToUpdate) {
+        // 1. Copiamos el historial que ya existía en el prospecto.
+        const oldHistory = leadToUpdate.statusHistory || [];
+
+        // 2. Creamos el nuevo registro para el movimiento actual.
+        const newHistoryEntry = {
+            status: newStatusId,
+            date: new Date().toISOString(),
+        };
+
+        // 3. Construimos el nuevo historial completo (el antiguo + el nuevo).
+        const newStatusHistory = [...oldHistory, newHistoryEntry];
+
+        // 4. Preparamos todos los datos del prospecto para la actualización.
+        const updatedPayload = {
+            ...leadToUpdate,
+            status: newStatusId,                // La nueva etapa
+            statusHistory: newStatusHistory,    // El historial completo
+            lastUpdate: new Date().toISOString(), // La fecha del último cambio
+        };
+
+        // 5. Enviamos los datos completos para que se guarden en la base de datos.
         dispatch({
           type: 'UPDATE_LEAD',
-          payload: { ...leadToUpdate, status: newStatusId },
+          payload: updatedPayload,
         });
       }
     }
@@ -96,13 +120,13 @@ const Pipeline: React.FC = () => {
                   )}
               </div>
           )}
-        <div className="flex-grow flex space-x-4 pb-4">
+        <div className="flex-grow flex space-x-4 pb-4 overflow-x-auto">
             {pipelineStages.map((stage) => {
                 const leadsInStage = filteredLeadsForPipeline.filter((lead) => lead.status === stage.id);
                 return (
                 <div
                     key={stage.id}
-                    className="pipeline-column flex-1 min-w-0 flex flex-col bg-gray-100 dark:bg-gray-900 rounded-lg shadow-md transition-colors duration-300"
+                    className="pipeline-column flex-shrink-0 w-80 flex flex-col bg-gray-100 dark:bg-gray-900 rounded-lg shadow-md transition-colors duration-300"
                     onDrop={(e) => handleDrop(e, stage.id)}
                     onDragOver={handleDragOver}
                     onDragEnter={(e) => handleDragEnter(e)}
