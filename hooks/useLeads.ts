@@ -1,41 +1,33 @@
-import { useContext, useMemo, useCallback } from 'react';
+// hooks/useLeads.ts (Versión Corregida)
+
+import { useContext } from 'react';
 import { LeadContext } from '../context/LeadContext';
 import { USER_ROLES } from '../types';
 
 export const useLeads = () => {
+  // 1. Tomamos el contexto completo, que ahora incluye 'state', 'dispatch' y 'stagnantLeads'.
   const context = useContext(LeadContext);
-  
   if (!context) {
     throw new Error('useLeads debe ser usado dentro de un LeadProvider');
   }
 
-  const { state, dispatch } = context;
-  const { leads, users, products, providers, stages, roles } = state;
+  const { state, dispatch, stagnantLeads } = context;
 
-  const sellers = useMemo(() => users.filter(u => u.role === USER_ROLES.Vendedor), [users]);
+  // 2. Creamos funciones de ayuda para no tener que acceder a 'state' en todos los componentes.
+  const sellers = state.users.filter(u => u.role === USER_ROLES.Vendedor);
+  const getStageById = (id: string) => state.stages.find(s => s.id === id);
+  const getProviderById = (id: string) => state.providers.find(p => p.id === id);
+  const getUserById = (id: string) => state.users.find(u => u.id === id);
 
-  const getUserById = useCallback((id: string) => users.find(u => u.id === id), [users]);
-  const getProductById = useCallback((id: string) => products.find(p => p.id === id), [products]);
-  const getProviderById = useCallback((id: string) => providers.find(p => p.id === id), [providers]);
-  const getStageById = useCallback((id: string) => stages.find(s => s.id === id), [stages]);
-
-  const wonStageIds = useMemo(() => stages.filter(s => s.type === 'won').map(s => s.id), [stages]);
-  const lostStageIds = useMemo(() => stages.filter(s => s.type === 'lost').map(s => s.id), [stages]);
-
-  return { 
-    allLeads: leads, // Ahora solo devolvemos la lista completa
-    users,
+  // 3. Devolvemos un solo objeto "plano" con toda la información que los componentes necesitan.
+  return {
+    ...state, // Esto incluye: leads, users, roles, products, providers, stages
+    allLeads: state.leads, // Un alias para mayor claridad
     sellers,
-    roles,
-    products,
-    providers,
-    stages,
-    getUserById,
-    getProductById,
-    getProviderById,
+    stagnantLeads, // <-- La nueva lista de notificaciones
+    dispatch,
     getStageById,
-    wonStageIds,
-    lostStageIds,
-    dispatch 
+    getProviderById,
+    getUserById
   };
 };
