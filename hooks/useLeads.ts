@@ -1,11 +1,10 @@
-// hooks/useLeads.ts (Versión Corregida)
+// hooks/useLeads.ts (Versión Final y Corregida)
 
-import { useContext } from 'react';
+import { useContext, useMemo } from 'react'; // Se añade 'useMemo' para mayor eficiencia
 import { LeadContext } from '../context/LeadContext';
 import { USER_ROLES } from '../types';
 
 export const useLeads = () => {
-  // 1. Tomamos el contexto completo, que ahora incluye 'state', 'dispatch' y 'stagnantLeads'.
   const context = useContext(LeadContext);
   if (!context) {
     throw new Error('useLeads debe ser usado dentro de un LeadProvider');
@@ -13,18 +12,33 @@ export const useLeads = () => {
 
   const { state, dispatch, stagnantLeads } = context;
 
-  // 2. Creamos funciones de ayuda para no tener que acceder a 'state' en todos los componentes.
+  // --- LÓGICA RE-INTEGRADA ---
+  // Se vuelven a calcular los IDs de las etapas ganadas y perdidas,
+  // ya que el Dashboard los necesita para sus estadísticas.
+  const wonStageIds = useMemo(() =>
+    state.stages.filter(s => s.type === 'won').map(s => s.id),
+    [state.stages]
+  );
+
+  const lostStageIds = useMemo(() =>
+    state.stages.filter(s => s.type === 'lost').map(s => s.id),
+    [state.stages]
+  );
+
+  // El resto de las funciones de ayuda se mantienen igual.
   const sellers = state.users.filter(u => u.role === USER_ROLES.Vendedor);
   const getStageById = (id: string) => state.stages.find(s => s.id === id);
   const getProviderById = (id: string) => state.providers.find(p => p.id === id);
   const getUserById = (id: string) => state.users.find(u => u.id === id);
 
-  // 3. Devolvemos un solo objeto "plano" con toda la información que los componentes necesitan.
+  // Se devuelven todos los datos que los componentes necesitan.
   return {
-    ...state, // Esto incluye: leads, users, roles, products, providers, stages
-    allLeads: state.leads, // Un alias para mayor claridad
+    ...state,
+    allLeads: state.leads,
     sellers,
-    stagnantLeads, // <-- La nueva lista de notificaciones
+    stagnantLeads,
+    wonStageIds, // <-- Se añade de nuevo
+    lostStageIds, // <-- Se añade de nuevo
     dispatch,
     getStageById,
     getProviderById,
