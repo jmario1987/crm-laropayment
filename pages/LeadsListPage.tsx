@@ -2,17 +2,16 @@ import React, { useMemo, useState } from 'react';
 import { useLeads } from '../hooks/useLeads';
 import { useAuth } from '../hooks/useAuth';
 import { Lead, USER_ROLES } from '../types';
+import * as XLSX from 'xlsx'; // Se importa la librería para Excel
+import Button from '../components/ui/Button'; // Se importa el componente de botón
 
 // Componente para una fila de la tabla (no cambia)
 const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
     const { getUserById, getStageById } = useLeads();
-
     const sellerName = getUserById(lead.ownerId)?.name || 'No asignado';
     const stage = getStageById(lead.status);
     const stageName = stage?.name || 'Desconocido';
-    
     const lastModification = useMemo(() => {
-        // Se usa 'lastUpdate' para consistencia con el resto de la app
         const referenceDate = lead.lastUpdate || lead.createdAt;
         return new Date(referenceDate).toLocaleString('es-ES', {
             day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
@@ -34,49 +33,74 @@ const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
     );
 };
 
-// Componente principal de la página (con la nueva lógica de filtro)
+// Componente principal de la página (con las nuevas funcionalidades)
 const LeadsListPage: React.FC = () => {
-    // 1. Obtenemos la lista de proveedores del hook
-    const { allLeads, sellers, providers } = useLeads();
+    const { allLeads, sellers, providers, getStageById, getUserById, getProviderById } = useLeads();
     const { user } = useAuth();
     const [selectedSellerId, setSelectedSellerId] = useState('all');
-    // 2. Creamos un nuevo estado para el filtro de proveedor
     const [selectedProviderId, setSelectedProviderId] = useState('all');
 
     const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
 
-    // 3. Actualizamos la lógica de filtrado para que incluya ambos filtros
     const visibleLeads = useMemo(() => {
         let leadsToDisplay = allLeads;
         
-        // Filtro por rol (para vendedores)
         if (!isManager) {
             leadsToDisplay = allLeads.filter(lead => lead.ownerId === user?.id);
         }
         
-        // Filtro por vendedor seleccionado (para managers)
         if (isManager && selectedSellerId !== 'all') {
             leadsToDisplay = leadsToDisplay.filter(lead => lead.ownerId === selectedSellerId);
         }
 
-        // Filtro por proveedor seleccionado (para managers)
         if (isManager && selectedProviderId !== 'all') {
             leadsToDisplay = leadsToDisplay.filter(lead => lead.providerId === selectedProviderId);
         }
 
-        return leadsToDisplay;
-    }, [allLeads, user, isManager, selectedSellerId, selectedProviderId]); // Se añade la nueva dependencia
+        // --- NUEVA LÓGICA DE ORDENAMIENTO ---
+        // Se ordena la lista para mostrar los más recientes primero.
+        return leadsToDisplay.sort((a, b) => 
+            new Date(b.lastUpdate || b.createdAt).getTime() - new Date(a.lastUpdate || a.createdAt).getTime()
+        );
+
+    }, [allLeads, user, isManager, selectedSellerId, selectedProviderId]);
+
+    // --- NUEVA FUNCIÓN PARA EXPORTAR A EXCEL ---
+    const handleExportExcel = () => {
+        // 1. Preparamos los datos con nombres legibles
+        const dataToExport = visibleLeads.map(lead => ({
+            "Prospecto": lead.name,
+            "Empresa": lead.company,
+            "Email": lead.email,
+            "Teléfono": lead.phone,
+            "Etapa": getStageById(lead.status)?.name || 'N/A',
+            "Vendedor Asignado": getUserById(lead.ownerId)?.name || 'N/A',
+            "Referido por": getProviderById(lead.providerId || '')?.name || 'N/A',
+            "Última Modificación": new Date(lead.lastUpdate || lead.createdAt).toLocaleDateString('es-ES'),
+        }));
+
+        // 2. Creamos la hoja de cálculo y el archivo
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Prospectos");
+
+        // 3. Descargamos el archivo
+        XLSX.writeFile(workbook, "Reporte_Prospectos.xlsx");
+    };
 
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
             <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
                 <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Listado de Prospectos</h3>
                 
-                {/* 4. Contenedor para los filtros */}
                 {isManager && (
                     <div className="flex flex-wrap sm:flex-nowrap gap-4">
+                        {/* Botón de Exportar */}
+                        <Button onClick={handleExportExcel}>
+                            Exportar a Excel
+                        </Button>
                         {/* Filtro de Proveedor */}
-                        <div className="w-full sm:w-64">
+                        <div className="w-full sm:w-56">
                              <select
                                 id="provider-filter"
                                 value={selectedProviderId}
@@ -90,7 +114,7 @@ const LeadsListPage: React.FC = () => {
                             </select>
                         </div>
                         {/* Filtro de Vendedor */}
-                        <div className="w-full sm:w-64">
+                        <div className="w-full sm:w-56">
                             <select
                                 id="seller-filter"
                                 value={selectedSellerId}
