@@ -1,4 +1,4 @@
-// data/mockData.ts (Versión Corregida)
+// data/mockData.ts (Versión para Pruebas)
 
 import { Lead, User, UserRole, Product, Provider, Stage, USER_ROLES } from '../types';
 
@@ -25,9 +25,18 @@ export const initialUsers: User[] = [
 ];
 
 const today = new Date().toISOString();
+// --- FECHA ANTIGUA PARA LA PRUEBA ---
+// Creamos una fecha de hace 14 días para simular un prospecto estancado.
+const oldDate = new Date();
+oldDate.setDate(oldDate.getDate() - 14);
+const fourteenDaysAgo = oldDate.toISOString();
 
 export const initialLeads: Lead[] = [
-  { id: 'lead01', name: 'Empresa ABC', company: 'ABC Inc.', email: 'contacto@abc.com', phone: '12345678', status: 'stage1', createdAt: today, statusHistory: [{ status: 'stage1', date: today }], ownerId: 'vendedor01', productIds: ['prod1', 'prod3'], providerId: 'prov2', observations: 'Mostraron mucho interés en el gateway.', lastUpdate: today },
+  // --- CAMBIO CLAVE AQUÍ ---
+  // Este prospecto ahora tiene una fecha de última actualización de hace 14 días.
+  { id: 'lead01', name: 'Empresa ABC', company: 'ABC Inc.', email: 'contacto@abc.com', phone: '12345678', status: 'stage1', createdAt: fourteenDaysAgo, statusHistory: [{ status: 'stage1', date: fourteenDaysAgo }], ownerId: 'vendedor01', productIds: ['prod1', 'prod3'], providerId: 'prov2', observations: 'Mostraron mucho interés en el gateway.', lastUpdate: fourteenDaysAgo },
+  
+  // El resto de los prospectos se mantienen con la fecha de hoy.
   { id: 'lead02', name: 'Tienda XYZ', company: 'XYZ Retail', email: 'info@xyz.com', phone: '87654321', status: 'stage2', createdAt: today, statusHistory: [{ status: 'stage1', date: today }, { status: 'stage2', date: today }], ownerId: 'vendedor02', productIds: ['prod2'], observations: 'Necesitan una demo del POS.', lastUpdate: today },
   { id: 'lead03', name: 'Gimnasio FitnessPro', company: 'FitnessPro Gym', email: 'gerencia@fitness.com', phone: '11223344', status: 'stage3', createdAt: today, statusHistory: [{ status: 'stage1', date: today }, { status: 'stage2', date: today }, { status: 'stage3', date: today }], ownerId: 'vendedor01', productIds: ['prod1'], providerId: 'prov3', observations: 'Cotización enviada. Esperando respuesta.', lastUpdate: today },
   { id: 'lead04', name: 'Consultores Tech', company: 'Tech Solutions', email: 'consultas@tech.com', phone: '44332211', status: 'stage1', createdAt: today, statusHistory: [{ status: 'stage1', date: today }], ownerId: 'vendedor02', productIds: ['prod3'], observations: 'Primer contacto realizado.', lastUpdate: today },
