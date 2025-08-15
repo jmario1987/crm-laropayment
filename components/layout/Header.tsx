@@ -1,4 +1,4 @@
-// components/layout/Header.tsx (Versión Corregida)
+// components/layout/Header.tsx (Versión Final con Notificaciones Conectadas)
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
@@ -18,10 +18,7 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout, onMenuClick }) => {
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  // --- CORRECCIÓN AQUÍ ---
-  // Se obtienen los datos directamente del hook, sin usar 'state'.
   const { allLeads, getStageById } = useLeads();
-  
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -70,6 +67,7 @@ const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout, onM
 
   const firstName = userName ? userName.split(' ')[0] : 'Usuario';
   
+  // Esta función ahora será usada tanto por el buscador como por las notificaciones
   const handleLeadSelect = (lead: Lead) => {
     setSelectedLead(lead);
     setSearchQuery('');
@@ -100,7 +98,7 @@ const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout, onM
                   <div className="absolute mt-1 w-full bg-white dark:bg-gray-800 rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
                       {searchResults.length > 0 ? (
                           <ul>
-                              {searchResults.map((lead: Lead) => ( // <-- CORRECCIÓN: Se añade el tipo 'Lead'
+                              {searchResults.map((lead: Lead) => (
                                   <li 
                                       key={lead.id} 
                                       onClick={() => handleLeadSelect(lead)}
@@ -125,7 +123,8 @@ const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout, onM
             Nuevo Prospecto
           </Button>
           
-          <Notifications />
+          {/* Se le pasa la función handleLeadSelect al componente de Notificaciones */}
+          <Notifications onLeadSelect={handleLeadSelect} />
 
           <div className="relative">
               <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="flex items-center space-x-2">
