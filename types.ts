@@ -7,13 +7,14 @@ export const USER_ROLES = {
 
 export type UserRole = typeof USER_ROLES[keyof typeof USER_ROLES];
 
-// Definición del Usuario (con 'password' opcional para los formularios)
+// Definición del Usuario (con 'password' y 'lastLogin' opcionales)
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
-  password?: string; // <-- CAMBIO: Añadido para el formulario de creación
+  password?: string;
+  lastLogin?: string; // <-- CAMBIO: Añadido para la tabla de usuarios
 }
 
 // Definición del Estado del Prospecto (Etapa)
@@ -49,11 +50,11 @@ export interface Product {
   description: string;
 }
 
-// Definición del Proveedor (con 'contactPerson' en lugar de 'contact')
+// Definición del Proveedor
 export interface Provider {
   id: string;
   name: string;
-  contactPerson: string; // <-- CAMBIO: 'contact' se renombró a 'contactPerson'
+  contactPerson: string;
 }
 
 // Definición de la Etapa del Pipeline
