@@ -2,15 +2,24 @@ import React, { useMemo, useState } from 'react';
 import { useLeads } from '../hooks/useLeads';
 import { useAuth } from '../hooks/useAuth';
 import { Lead, USER_ROLES } from '../types';
-import * as XLSX from 'xlsx'; // Se importa la librería para Excel
-import Button from '../components/ui/Button'; // Se importa el componente de botón
+import * as XLSX from 'xlsx';
+import Button from '../components/ui/Button';
 
-// Componente para una fila de la tabla (no cambia)
+// Componente para una fila de la tabla (con las nuevas columnas)
 const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
     const { getUserById, getStageById } = useLeads();
+
     const sellerName = getUserById(lead.ownerId)?.name || 'No asignado';
     const stage = getStageById(lead.status);
     const stageName = stage?.name || 'Desconocido';
+    
+    // --- NUEVA LÓGICA DE FECHAS ---
+    const creationDate = useMemo(() => {
+        return new Date(lead.createdAt).toLocaleDateString('es-ES', {
+            day: 'numeric', month: 'short', year: 'numeric'
+        });
+    }, [lead.createdAt]);
+
     const lastModification = useMemo(() => {
         const referenceDate = lead.lastUpdate || lead.createdAt;
         return new Date(referenceDate).toLocaleString('es-ES', {
@@ -18,22 +27,31 @@ const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
         });
     }, [lead.lastUpdate, lead.createdAt]);
 
+    const daysInProcess = useMemo(() => {
+        const startDate = new Date(lead.createdAt);
+        const endDate = new Date(lead.lastUpdate || lead.createdAt);
+        const timeDiff = endDate.getTime() - startDate.getTime();
+        const days = Math.floor(timeDiff / (1000 * 3600 * 24));
+        return days;
+    }, [lead.createdAt, lead.lastUpdate]);
+
     return (
         <tr className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
             <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{lead.name}</td>
-            <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{lead.company}</td>
             <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{sellerName}</td>
             <td className="px-6 py-4">
                 <span className="px-2 py-1 text-xs font-bold rounded-full text-white" style={{ backgroundColor: stage?.color || '#cccccc' }}>
                     {stageName}
                 </span>
             </td>
+            <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{creationDate}</td>
             <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{lastModification}</td>
+            <td className="px-6 py-4 font-semibold text-gray-800 dark:text-gray-200 text-center">{daysInProcess}</td>
         </tr>
     );
 };
 
-// Componente principal de la página (con las nuevas funcionalidades)
+// Componente principal de la página (con la tabla y exportación actualizadas)
 const LeadsListPage: React.FC = () => {
     const { allLeads, sellers, providers, getStageById, getUserById, getProviderById } = useLeads();
     const { user } = useAuth();
@@ -56,35 +74,37 @@ const LeadsListPage: React.FC = () => {
         if (isManager && selectedProviderId !== 'all') {
             leadsToDisplay = leadsToDisplay.filter(lead => lead.providerId === selectedProviderId);
         }
-
-        // --- NUEVA LÓGICA DE ORDENAMIENTO ---
-        // Se ordena la lista para mostrar los más recientes primero.
+        
         return leadsToDisplay.sort((a, b) => 
             new Date(b.lastUpdate || b.createdAt).getTime() - new Date(a.lastUpdate || a.createdAt).getTime()
         );
 
     }, [allLeads, user, isManager, selectedSellerId, selectedProviderId]);
 
-    // --- NUEVA FUNCIÓN PARA EXPORTAR A EXCEL ---
     const handleExportExcel = () => {
-        // 1. Preparamos los datos con nombres legibles
-        const dataToExport = visibleLeads.map(lead => ({
-            "Prospecto": lead.name,
-            "Empresa": lead.company,
-            "Email": lead.email,
-            "Teléfono": lead.phone,
-            "Etapa": getStageById(lead.status)?.name || 'N/A',
-            "Vendedor Asignado": getUserById(lead.ownerId)?.name || 'N/A',
-            "Referido por": getProviderById(lead.providerId || '')?.name || 'N/A',
-            "Última Modificación": new Date(lead.lastUpdate || lead.createdAt).toLocaleDateString('es-ES'),
-        }));
+        const dataToExport = visibleLeads.map(lead => {
+            const startDate = new Date(lead.createdAt);
+            const endDate = new Date(lead.lastUpdate || lead.createdAt);
+            const timeDiff = endDate.getTime() - startDate.getTime();
+            const daysInProcess = Math.floor(timeDiff / (1000 * 3600 * 24));
 
-        // 2. Creamos la hoja de cálculo y el archivo
+            return {
+                "Prospecto": lead.name,
+                "Empresa": lead.company,
+                "Etapa": getStageById(lead.status)?.name || 'N/A',
+                "Vendedor Asignado": getUserById(lead.ownerId)?.name || 'N/A',
+                "Fecha de Ingreso": new Date(lead.createdAt).toLocaleDateString('es-ES'),
+                "Última Modificación": new Date(lead.lastUpdate || lead.createdAt).toLocaleDateString('es-ES'),
+                "Días en Proceso": daysInProcess,
+                "Referido por": getProviderById(lead.providerId || '')?.name || 'N/A',
+                "Email": lead.email,
+                "Teléfono": lead.phone,
+            };
+        });
+
         const worksheet = XLSX.utils.json_to_sheet(dataToExport);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Prospectos");
-
-        // 3. Descargamos el archivo
         XLSX.writeFile(workbook, "Reporte_Prospectos.xlsx");
     };
 
@@ -95,11 +115,9 @@ const LeadsListPage: React.FC = () => {
                 
                 {isManager && (
                     <div className="flex flex-wrap sm:flex-nowrap gap-4">
-                        {/* Botón de Exportar */}
                         <Button onClick={handleExportExcel}>
                             Exportar a Excel
                         </Button>
-                        {/* Filtro de Proveedor */}
                         <div className="w-full sm:w-56">
                              <select
                                 id="provider-filter"
@@ -113,7 +131,6 @@ const LeadsListPage: React.FC = () => {
                                 ))}
                             </select>
                         </div>
-                        {/* Filtro de Vendedor */}
                         <div className="w-full sm:w-56">
                             <select
                                 id="seller-filter"
@@ -135,10 +152,11 @@ const LeadsListPage: React.FC = () => {
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                         <tr>
                             <th scope="col" className="px-6 py-3">Prospecto</th>
-                            <th scope="col" className="px-6 py-3">Empresa</th>
                             <th scope="col" className="px-6 py-3">Vendedor Asignado</th>
                             <th scope="col" className="px-6 py-3">Etapa Actual</th>
+                            <th scope="col" className="px-6 py-3">Fecha de Ingreso</th>
                             <th scope="col" className="px-6 py-3">Última Modificación</th>
+                            <th scope="col" className="px-6 py-3 text-center">Días en Proceso</th>
                         </tr>
                     </thead>
                     <tbody>
