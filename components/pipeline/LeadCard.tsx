@@ -12,24 +12,25 @@ interface LeadCardProps {
 const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
-  const daysInStage = useMemo(() => {
-    if (!lead.statusHistory?.length) {
-      const timeDiff = new Date().getTime() - new Date(lead.createdAt).getTime();
-      return Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-    }
-    const lastChange = lead.statusHistory[lead.statusHistory.length - 1];
-    const timeDiff = new Date().getTime() - new Date(lastChange.date).getTime();
+  // --- LÓGICA CORREGIDA ---
+  // Ahora calculamos los días desde la ÚLTIMA ACTUALIZACIÓN, igual que las notificaciones.
+  const daysSinceLastUpdate = useMemo(() => {
+    // Usamos 'lastUpdate' como fuente principal. Si un prospecto muy antiguo no lo tiene,
+    // usamos 'createdAt' como respaldo.
+    const referenceDate = lead.lastUpdate || lead.createdAt;
+    const timeDiff = new Date().getTime() - new Date(referenceDate).getTime();
     return Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-  }, [lead.statusHistory, lead.createdAt]);
+  }, [lead.lastUpdate, lead.createdAt]);
 
+  // La lógica de la insignia ahora usa el nuevo cálculo.
   const getTimeBadge = () => {
     let badgeColorClass = 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-    if (daysInStage >= 8) {
+    if (daysSinceLastUpdate >= 8) {
       badgeColorClass = 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-    } else if (daysInStage >= 4) {
+    } else if (daysSinceLastUpdate >= 4) {
       badgeColorClass = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
     }
-    const displayText = daysInStage === 0 ? 'Hoy' : `${daysInStage}d`;
+    const displayText = daysSinceLastUpdate === 0 ? 'Hoy' : `${daysSinceLastUpdate}d`;
 
     return (
       <span className={`inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full ${badgeColorClass}`}>
