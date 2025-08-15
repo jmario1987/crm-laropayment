@@ -7,16 +7,23 @@ export const USER_ROLES = {
 
 export type UserRole = typeof USER_ROLES[keyof typeof USER_ROLES];
 
-// Definición del Usuario
+// Definición del Usuario (con 'password' opcional para los formularios)
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
+  password?: string; // <-- CAMBIO: Añadido para el formulario de creación
 }
 
 // Definición del Estado del Prospecto (Etapa)
-export type LeadStatus = string; // Usamos string para que sea flexible con los IDs de las etapas
+export type LeadStatus = string;
+
+// Definición para una entrada en el historial de etapas
+export type StatusHistoryEntry = {
+  status: LeadStatus;
+  date: string;
+};
 
 // Definición del Prospecto (Lead)
 export type Lead = {
@@ -31,8 +38,8 @@ export type Lead = {
   providerId?: string;
   observations: string;
   createdAt: string;
-  statusHistory: { status: LeadStatus; date: string }[];
-  lastUpdate: string; // Propiedad que añadimos
+  statusHistory: StatusHistoryEntry[];
+  lastUpdate: string;
 };
 
 // Definición del Producto
@@ -42,11 +49,11 @@ export interface Product {
   description: string;
 }
 
-// Definición del Proveedor (Referido)
+// Definición del Proveedor (con 'contactPerson' en lugar de 'contact')
 export interface Provider {
   id: string;
   name: string;
-  contact: string;
+  contactPerson: string; // <-- CAMBIO: 'contact' se renombró a 'contactPerson'
 }
 
 // Definición de la Etapa del Pipeline

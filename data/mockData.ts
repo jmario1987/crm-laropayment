@@ -1,47 +1,45 @@
+// data/mockData.ts (Versión Corregida)
 
-import { Lead, User, UserRole, Product, Provider, Stage } from '../types';
-import { USER_ROLES } from '../types';
+import { Lead, User, UserRole, Product, Provider, Stage, USER_ROLES } from '../types';
 
-export const initialRoles: UserRole[] = [
-    USER_ROLES.Admin,
-    USER_ROLES.Supervisor,
-    USER_ROLES.Vendedor,
-];
-
-export const initialStages: Stage[] = [
-    { id: 'stage-1', name: 'Nuevo', color: '#FB8500', type: 'open', order: 0 },
-    { id: 'stage-2', name: 'Contactado', color: '#FFB703', type: 'open', order: 1 },
-    { id: 'stage-3', name: 'Calificado', color: '#023047', type: 'open', order: 2 },
-    { id: 'stage-4', name: 'Propuesta Enviada', color: '#219EBC', type: 'open', order: 3 },
-    { id: 'stage-5', name: 'Ganado', color: '#8ECAE6', type: 'won', order: 4 },
-    { id: 'stage-6', name: 'Perdido', color: '#ef4444', type: 'lost', order: 5 },
-];
+export const initialRoles: UserRole[] = [USER_ROLES.Admin, USER_ROLES.Supervisor, USER_ROLES.Vendedor];
 
 export const initialProducts: Product[] = [
-    { id: 'prod-1', name: 'Terminal de Pago Estándar', description: 'Terminal de punto de venta para tarjetas de crédito y débito.' },
-    { id: 'prod-2', name: 'Gateway de Pago Online', description: 'Integración para pagos en sitios web y aplicaciones.' },
-    { id: 'prod-3', name: 'Solución de Pagos Móviles', description: 'Acepta pagos desde cualquier lugar con un dispositivo móvil.' },
+  { id: 'prod1', name: 'Servicio de Pago Recurrente', description: 'Solución para suscripciones y membresías.' },
+  { id: 'prod2', name: 'Terminal Punto de Venta (POS)', description: 'Hardware y software para transacciones en persona.' },
+  { id: 'prod3', name: 'Gateway de Pago Online', description: 'Integración para e-commerce y pagos en línea.' },
 ];
 
 export const initialProviders: Provider[] = [
-    { id: 'prov-1', name: 'Alianza Digital', contactPerson: 'Mariana López' },
-    { id: 'prov-2', name: 'Conexiones Web', contactPerson: 'Jorge Torres' },
-    { id: 'prov-3', name: 'Marketing Solutions', contactPerson: 'Beatriz Solano' },
+  { id: 'prov1', name: 'Referido Interno', contactPerson: 'N/A' },
+  { id: 'prov2', name: 'Campaña de Marketing Digital', contactPerson: 'Agencia Creativa' },
+  { id: 'prov3', name: 'Alianza Estratégica TechCorp', contactPerson: 'Ana Rodriguez' },
 ];
 
 export const initialUsers: User[] = [
-    { id: 'user-1', name: 'Ronny Rojas', email: 'admin@crm.com', password: 'password', role: USER_ROLES.Admin },
-    { id: 'user-2', name: 'Randall Serrano', email: 'supervisor@crm.com', password: 'password', role: USER_ROLES.Supervisor },
-    { id: 'user-3', name: 'Valeria Vendedor', email: 'vendedor1@crm.com', password: 'password', role: USER_ROLES.Vendedor },
-    { id: 'user-4', name: 'Victor Vendedor', email: 'vendedor2@crm.com', password: 'password', role: USER_ROLES.Vendedor },
-    { id: 'user-5', name: 'Carlos Vendedor', email: 'vendedor3@crm.com', password: 'password', role: USER_ROLES.Vendedor },
+  { id: 'admin01', name: 'Admin Laro', email: 'admin@laro.com', role: USER_ROLES.Admin, password: 'password123' },
+  { id: 'supervisor01', name: 'Sofia Vergara', email: 'sofia.v@laro.com', role: USER_ROLES.Supervisor, password: 'password123' },
+  { id: 'vendedor01', name: 'Juan Perez', email: 'juan.p@laro.com', role: USER_ROLES.Vendedor, password: 'password123' },
+  { id: 'vendedor02', name: 'Maria Lopez', email: 'maria.l@laro.com', role: USER_ROLES.Vendedor, password: 'password123' },
+  { id: 'vendedor03', name: 'Carlos Gomez', email: 'carlos.g@laro.com', role: USER_ROLES.Vendedor, password: 'password123' },
 ];
 
+const today = new Date().toISOString();
+
 export const initialLeads: Lead[] = [
-    { id: '1', name: 'Juan Pérez', company: 'Tech Solutions', email: 'juan.perez@techsolutions.com', phone: '555-1234', status: 'stage-1', createdAt: new Date().toISOString(), statusHistory: [{ status: 'stage-1', date: new Date().toISOString() }], ownerId: 'user-3', productIds: ['prod-1', 'prod-2'], providerId: 'prov-1', observations: 'Cliente muy interesado en la solución de Gateway de Pago. Preguntó por descuentos por volumen.' },
-    { id: '2', name: 'Ana Gómez', company: 'Innovate Corp', email: 'ana.gomez@innovate.com', phone: '555-5678', status: 'stage-2', createdAt: new Date().toISOString(), statusHistory: [{ status: 'stage-2', date: new Date().toISOString() }], ownerId: 'user-3', productIds: ['prod-2'], observations: 'Primer contacto realizado. Se envió correo con información inicial. Pendiente agendar llamada.' },
-    { id: '3', name: 'Carlos Sánchez', company: 'Data Systems', email: 'carlos.sanchez@datasys.com', phone: '555-8765', status: 'stage-3', createdAt: new Date().toISOString(), statusHistory: [{ status: 'stage-3', date: new Date().toISOString() }], ownerId: 'user-4', productIds: ['prod-3'], providerId: 'prov-2', observations: '' },
-    { id: '4', name: 'Sofía Rodríguez', company: 'Marketing Digital Pro', email: 'sofia.r@mdpro.net', phone: '555-4321', status: 'stage-4', createdAt: new Date().toISOString(), statusHistory: [{ status: 'stage-4', date: new Date().toISOString() }], ownerId: 'user-4', productIds: ['prod-1'], observations: 'Propuesta enviada. Esperando respuesta para la próxima semana.' },
-    { id: '5', name: 'Luis Martínez', company: 'Creative Agency', email: 'luis.m@creative.com', phone: '555-1122', status: 'stage-5', createdAt: new Date().toISOString(), statusHistory: [{ status: 'stage-5', date: new Date().toISOString() }], ownerId: 'user-3', productIds: ['prod-1', 'prod-3'], observations: 'Contrato firmado. Cliente satisfecho.' },
-    { id: '6', name: 'Laura Fernández', company: 'Global Exports', email: 'laura.f@globalexports.com', phone: '555-3344', status: 'stage-6', createdAt: new Date().toISOString(), statusHistory: [{ status: 'stage-6', date: new Date().toISOString() }], ownerId: 'user-4', productIds: [], observations: 'El cliente eligió a la competencia por precio. Archivar.' }
+  { id: 'lead01', name: 'Empresa ABC', company: 'ABC Inc.', email: 'contacto@abc.com', phone: '12345678', status: 'stage1', createdAt: today, statusHistory: [{ status: 'stage1', date: today }], ownerId: 'vendedor01', productIds: ['prod1', 'prod3'], providerId: 'prov2', observations: 'Mostraron mucho interés en el gateway.', lastUpdate: today },
+  { id: 'lead02', name: 'Tienda XYZ', company: 'XYZ Retail', email: 'info@xyz.com', phone: '87654321', status: 'stage2', createdAt: today, statusHistory: [{ status: 'stage1', date: today }, { status: 'stage2', date: today }], ownerId: 'vendedor02', productIds: ['prod2'], observations: 'Necesitan una demo del POS.', lastUpdate: today },
+  { id: 'lead03', name: 'Gimnasio FitnessPro', company: 'FitnessPro Gym', email: 'gerencia@fitness.com', phone: '11223344', status: 'stage3', createdAt: today, statusHistory: [{ status: 'stage1', date: today }, { status: 'stage2', date: today }, { status: 'stage3', date: today }], ownerId: 'vendedor01', productIds: ['prod1'], providerId: 'prov3', observations: 'Cotización enviada. Esperando respuesta.', lastUpdate: today },
+  { id: 'lead04', name: 'Consultores Tech', company: 'Tech Solutions', email: 'consultas@tech.com', phone: '44332211', status: 'stage1', createdAt: today, statusHistory: [{ status: 'stage1', date: today }], ownerId: 'vendedor02', productIds: ['prod3'], observations: 'Primer contacto realizado.', lastUpdate: today },
+  { id: 'lead05', name: 'E-commerce ModaHoy', company: 'ModaHoy Online', email: 'soporte@modahoy.com', phone: '55667788', status: 'stage4', createdAt: today, statusHistory: [{ status: 'stage1', date: today }, { status: 'stage2', date: today }, { status: 'stage3', date: today }, { status: 'stage4', date: today }], ownerId: 'vendedor03', productIds: ['prod3'], observations: 'Negociación final. A punto de cerrar.', lastUpdate: today },
+  { id: 'lead06', name: 'Restaurante SaborLocal', company: 'SaborLocal', email: 'admin@saborlocal.com', phone: '99887766', status: 'stage5', createdAt: today, statusHistory: [{ status: 'stage1', date: today }, { status: 'stage5', date: today }], ownerId: 'vendedor03', productIds: [], observations: 'Cliente no interesado por el momento.', lastUpdate: today },
+];
+
+export const initialStages: Stage[] = [
+  { id: 'stage1', name: 'Nuevo Prospecto', order: 1, type: 'open', color: '#3B82F6' },
+  { id: 'stage2', name: 'Contactado', order: 2, type: 'open', color: '#10B981' },
+  { id: 'stage3', name: 'Propuesta Enviada', order: 3, type: 'open', color: '#F59E0B' },
+  { id: 'stage4', name: 'Negociación', order: 4, type: 'open', color: '#8B5CF6' },
+  { id: 'stage5', name: 'Perdido', order: 5, type: 'lost', color: '#EF4444' },
+  { id: 'stage6', name: 'Ganado', order: 6, type: 'won', color: '#22C55E' },
 ];
