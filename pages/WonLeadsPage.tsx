@@ -5,9 +5,13 @@ import { Lead, USER_ROLES } from '../types';
 import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
 
-// Componente para una fila de la tabla (con la nueva columna)
+// Componente para una fila de la tabla (con las nuevas columnas)
 const WonLeadRow: React.FC<{ lead: Lead; sellerName?: string }> = ({ lead, sellerName }) => {
     
+    const creationDate = useMemo(() => {
+        return new Date(lead.createdAt).toLocaleDateString('es-ES');
+    }, [lead.createdAt]);
+
     const closingDate = useMemo(() => {
         if (lead.statusHistory && lead.statusHistory.length > 0) {
             const lastEntry = lead.statusHistory[lead.statusHistory.length - 1];
@@ -16,7 +20,6 @@ const WonLeadRow: React.FC<{ lead: Lead; sellerName?: string }> = ({ lead, selle
         return new Date(lead.createdAt).toLocaleDateString('es-ES');
     }, [lead.statusHistory, lead.createdAt]);
 
-    // --- NUEVA LÓGICA PARA CALCULAR LA DURACIÓN ---
     const processDuration = useMemo(() => {
         const startDate = new Date(lead.createdAt);
         const lastEntry = lead.statusHistory && lead.statusHistory.length > 0
@@ -33,17 +36,18 @@ const WonLeadRow: React.FC<{ lead: Lead; sellerName?: string }> = ({ lead, selle
             <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{lead.name}</td>
             <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{lead.company}</td>
             <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{sellerName || 'N/A'}</td>
+            <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{creationDate}</td>
             <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{closingDate}</td>
             <td className="px-6 py-4 font-semibold text-gray-800 dark:text-gray-200 text-center">{processDuration}</td>
         </tr>
     );
 };
 
-// Componente principal de la página (con el nuevo filtro)
+// Componente principal de la página (con el nuevo filtro y columnas)
 const WonLeadsPage: React.FC = () => {
     const { allLeads, stages, getUserById, providers, getProviderById } = useLeads();
     const { user } = useAuth();
-    const [selectedProviderId, setSelectedProviderId] = useState('all'); // Estado para el nuevo filtro
+    const [selectedProviderId, setSelectedProviderId] = useState('all');
 
     const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
 
@@ -53,18 +57,16 @@ const WonLeadsPage: React.FC = () => {
 
         if (!user) return [];
         
-        // Filtro por proveedor (solo para managers)
         if (isManager && selectedProviderId !== 'all') {
             allWonLeads = allWonLeads.filter(lead => lead.providerId === selectedProviderId);
         }
 
-        // Filtro por rol
         if (isManager) {
             return allWonLeads;
         }
         return allWonLeads.filter(lead => lead.ownerId === user.id);
 
-    }, [allLeads, stages, user, selectedProviderId]); // Se añade la nueva dependencia
+    }, [allLeads, stages, user, selectedProviderId]);
     
     const handleExportExcel = () => {
         const dataToExport = wonLeads.map(lead => {
@@ -81,6 +83,7 @@ const WonLeadsPage: React.FC = () => {
                 'Nombre': lead.name,
                 'Empresa': lead.company,
                 'Vendedor': getUserById(lead.ownerId)?.name || 'N/A',
+                'Fecha de Ingreso': new Date(lead.createdAt).toLocaleDateString('es-ES'),
                 'Fecha de Cierre': new Date(lastEntry.date).toLocaleDateString('es-ES'),
                 'Duración del Proceso (días)': processDuration,
                 'Referido por': getProviderById(lead.providerId || '')?.name || 'N/A',
@@ -128,6 +131,7 @@ const WonLeadsPage: React.FC = () => {
                                 <th scope="col" className="px-6 py-3">Nombre</th>
                                 <th scope="col" className="px-6 py-3">Empresa</th>
                                 <th scope="col" className="px-6 py-3">Vendedor</th>
+                                <th scope="col" className="px-6 py-3">Fecha de Ingreso</th>
                                 <th scope="col" className="px-6 py-3">Fecha de Cierre</th>
                                 <th scope="col" className="px-6 py-3 text-center">Duración del Proceso (días)</th>
                             </tr>
