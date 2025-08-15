@@ -1,16 +1,15 @@
-import React, { createContext, useReducer, useEffect, ReactNode, Dispatch, useRef } from 'react';
+import React, { createContext, useReducer, useEffect, ReactNode, Dispatch, useRef, useMemo } from 'react';
 import { Lead, User, UserRole, Product, Provider, Stage, USER_ROLES } from '../types';
-import { initialLeads, initialUsers, initialRoles, initialProducts, initialProviders, initialStages } from '../data/mockData';
+import { initialRoles } from '../data/mockData';
 import { db } from '../firebaseConfig';
 import { collection, getDocs, writeBatch, doc, setDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 
-// La lista de 'Action' y la interfaz 'State' no cambian
+// --- SIN CAMBIOS EN ESTA SECCIÓN ---
 type Action = | { type: 'SET_STATE'; payload: State } | { type: 'ADD_LEAD'; payload: Lead } | { type: 'UPDATE_LEAD'; payload: Lead } | { type: 'DELETE_LEAD'; payload: string } | { type: 'ADD_BULK_LEADS'; payload: Lead[] } | { type: 'ADD_USER'; payload: User } | { type: 'UPDATE_USER'; payload: User } | { type: 'ADD_ROLE'; payload: string } | { type: 'DELETE_ROLE'; payload: string } | { type: 'ADD_PRODUCT'; payload: Product } | { type: 'UPDATE_PRODUCT'; payload: Product } | { type: 'DELETE_PRODUCT'; payload: string } | { type: 'ADD_PROVIDER'; payload: Provider } | { type: 'UPDATE_PROVIDER'; payload: Provider } | { type: 'DELETE_PROVIDER'; payload: string } | { type: 'ADD_STAGE'; payload: Stage } | { type: 'UPDATE_STAGE'; payload: Stage } | { type: 'DELETE_STAGE'; payload: string } | { type: 'UPDATE_STAGES_ORDER'; payload: Stage[] };
 interface State { leads: Lead[]; users: User[]; roles: UserRole[]; products: Product[]; providers: Provider[]; stages: Stage[]; }
 const initialState: State = { leads: [], users: [], roles: [], products: [], providers: [], stages: [] };
 
-// El 'leadReducer' no cambia, sigue guardando los cambios en Firestore
 const leadReducer = (state: State, action: Action): State => {
     switch (action.type) {
         case 'SET_STATE': return { ...action.payload };
@@ -34,15 +33,48 @@ const leadReducer = (state: State, action: Action): State => {
     }
 };
 
-export const LeadContext = createContext<{ state: State; dispatch: Dispatch<Action> }>({
+// --- NUEVA INTERFAZ PARA EL CONTEXTO ---
+// Ahora incluye la lista de notificaciones (stagnantLeads)
+interface LeadContextType {
+  state: State;
+  dispatch: Dispatch<Action>;
+  stagnantLeads: Lead[];
+}
+
+export const LeadContext = createContext<LeadContextType>({
   state: initialState,
   dispatch: () => null,
+  stagnantLeads: [], // Valor inicial
 });
 
 export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(leadReducer, initialState);
   const isDataLoaded = useRef(false);
   const { user, loading: authLoading } = useAuth();
+
+  // --- NUEVA LÓGICA PARA DETECTAR PROSPECTOS ESTANCADOS ---
+  const stagnantLeads = useMemo(() => {
+    // 1. Obtenemos los IDs de las etapas que son de tipo "abierto".
+    const openStageIds = state.stages
+      .filter(stage => stage.type === 'open')
+      .map(stage => stage.id);
+
+    // 2. Filtramos los prospectos que necesitan atención.
+    return state.leads.filter(lead => {
+      // Condición 1: El prospecto debe estar en una etapa abierta.
+      const isInOpenStage = openStageIds.includes(lead.status);
+      if (!isInOpenStage) return false;
+
+      // Condición 2: Deben haber pasado 8 días o más desde la última actualización.
+      const lastUpdateDate = new Date(lead.lastUpdate);
+      const today = new Date();
+      const timeDifference = today.getTime() - lastUpdateDate.getTime();
+      const daysDifference = Math.floor(timeDifference / (1000 * 3600 * 24));
+      
+      return daysDifference >= 8;
+    });
+  }, [state.leads, state.stages]); // Se recalcula solo si cambian los prospectos o las etapas.
+
 
   useEffect(() => {
     const initializeAndLoadData = async () => {
@@ -57,20 +89,17 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } else {
           console.log("Cargando datos desde Firestore...");
 
-          // LÓGICA DE CARGA CORREGIDA
           let leadsQuery;
           const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
 
           if (isManager) {
-            // Los managers piden todos los prospectos
             leadsQuery = query(collection(db, "leads"));
           } else {
-            // Los vendedores piden solo los prospectos donde son dueños
             leadsQuery = query(collection(db, "leads"), where("ownerId", "==", user.id));
           }
 
           const allData = await Promise.all([
-            getDocs(leadsQuery), // Usamos la consulta correcta aquí
+            getDocs(leadsQuery),
             getDocs(collection(db, "users")),
             getDocs(collection(db, "stages")),
             getDocs(collection(db, "products")),
@@ -93,7 +122,6 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     initializeAndLoadData();
   }, [user, authLoading]);
 
-  // Efecto para resetear el estado cuando el usuario cierra sesión (no cambia)
   useEffect(() => {
     if (!user && !authLoading) {
       dispatch({ type: 'SET_STATE', payload: initialState });
@@ -102,7 +130,8 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [user, authLoading]);
 
   return (
-    <LeadContext.Provider value={{ state, dispatch }}>
+    // Se añade `stagnantLeads` al valor del proveedor
+    <LeadContext.Provider value={{ state, dispatch, stagnantLeads }}>
       {children}
     </LeadContext.Provider>
   );
