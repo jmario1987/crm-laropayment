@@ -7,14 +7,14 @@ export const USER_ROLES = {
 
 export type UserRole = typeof USER_ROLES[keyof typeof USER_ROLES];
 
-// Definición del Usuario (con 'password' y 'lastLogin' opcionales)
+// Definición del Usuario
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
   password?: string;
-  lastLogin?: string; // <-- CAMBIO: Añadido para la tabla de usuarios
+  lastLogin?: string;
 }
 
 // Definición del Estado del Prospecto (Etapa)
@@ -26,7 +26,7 @@ export type StatusHistoryEntry = {
   date: string;
 };
 
-// Definición del Prospecto (Lead)
+// Definición del Prospecto (Lead) con los nuevos campos para notificaciones
 export type Lead = {
   id: string;
   name: string;
@@ -41,6 +41,10 @@ export type Lead = {
   createdAt: string;
   statusHistory: StatusHistoryEntry[];
   lastUpdate: string;
+  // --- NUEVOS CAMPOS PARA EL SISTEMA DE NOTIFICACIONES ---
+  notificationForSeller?: boolean;
+  notificationForManagerId?: string;
+  sellerHasViewedNotification?: boolean;
 };
 
 // Definición del Producto

@@ -1,12 +1,13 @@
-// components/layout/Header.tsx (Versión Final con Notificaciones Conectadas)
+// components/layout/Header.tsx (Versión Final y Completa)
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import Button from '../ui/Button';
 import { useLeads } from '../../hooks/useLeads';
-import { Lead } from '../../types';
+import { Lead, USER_ROLES } from '../../types';
 import LeadDetailsModal from '../leads/LeadDetailsModal';
 import Notifications from '../notifications/Notifications';
+import { useAuth } from '../../hooks/useAuth';
 
 interface HeaderProps {
   onNewLeadClick: () => void;
@@ -18,7 +19,8 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout, onMenuClick }) => {
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { allLeads, getStageById } = useLeads();
+  const { allLeads, getStageById, dispatch } = useLeads();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -45,11 +47,8 @@ const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout, onM
         }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-        document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [searchContainerRef]);
-
 
   const getTitle = () => {
     switch (location.pathname) {
@@ -67,8 +66,21 @@ const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout, onM
 
   const firstName = userName ? userName.split(' ')[0] : 'Usuario';
   
-  // Esta función ahora será usada tanto por el buscador como por las notificaciones
+  // --- FUNCIÓN ACTUALIZADA PARA LIMPIAR NOTIFICACIONES ---
   const handleLeadSelect = (lead: Lead) => {
+    // Si el usuario es un Vendedor y el prospecto tiene una notificación para él...
+    if (user?.role === USER_ROLES.Vendedor && lead.notificationForSeller) {
+      // ...la marcamos como leída para que la alerta desaparezca.
+      const updatedLead = { ...lead, notificationForSeller: false };
+      dispatch({ type: 'UPDATE_LEAD', payload: updatedLead });
+    }
+    // Si el usuario es un Manager y el prospecto tiene una notificación de respuesta...
+    if ((user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor) && lead.sellerHasViewedNotification) {
+      // ...la marcamos como leída.
+      const updatedLead = { ...lead, sellerHasViewedNotification: false, notificationForManagerId: '' };
+      dispatch({ type: 'UPDATE_LEAD', payload: updatedLead });
+    }
+
     setSelectedLead(lead);
     setSearchQuery('');
     setSearchResults([]);
@@ -123,7 +135,6 @@ const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout, onM
             Nuevo Prospecto
           </Button>
           
-          {/* Se le pasa la función handleLeadSelect al componente de Notificaciones */}
           <Notifications onLeadSelect={handleLeadSelect} />
 
           <div className="relative">

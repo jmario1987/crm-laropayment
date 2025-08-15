@@ -17,8 +17,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
   const sortedStages = [...stages].sort((a,b) => a.order - b.order);
   const defaultStatus = sortedStages.find(s => s.type === 'open')?.id || sortedStages[0]?.id || '';
 
-  // --- CAMBIO CLAVE #1 ---
-  // El campo de observaciones ahora inicia vacío para que el usuario escriba la NUEVA nota.
   const [formData, setFormData] = useState({
     name: lead?.name || '',
     company: lead?.company || '',
@@ -28,7 +26,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     ownerId: lead?.ownerId || (user?.role === USER_ROLES.Vendedor ? user.id : (sellers[0]?.id || '')),
     productIds: lead?.productIds || [],
     providerId: lead?.providerId || '',
-    observations: '', // Inicia vacío
+    observations: '',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -44,28 +42,38 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     e.preventDefault();
     if (!user) return;
 
-    // --- CAMBIO CLAVE #2: LÓGICA DE LA BITÁCORA AUTOMÁTICA ---
-    let finalObservations = lead?.observations || ''; // Por defecto, mantenemos las observaciones antiguas.
-    
-    // Si el usuario escribió una nueva observación...
+    // Lógica de la Bitácora Automática (se mantiene)
+    let finalObservations = lead?.observations || '';
     if (formData.observations.trim() !== '') {
         const autor = user.name || 'Usuario del Sistema';
         const fecha = new Date().toLocaleString('es-ES', {
             day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit'
         });
-
-        // Creamos la nueva entrada del historial.
         const entradaHistorial = `--- ${fecha} - ${autor} ---\n${formData.observations.trim()}`;
-        
-        // La combinamos con el historial anterior.
         const observacionesAntiguas = lead?.observations || '';
         finalObservations = entradaHistorial + '\n\n' + observacionesAntiguas;
     }
-    // --- FIN DE LA LÓGICA ---
 
-    const ownerId = (user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor) 
-      ? formData.ownerId 
-      : user.id;
+    // --- NUEVA LÓGICA DE NOTIFICACIONES BIDIRECCIONAL ---
+    const notificationUpdates: Partial<Lead> = {};
+    const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
+
+    if (lead) { // La lógica de notificaciones solo se aplica al actualizar un prospecto
+      // Caso 1: Un Manager deja una nota, activando la notificación para el Vendedor.
+      if (isManager && formData.observations.trim() !== '') {
+        notificationUpdates.notificationForSeller = true;
+        notificationUpdates.notificationForManagerId = user.id;
+        notificationUpdates.sellerHasViewedNotification = false; // Se resetea el estado de respuesta
+      }
+      // Caso 2: Un Vendedor actualiza un prospecto que tenía una notificación pendiente.
+      else if (!isManager && lead.notificationForSeller) {
+        notificationUpdates.notificationForSeller = false; // Se apaga la notificación del vendedor
+        notificationUpdates.sellerHasViewedNotification = true; // Se activa la notificación de "respuesta" para el manager
+      }
+    }
+    // --- FIN DE LA LÓGICA DE NOTIFICACIONES ---
+
+    const ownerId = isManager ? formData.ownerId : user.id;
 
     const newLeadData: Partial<Lead> = {
       id: lead?.id || new Date().toISOString(),
@@ -78,7 +86,9 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       statusHistory: lead?.statusHistory || [{ status: formData.status as LeadStatus, date: new Date().toISOString() }],
       ownerId,
       productIds: formData.productIds,
-      observations: finalObservations, // Usamos las observaciones finales con el historial
+      observations: finalObservations,
+      lastUpdate: new Date().toISOString(), // Se asegura que la fecha se actualice
+      ...notificationUpdates, // Se añaden los campos de notificación
     };
 
     if (formData.providerId) {
@@ -96,7 +106,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
   const productOptions = products.map(p => ({ value: p.id, label: p.name }));
 
   return (
-    // El resto del formulario es idéntico al tuyo
     <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-2">
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre</label>

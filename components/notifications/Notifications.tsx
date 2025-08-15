@@ -1,4 +1,4 @@
-// components/notifications/Notifications.tsx (Versión Final Interactiva)
+// components/notifications/Notifications.tsx (Versión Final y Completa)
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useLeads } from '../../hooks/useLeads';
@@ -10,7 +10,7 @@ interface NotificationsProps {
 }
 
 const Notifications: React.FC<NotificationsProps> = ({ onLeadSelect }) => {
-  const { stagnantLeads, getStageById } = useLeads();
+  const { stagnantLeads, sellerNotifications, managerResponseNotifications, getStageById, users } = useLeads();
   const { user } = useAuth();
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -28,16 +28,21 @@ const Notifications: React.FC<NotificationsProps> = ({ onLeadSelect }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  if (!isManager) {
-    return null;
-  }
+  if (!user) return null; // No mostrar nada si no hay usuario
 
-  const notificationCount = stagnantLeads.length;
+  // Calculamos el número total de notificaciones según el rol
+  const notificationCount = isManager 
+    ? stagnantLeads.length + managerResponseNotifications.length 
+    : sellerNotifications.length;
 
   const handleNotificationClick = (lead: Lead) => {
     onLeadSelect(lead);
-    setIsPanelOpen(false); // Cierra el panel después de seleccionar
+    setIsPanelOpen(false);
   };
+  
+  const getManagerName = (managerId: string) => {
+    return users.find(u => u.id === managerId)?.name || 'Un manager';
+  }
 
   return (
     <div className="relative" ref={panelRef}>
@@ -58,7 +63,6 @@ const Notifications: React.FC<NotificationsProps> = ({ onLeadSelect }) => {
         </span>
       )}
 
-      {/* Panel Desplegable de Notificaciones */}
       {isPanelOpen && (
         <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-md shadow-lg z-50 border dark:border-gray-700">
           <div className="p-3 border-b dark:border-gray-700">
@@ -67,21 +71,36 @@ const Notifications: React.FC<NotificationsProps> = ({ onLeadSelect }) => {
           <div className="max-h-96 overflow-y-auto">
             {notificationCount > 0 ? (
               <ul>
-                {stagnantLeads.map(lead => {
-                  const daysInStage = Math.floor((new Date().getTime() - new Date(lead.lastUpdate).getTime()) / (1000 * 3600 * 24));
+                {/* Notificaciones para Managers */}
+                {isManager && stagnantLeads.map(lead => {
+                  const days = Math.floor((new Date().getTime() - new Date(lead.lastUpdate).getTime()) / (1000 * 3600 * 24));
                   return (
-                    <li 
-                      key={lead.id} 
-                      onClick={() => handleNotificationClick(lead)}
-                      className="px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 border-b dark:border-gray-700 last:border-b-0"
-                    >
-                      <p className="font-semibold text-gray-800 dark:text-gray-100">{lead.name}</p>
+                    <li key={`stagnant-${lead.id}`} onClick={() => handleNotificationClick(lead)} className="px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 border-b dark:border-gray-700">
+                      <p className="font-semibold text-gray-800 dark:text-gray-100">Prospecto Estancado</p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        <span className="font-bold text-red-500">{daysInStage} días</span> en la etapa "{getStageById(lead.status)?.name || 'Desconocida'}"
+                        <b>{lead.name}</b> lleva <span className="font-bold text-red-500">{days} días</span> en "{getStageById(lead.status)?.name}".
                       </p>
                     </li>
                   );
                 })}
+                {isManager && managerResponseNotifications.map(lead => (
+                    <li key={`response-${lead.id}`} onClick={() => handleNotificationClick(lead)} className="px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 border-b dark:border-gray-700">
+                      <p className="font-semibold text-gray-800 dark:text-gray-100">Respuesta Recibida</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        <b>{users.find(u => u.id === lead.ownerId)?.name}</b> ha actualizado el prospecto <b>{lead.name}</b>.
+                      </p>
+                    </li>
+                ))}
+                
+                {/* Notificaciones para Vendedores */}
+                {!isManager && sellerNotifications.map(lead => (
+                    <li key={`mention-${lead.id}`} onClick={() => handleNotificationClick(lead)} className="px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 border-b dark:border-gray-700">
+                      <p className="font-semibold text-gray-800 dark:text-gray-100">Nueva Mención</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        <b>{getManagerName(lead.notificationForManagerId || '')}</b> te ha dejado una nota en <b>{lead.name}</b>.
+                      </p>
+                    </li>
+                ))}
               </ul>
             ) : (
               <div className="px-4 py-10 text-center text-sm text-gray-500 dark:text-gray-400">

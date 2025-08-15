@@ -33,18 +33,22 @@ const leadReducer = (state: State, action: Action): State => {
     }
 };
 
-// --- NUEVA INTERFAZ PARA EL CONTEXTO ---
-// Ahora incluye la lista de notificaciones (stagnantLeads)
+// --- INTERFAZ DEL CONTEXTO ACTUALIZADA ---
+// Ahora incluye las 3 listas de notificaciones
 interface LeadContextType {
   state: State;
   dispatch: Dispatch<Action>;
   stagnantLeads: Lead[];
+  sellerNotifications: Lead[];
+  managerResponseNotifications: Lead[];
 }
 
 export const LeadContext = createContext<LeadContextType>({
   state: initialState,
   dispatch: () => null,
-  stagnantLeads: [], // Valor inicial
+  stagnantLeads: [],
+  sellerNotifications: [],
+  managerResponseNotifications: [],
 });
 
 export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -52,59 +56,49 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const isDataLoaded = useRef(false);
   const { user, loading: authLoading } = useAuth();
 
-  // --- NUEVA LÓGICA PARA DETECTAR PROSPECTOS ESTANCADOS ---
+  // Lógica para detectar prospectos estancados (se mantiene)
   const stagnantLeads = useMemo(() => {
-    // 1. Obtenemos los IDs de las etapas que son de tipo "abierto".
-    const openStageIds = state.stages
-      .filter(stage => stage.type === 'open')
-      .map(stage => stage.id);
-
-    // 2. Filtramos los prospectos que necesitan atención.
+    const openStageIds = state.stages.filter(stage => stage.type === 'open').map(stage => stage.id);
     return state.leads.filter(lead => {
-      // Condición 1: El prospecto debe estar en una etapa abierta.
       const isInOpenStage = openStageIds.includes(lead.status);
       if (!isInOpenStage) return false;
-
-      // Condición 2: Deben haber pasado 8 días o más desde la última actualización.
-      const lastUpdateDate = new Date(lead.lastUpdate);
-      const today = new Date();
-      const timeDifference = today.getTime() - lastUpdateDate.getTime();
-      const daysDifference = Math.floor(timeDifference / (1000 * 3600 * 24));
-      
+      const daysDifference = Math.floor((new Date().getTime() - new Date(lead.lastUpdate).getTime()) / (1000 * 3600 * 24));
       return daysDifference >= 8;
     });
-  }, [state.leads, state.stages]); // Se recalcula solo si cambian los prospectos o las etapas.
+  }, [state.leads, state.stages]);
+
+  // --- NUEVA LÓGICA PARA NOTIFICACIONES BIDIRECCIONALES ---
+  // Notificaciones para el Vendedor (cuando un manager le deja una nota)
+  const sellerNotifications = useMemo(() => {
+    if (!user || user.role !== USER_ROLES.Vendedor) return [];
+    return state.leads.filter(lead => lead.notificationForSeller && lead.ownerId === user.id);
+  }, [state.leads, user]);
+
+  // Notificaciones para el Manager (cuando un vendedor responde)
+  const managerResponseNotifications = useMemo(() => {
+    if (!user || (user.role !== USER_ROLES.Admin && user.role !== USER_ROLES.Supervisor)) return [];
+    return state.leads.filter(lead => lead.sellerHasViewedNotification && lead.notificationForManagerId === user.id);
+  }, [state.leads, user]);
 
 
   useEffect(() => {
     const initializeAndLoadData = async () => {
       if (authLoading || !user || isDataLoaded.current) return;
       isDataLoaded.current = true;
-
       try {
         const usersSnapshot = await getDocs(collection(db, "users"));
         if (usersSnapshot.empty && user.role === USER_ROLES.Admin) {
-            console.log("Base de datos vacía y el usuario es Admin. Subiendo datos iniciales...");
-            // La lógica para sembrar la base de datos se queda igual
+            console.log("Base de datos vacía. Subiendo datos iniciales...");
         } else {
           console.log("Cargando datos desde Firestore...");
-
-          let leadsQuery;
           const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
-
-          if (isManager) {
-            leadsQuery = query(collection(db, "leads"));
-          } else {
-            leadsQuery = query(collection(db, "leads"), where("ownerId", "==", user.id));
-          }
-
+          const leadsQuery = isManager ? query(collection(db, "leads")) : query(collection(db, "leads"), where("ownerId", "==", user.id));
+          
           const allData = await Promise.all([
-            getDocs(leadsQuery),
-            getDocs(collection(db, "users")),
-            getDocs(collection(db, "stages")),
-            getDocs(collection(db, "products")),
-            getDocs(collection(db, "providers"))
+            getDocs(leadsQuery), getDocs(collection(db, "users")), getDocs(collection(db, "stages")),
+            getDocs(collection(db, "products")), getDocs(collection(db, "providers"))
           ]);
+
           dispatch({ type: 'SET_STATE', payload: { 
             leads: allData[0].docs.map(doc => doc.data() as Lead), 
             users: allData[1].docs.map(doc => doc.data() as User), 
@@ -118,7 +112,6 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.error("Error al inicializar los datos: ", error);
       }
     };
-
     initializeAndLoadData();
   }, [user, authLoading]);
 
@@ -130,8 +123,7 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [user, authLoading]);
 
   return (
-    // Se añade `stagnantLeads` al valor del proveedor
-    <LeadContext.Provider value={{ state, dispatch, stagnantLeads }}>
+    <LeadContext.Provider value={{ state, dispatch, stagnantLeads, sellerNotifications, managerResponseNotifications }}>
       {children}
     </LeadContext.Provider>
   );
