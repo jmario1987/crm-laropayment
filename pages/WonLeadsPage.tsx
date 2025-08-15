@@ -5,7 +5,7 @@ import { Lead, USER_ROLES } from '../types';
 import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
 
-// Componente para una fila de la tabla (con las nuevas columnas)
+// Componente para una fila de la tabla (con la nueva columna)
 const WonLeadRow: React.FC<{ lead: Lead; sellerName?: string }> = ({ lead, sellerName }) => {
     
     const creationDate = useMemo(() => {
@@ -33,6 +33,8 @@ const WonLeadRow: React.FC<{ lead: Lead; sellerName?: string }> = ({ lead, selle
 
     return (
         <tr className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+            {/* --- NUEVA COLUMNA --- */}
+            <td className="px-6 py-4 font-bold text-gray-900 dark:text-white">{lead.affiliateNumber || 'N/A'}</td>
             <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{lead.name}</td>
             <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{lead.company}</td>
             <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{sellerName || 'N/A'}</td>
@@ -43,7 +45,7 @@ const WonLeadRow: React.FC<{ lead: Lead; sellerName?: string }> = ({ lead, selle
     );
 };
 
-// Componente principal de la página (con el nuevo filtro y columnas)
+// Componente principal de la página (con la tabla y exportación actualizadas)
 const WonLeadsPage: React.FC = () => {
     const { allLeads, stages, getUserById, providers, getProviderById } = useLeads();
     const { user } = useAuth();
@@ -80,6 +82,8 @@ const WonLeadsPage: React.FC = () => {
             const processDuration = Math.floor(timeDiff / (1000 * 3600 * 24));
 
             return {
+                // --- NUEVO CAMPO EN EL EXCEL ---
+                'Nº Afiliado': lead.affiliateNumber || 'N/A',
                 'Nombre': lead.name,
                 'Empresa': lead.company,
                 'Vendedor': getUserById(lead.ownerId)?.name || 'N/A',
@@ -128,6 +132,8 @@ const WonLeadsPage: React.FC = () => {
                     <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                             <tr>
+                                {/* --- NUEVO ENCABEZADO DE COLUMNA --- */}
+                                <th scope="col" className="px-6 py-3">Nº Afiliado</th>
                                 <th scope="col" className="px-6 py-3">Nombre</th>
                                 <th scope="col" className="px-6 py-3">Empresa</th>
                                 <th scope="col" className="px-6 py-3">Vendedor</th>

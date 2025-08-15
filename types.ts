@@ -26,7 +26,7 @@ export type StatusHistoryEntry = {
   date: string;
 };
 
-// Definición del Prospecto (Lead) con los nuevos campos para notificaciones
+// Definición del Prospecto (Lead)
 export type Lead = {
   id: string;
   name: string;
@@ -41,10 +41,10 @@ export type Lead = {
   createdAt: string;
   statusHistory: StatusHistoryEntry[];
   lastUpdate: string;
-  // --- NUEVOS CAMPOS PARA EL SISTEMA DE NOTIFICACIONES ---
   notificationForSeller?: boolean;
   notificationForManagerId?: string;
   sellerHasViewedNotification?: boolean;
+  affiliateNumber?: string; // <-- SE AÑADIÓ ESTE NUEVO CAMPO
 };
 
 // Definición del Producto

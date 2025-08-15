@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLeads } from '../../hooks/useLeads';
 import { Lead, LeadStatus, USER_ROLES } from '../../types';
 import Button from '../ui/Button';
@@ -27,7 +27,14 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     productIds: lead?.productIds || [],
     providerId: lead?.providerId || '',
     observations: '',
+    affiliateNumber: lead?.affiliateNumber || '', // Se añade el nuevo campo al estado
   });
+
+  // --- NUEVA LÓGICA PARA DETECTAR ETAPA "GANADO" ---
+  const isWonStageSelected = useMemo(() => {
+    const selectedStage = stages.find(s => s.id === formData.status);
+    return selectedStage?.type === 'won';
+  }, [formData.status, stages]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -42,7 +49,13 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     e.preventDefault();
     if (!user) return;
 
-    // Lógica de la Bitácora Automática (se mantiene)
+    // --- NUEVA VALIDACIÓN ---
+    // Si la etapa es "Ganado", el número de afiliado no puede estar vacío.
+    if (isWonStageSelected && !formData.affiliateNumber.trim()) {
+        alert('El Número de Afiliado es obligatorio para marcar un prospecto como Ganado.');
+        return; // Detiene el envío del formulario
+    }
+
     let finalObservations = lead?.observations || '';
     if (formData.observations.trim() !== '') {
         const autor = user.name || 'Usuario del Sistema';
@@ -54,24 +67,20 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
         finalObservations = entradaHistorial + '\n\n' + observacionesAntiguas;
     }
 
-    // --- NUEVA LÓGICA DE NOTIFICACIONES BIDIRECCIONAL ---
     const notificationUpdates: Partial<Lead> = {};
     const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
 
-    if (lead) { // La lógica de notificaciones solo se aplica al actualizar un prospecto
-      // Caso 1: Un Manager deja una nota, activando la notificación para el Vendedor.
+    if (lead) {
       if (isManager && formData.observations.trim() !== '') {
         notificationUpdates.notificationForSeller = true;
         notificationUpdates.notificationForManagerId = user.id;
-        notificationUpdates.sellerHasViewedNotification = false; // Se resetea el estado de respuesta
+        notificationUpdates.sellerHasViewedNotification = false;
       }
-      // Caso 2: Un Vendedor actualiza un prospecto que tenía una notificación pendiente.
       else if (!isManager && lead.notificationForSeller) {
-        notificationUpdates.notificationForSeller = false; // Se apaga la notificación del vendedor
-        notificationUpdates.sellerHasViewedNotification = true; // Se activa la notificación de "respuesta" para el manager
+        notificationUpdates.notificationForSeller = false;
+        notificationUpdates.sellerHasViewedNotification = true;
       }
     }
-    // --- FIN DE LA LÓGICA DE NOTIFICACIONES ---
 
     const ownerId = isManager ? formData.ownerId : user.id;
 
@@ -87,8 +96,9 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       ownerId,
       productIds: formData.productIds,
       observations: finalObservations,
-      lastUpdate: new Date().toISOString(), // Se asegura que la fecha se actualice
-      ...notificationUpdates, // Se añaden los campos de notificación
+      lastUpdate: new Date().toISOString(),
+      affiliateNumber: formData.affiliateNumber, // Se añade el número de afiliado
+      ...notificationUpdates,
     };
 
     if (formData.providerId) {
@@ -107,6 +117,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-2">
+      {/* --- EL RESTO DEL FORMULARIO SE MANTIENE IGUAL --- */}
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre</label>
         <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
@@ -129,6 +140,25 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
           {sortedStages.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
         </select>
       </div>
+
+      {/* --- NUEVO CAMPO CONDICIONAL --- */}
+      {isWonStageSelected && (
+        <div>
+          <label htmlFor="affiliateNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Número de Afiliado <span className="text-red-500">*</span>
+          </label>
+          <input 
+            type="text" 
+            name="affiliateNumber" 
+            id="affiliateNumber" 
+            value={formData.affiliateNumber} 
+            onChange={handleChange} 
+            required 
+            className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" 
+          />
+        </div>
+      )}
+
       {(user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor) && (
         <div>
           <label htmlFor="ownerId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Asignar a Vendedor</label>
