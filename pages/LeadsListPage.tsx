@@ -4,7 +4,19 @@ import { useAuth } from '../hooks/useAuth';
 import { Lead, USER_ROLES } from '../types';
 import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
-import Select from 'react-select'; // Se importa la nueva librería
+import Select, { components, OptionProps, MultiValueProps } from 'react-select'; // Se importan más herramientas de la librería
+
+// --- NUEVO: Componente personalizado para las opciones con Checkbox ---
+const OptionWithCheckbox = (props: OptionProps<any, true>) => {
+  return (
+    <div>
+      <components.Option {...props}>
+        <input type="checkbox" checked={props.isSelected} onChange={() => null} className="mr-2" />
+        <label>{props.label}</label>
+      </components.Option>
+    </div>
+  );
+};
 
 // Componente para una fila de la tabla (no cambia)
 const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
@@ -48,19 +60,17 @@ const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
     );
 };
 
-// --- Componente principal de la página (con filtros de selección múltiple) ---
+// --- Componente principal de la página (con filtros de selección múltiple mejorados) ---
 const LeadsListPage: React.FC = () => {
     const { allLeads, sellers, providers, stages, getStageById, getUserById, getProviderById } = useLeads();
     const { user } = useAuth();
     
-    // --- CAMBIO #1: Los estados ahora guardan un array de IDs ---
     const [selectedSellerIds, setSelectedSellerIds] = useState<string[]>([]);
     const [selectedProviderIds, setSelectedProviderIds] = useState<string[]>([]);
     const [selectedStageIds, setSelectedStageIds] = useState<string[]>([]);
 
     const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
 
-    // --- CAMBIO #2: La lógica de filtrado ahora comprueba si el ID está en el array ---
     const visibleLeads = useMemo(() => {
         let leadsToDisplay = allLeads;
         
@@ -99,10 +109,35 @@ const LeadsListPage: React.FC = () => {
         XLSX.writeFile(workbook, "Reporte_Prospectos.xlsx");
     };
 
-    // --- CAMBIO #3: Se preparan las opciones para los nuevos componentes de selección ---
     const sellerOptions = sellers.map(s => ({ value: s.id, label: s.name }));
     const providerOptions = providers.map(p => ({ value: p.id, label: p.name }));
     const stageOptions = stages.map(s => ({ value: s.id, label: s.name }));
+
+    // --- NUEVO: Estilos personalizados para los selectores ---
+    const customSelectStyles = {
+        control: (provided: any) => ({
+            ...provided,
+            backgroundColor: 'var(--bg-secondary)',
+            borderColor: 'var(--border-color)',
+        }),
+        menu: (provided: any) => ({
+            ...provided,
+            backgroundColor: 'var(--bg-secondary)',
+        }),
+        option: (provided: any, state: { isSelected: any; isFocused: any; }) => ({
+            ...provided,
+            backgroundColor: state.isSelected ? 'var(--primary-color)' : state.isFocused ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
+            color: 'var(--text-color)',
+        }),
+        multiValue: (provided: any) => ({
+            ...provided,
+            backgroundColor: 'var(--primary-color-light)',
+        }),
+        multiValueLabel: (provided: any) => ({
+            ...provided,
+            color: 'var(--primary-color-dark)',
+        }),
+    };
 
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
@@ -112,15 +147,15 @@ const LeadsListPage: React.FC = () => {
                 <div className="flex flex-wrap sm:flex-nowrap gap-4 items-center">
                     {isManager && (
                         <>
-                            {/* --- CAMBIO #4: Se reemplazan los <select> por los nuevos componentes --- */}
+                            {/* --- CAMBIO #4: Se actualizan los componentes Select --- */}
                             <div className="w-full sm:w-56">
-                                <Select isMulti options={stageOptions} onChange={selected => setSelectedStageIds(selected.map(s => s.value))} placeholder="Filtrar por Etapa..." />
+                                <Select isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={stageOptions} onChange={selected => setSelectedStageIds(selected.map(s => s.value))} placeholder="Filtrar por Etapa..." components={{ Option: OptionWithCheckbox }} styles={customSelectStyles} />
                             </div>
                             <div className="w-full sm:w-56">
-                                <Select isMulti options={providerOptions} onChange={selected => setSelectedProviderIds(selected.map(p => p.value))} placeholder="Filtrar por Proveedor..." />
+                                <Select isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={providerOptions} onChange={selected => setSelectedProviderIds(selected.map(p => p.value))} placeholder="Filtrar por Proveedor..." components={{ Option: OptionWithCheckbox }} styles={customSelectStyles} />
                             </div>
                             <div className="w-full sm:w-56">
-                                <Select isMulti options={sellerOptions} onChange={selected => setSelectedSellerIds(selected.map(s => s.value))} placeholder="Filtrar por Vendedor..." />
+                                <Select isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={sellerOptions} onChange={selected => setSelectedSellerIds(selected.map(s => s.value))} placeholder="Filtrar por Vendedor..." components={{ Option: OptionWithCheckbox }} styles={customSelectStyles} />
                             </div>
                         </>
                     )}
