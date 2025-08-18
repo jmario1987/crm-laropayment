@@ -6,7 +6,7 @@ import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
 import Select, { components, OptionProps, ValueContainerProps } from 'react-select';
 
-// Componente para las opciones con Checkbox
+// --- NUEVO: Componente para las opciones con Checkbox ---
 const OptionWithCheckbox = (props: OptionProps<any, true>) => {
   return (
     <components.Option {...props}>
@@ -16,7 +16,7 @@ const OptionWithCheckbox = (props: OptionProps<any, true>) => {
   );
 };
 
-// Componente para mostrar el resumen de selecciones (ej: "3 seleccionados")
+// --- NUEVO: Componente para mostrar el resumen de selecciones (ej: "3 seleccionados") ---
 const CustomValueContainer = ({ children, ...props }: ValueContainerProps<any, true>) => {
   const { getValue, hasValue } = props;
   const selectedCount = getValue().length;
@@ -113,9 +113,32 @@ const LeadsListPage: React.FC = () => {
     
     // --- ESTILOS CORREGIDOS Y SIMPLIFICADOS ---
     const customSelectStyles = {
-        control: (base: any) => ({ ...base, minHeight: '38px', backgroundColor: '#F3F4F6', borderColor: '#D1D5DB', '&:hover': { borderColor: '#9CA3AF' } }),
-        menu: (base: any) => ({ ...base, zIndex: 10 }),
+        control: (base: any, state: { isFocused: any; }) => ({
+            ...base,
+            minHeight: '38px',
+            backgroundColor: 'white',
+            borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
+            boxShadow: state.isFocused ? '0 0 0 1px #3B82F6' : 'none',
+            '&:hover': { borderColor: '#9CA3AF' },
+            borderRadius: '0.375rem',
+        }),
+        menu: (base: any) => ({
+            ...base,
+            zIndex: 10,
+            backgroundColor: 'white',
+            borderRadius: '0.375rem',
+            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+        }),
+        option: (base: any, state: { isSelected: any; isFocused: any; }) => ({
+            ...base,
+            backgroundColor: state.isSelected ? '#3B82F6' : state.isFocused ? '#EFF6FF' : 'white',
+            color: state.isSelected ? 'white' : '#1F2937',
+            '&:hover': {
+                backgroundColor: state.isSelected ? '#2563EB' : '#DBEAFE',
+            },
+        }),
         placeholder: (base: any) => ({ ...base, color: '#6B7280' }),
+        valueContainer: (base: any) => ({ ...base, padding: '2px 8px' }),
     };
 
     return (
