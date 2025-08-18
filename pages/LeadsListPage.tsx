@@ -114,13 +114,11 @@ const LeadsListPage: React.FC = () => {
     
     // --- NUEVO: Estilos corregidos para que se vean sólidos y profesionales ---
     const customSelectStyles = {
-        control: (base: any, state: { isFocused: any; }) => ({ ...base, backgroundColor: 'var(--bg-secondary)', borderColor: state.isFocused ? 'var(--primary-color)' : 'var(--border-color)', boxShadow: state.isFocused ? '0 0 0 1px var(--primary-color)' : 'none', '&:hover': { borderColor: 'var(--border-color-hover)' } }),
-        menu: (base: any) => ({ ...base, backgroundColor: 'var(--bg-primary)' }),
-        option: (base: any, state: { isSelected: any; isFocused: any; }) => ({ ...base, backgroundColor: state.isSelected ? 'var(--primary-color)' : state.isFocused ? 'var(--bg-tertiary)' : 'transparent', color: 'var(--text-color)', '&:hover': { backgroundColor: state.isSelected ? 'var(--primary-color-dark)' : 'var(--bg-tertiary)' } }),
-        placeholder: (base: any) => ({ ...base, color: 'var(--text-color-secondary)' }),
-        valueContainer: (base: any) => ({ ...base, padding: '2px 8px' }),
-        multiValue: (base: any) => ({ ...base, backgroundColor: 'var(--bg-tertiary)' }),
-        multiValueLabel: (base: any) => ({ ...base, color: 'var(--text-color)' }),
+        control: (base: any, state: { isFocused: any; }) => ({ ...base, minHeight: '38px', backgroundColor: document.documentElement.classList.contains('dark') ? '#374151' : '#F3F4F6', borderColor: state.isFocused ? '#38BDF8' : '#D1D5DB', boxShadow: state.isFocused ? '0 0 0 1px #38BDF8' : 'none', '&:hover': { borderColor: '#9CA3AF' } }),
+        menu: (base: any) => ({ ...base, backgroundColor: document.documentElement.classList.contains('dark') ? '#1F2937' : '#FFFFFF', border: '1px solid #4B5563', zIndex: 10 }),
+        option: (base: any, state: { isSelected: any; isFocused: any; }) => ({ ...base, backgroundColor: state.isSelected ? '#0EA5E9' : state.isFocused ? (document.documentElement.classList.contains('dark') ? '#4B5563' : '#E5E7EB') : 'transparent', color: state.isSelected ? 'white' : (document.documentElement.classList.contains('dark') ? '#F9FAFB' : '#111827'), '&:hover': { backgroundColor: state.isSelected ? '#0284C7' : (document.documentElement.classList.contains('dark') ? '#374151' : '#F3F4F6') } }),
+        placeholder: (base: any) => ({ ...base, color: document.documentElement.classList.contains('dark') ? '#D1D5DB' : '#6B7280' }),
+        valueContainer: (base: any) => ({ ...base, padding: '0 8px' }),
     };
 
 
