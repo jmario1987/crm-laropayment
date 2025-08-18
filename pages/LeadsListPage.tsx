@@ -4,21 +4,19 @@ import { useAuth } from '../hooks/useAuth';
 import { Lead, USER_ROLES } from '../types';
 import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
-import Select, { components, OptionProps, ValueContainerProps } from 'react-select'; // Se importan más herramientas
+import Select, { components, OptionProps, ValueContainerProps } from 'react-select';
 
-// --- NUEVO: Componente personalizado para las opciones con Checkbox ---
+// --- NUEVO: Componente para las opciones con Checkbox ---
 const OptionWithCheckbox = (props: OptionProps<any, true>) => {
   return (
-    <div>
-      <components.Option {...props}>
-        <input type="checkbox" checked={props.isSelected} onChange={() => null} className="mr-2" />
-        <label>{props.label}</label>
-      </components.Option>
-    </div>
+    <components.Option {...props}>
+      <input type="checkbox" checked={props.isSelected} onChange={() => null} className="mr-2 accent-primary-600" />
+      <label>{props.label}</label>
+    </components.Option>
   );
 };
 
-// --- NUEVO: Componente para mostrar el resumen de selecciones ---
+// --- NUEVO: Componente para mostrar el resumen de selecciones (ej: "3 seleccionados") ---
 const CustomValueContainer = ({ children, ...props }: ValueContainerProps<any, true>) => {
   const { getValue, hasValue } = props;
   const selectedCount = getValue().length;
@@ -29,12 +27,11 @@ const CustomValueContainer = ({ children, ...props }: ValueContainerProps<any, t
       {!hasValue ? (
         placeholder
       ) : (
-        `${selectedCount} seleccionado(s)`
+        <span className="text-gray-800 dark:text-gray-200">{selectedCount} seleccionado(s)</span>
       )}
     </components.ValueContainer>
   );
 };
-
 
 // Componente para una fila de la tabla (no cambia)
 const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
@@ -44,14 +41,10 @@ const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
     const stageName = stage?.name || 'Desconocido';
     const lastModification = useMemo(() => {
         const referenceDate = lead.lastUpdate || lead.createdAt;
-        return new Date(referenceDate).toLocaleString('es-ES', {
-            day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
-        });
+        return new Date(referenceDate).toLocaleString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     }, [lead.lastUpdate, lead.createdAt]);
     const creationDate = useMemo(() => {
-        return new Date(lead.createdAt).toLocaleDateString('es-ES', {
-            day: 'numeric', month: 'short', year: 'numeric'
-        });
+        return new Date(lead.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
     }, [lead.createdAt]);
     const daysInProcess = useMemo(() => {
         const startDate = new Date(lead.createdAt);
@@ -66,11 +59,7 @@ const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
             <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{lead.name}</td>
             <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{lead.company}</td>
             <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{sellerName}</td>
-            <td className="px-6 py-4">
-                <span className="px-2 py-1 text-xs font-bold rounded-full text-white" style={{ backgroundColor: stage?.color || '#cccccc' }}>
-                    {stageName}
-                </span>
-            </td>
+            <td className="px-6 py-4"><span className="px-2 py-1 text-xs font-bold rounded-full text-white" style={{ backgroundColor: stage?.color || '#cccccc' }}>{stageName}</span></td>
             <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{creationDate}</td>
             <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{lastModification}</td>
             <td className="px-6 py-4 font-semibold text-gray-800 dark:text-gray-200 text-center">{daysInProcess}</td>
@@ -78,7 +67,7 @@ const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
     );
 };
 
-// --- Componente principal de la página (con filtros de selección múltiple mejorados) ---
+// --- Componente principal de la página (con la lógica de filtros y estilos corregidos) ---
 const LeadsListPage: React.FC = () => {
     const { allLeads, sellers, providers, stages, getStageById, getUserById, getProviderById } = useLeads();
     const { user } = useAuth();
@@ -90,28 +79,20 @@ const LeadsListPage: React.FC = () => {
     const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
 
     const visibleLeads = useMemo(() => {
-        let leadsToDisplay = allLeads;
-        
+        let leadsToDisplay = [...allLeads]; // Create a mutable copy for sorting
         if (!isManager) {
-            leadsToDisplay = allLeads.filter(lead => lead.ownerId === user?.id);
+            leadsToDisplay = leadsToDisplay.filter(lead => lead.ownerId === user?.id);
         }
-        
         if (isManager && selectedSellerIds.length > 0) {
             leadsToDisplay = leadsToDisplay.filter(lead => selectedSellerIds.includes(lead.ownerId));
         }
-
         if (isManager && selectedProviderIds.length > 0) {
             leadsToDisplay = leadsToDisplay.filter(lead => selectedProviderIds.includes(lead.providerId || ''));
         }
-
         if (selectedStageIds.length > 0) {
             leadsToDisplay = leadsToDisplay.filter(lead => selectedStageIds.includes(lead.status));
         }
-        
-        return leadsToDisplay.sort((a, b) => 
-            new Date(b.lastUpdate || b.createdAt).getTime() - new Date(a.lastUpdate || a.createdAt).getTime()
-        );
-
+        return leadsToDisplay.sort((a, b) => new Date(b.lastUpdate || b.createdAt).getTime() - new Date(a.lastUpdate || a.createdAt).getTime());
     }, [allLeads, user, isManager, selectedSellerIds, selectedProviderIds, selectedStageIds]);
 
     const handleExportExcel = () => {
@@ -130,59 +111,40 @@ const LeadsListPage: React.FC = () => {
     const sellerOptions = sellers.map(s => ({ value: s.id, label: s.name }));
     const providerOptions = providers.map(p => ({ value: p.id, label: p.name }));
     const stageOptions = stages.map(s => ({ value: s.id, label: s.name }));
-
-    // --- NUEVO: Estilos personalizados y robustos para los selectores ---
+    
+    // --- NUEVO: Estilos corregidos para que se vean sólidos y profesionales ---
     const customSelectStyles = {
-        control: (provided: any, state: { isFocused: any; }) => ({
-            ...provided,
-            backgroundColor: document.documentElement.classList.contains('dark') ? '#374151' : '#F3F4F6', // bg-gray-700 dark, bg-gray-100 light
-            borderColor: state.isFocused ? '#38BDF8' : '#D1D5DB', // focus:ring-sky-500, border-gray-300
-            boxShadow: state.isFocused ? '0 0 0 1px #38BDF8' : 'none',
-            '&:hover': {
-                borderColor: '#9CA3AF', // hover:border-gray-400
-            },
-        }),
-        menu: (provided: any) => ({
-            ...provided,
-            backgroundColor: document.documentElement.classList.contains('dark') ? '#1F2937' : '#FFFFFF', // bg-gray-800 dark, bg-white light
-            border: '1px solid #4B5563', // border-gray-600
-        }),
-        option: (provided: any, state: { isSelected: any; isFocused: any; }) => ({
-            ...provided,
-            backgroundColor: state.isSelected ? '#0EA5E9' : state.isFocused ? (document.documentElement.classList.contains('dark') ? '#4B5563' : '#E5E7EB') : 'transparent',
-            color: document.documentElement.classList.contains('dark') ? '#F9FAFB' : '#111827', // text-gray-50 dark, text-gray-900 light
-            '&:hover': {
-                backgroundColor: state.isSelected ? '#0284C7' : (document.documentElement.classList.contains('dark') ? '#374151' : '#F3F4F6'),
-            },
-        }),
-        placeholder: (provided: any) => ({
-            ...provided,
-            color: document.documentElement.classList.contains('dark') ? '#D1D5DB' : '#6B7280', // text-gray-300 dark, text-gray-500 light
-        }),
-        valueContainer: (provided: any) => ({
-            ...provided,
-            color: document.documentElement.classList.contains('dark') ? '#F9FAFB' : '#111827',
-        })
+        control: (base: any, state: { isFocused: any; }) => ({ ...base, backgroundColor: 'var(--bg-secondary)', borderColor: state.isFocused ? 'var(--primary-color)' : 'var(--border-color)', boxShadow: state.isFocused ? '0 0 0 1px var(--primary-color)' : 'none', '&:hover': { borderColor: 'var(--border-color-hover)' } }),
+        menu: (base: any) => ({ ...base, backgroundColor: 'var(--bg-primary)' }),
+        option: (base: any, state: { isSelected: any; isFocused: any; }) => ({ ...base, backgroundColor: state.isSelected ? 'var(--primary-color)' : state.isFocused ? 'var(--bg-tertiary)' : 'transparent', color: 'var(--text-color)', '&:hover': { backgroundColor: state.isSelected ? 'var(--primary-color-dark)' : 'var(--bg-tertiary)' } }),
+        placeholder: (base: any) => ({ ...base, color: 'var(--text-color-secondary)' }),
+        valueContainer: (base: any) => ({ ...base, padding: '2px 8px' }),
+        multiValue: (base: any) => ({ ...base, backgroundColor: 'var(--bg-tertiary)' }),
+        multiValueLabel: (base: any) => ({ ...base, color: 'var(--text-color)' }),
     };
+
 
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
             <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
                 <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Listado de Prospectos</h3>
-                
                 <div className="flex flex-wrap sm:flex-nowrap gap-4 items-center">
-                    {isManager && (
+                    {isManager ? (
                         <>
-                            <div className="w-full sm:w-56">
+                            <div className="w-full sm:w-56 text-sm">
                                 <Select isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={stageOptions} onChange={selected => setSelectedStageIds(selected.map(s => s.value))} placeholder="Filtrar por Etapa..." components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} styles={customSelectStyles} />
                             </div>
-                            <div className="w-full sm:w-56">
+                            <div className="w-full sm:w-56 text-sm">
                                 <Select isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={providerOptions} onChange={selected => setSelectedProviderIds(selected.map(p => p.value))} placeholder="Filtrar por Proveedor..." components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} styles={customSelectStyles} />
                             </div>
-                            <div className="w-full sm:w-56">
+                            <div className="w-full sm:w-56 text-sm">
                                 <Select isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={sellerOptions} onChange={selected => setSelectedSellerIds(selected.map(s => s.value))} placeholder="Filtrar por Vendedor..." components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} styles={customSelectStyles} />
                             </div>
                         </>
+                    ) : (
+                         <div className="w-full sm:w-56 text-sm">
+                            <Select isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={stageOptions} onChange={selected => setSelectedStageIds(selected.map(s => s.value))} placeholder="Filtrar por Etapa..." components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} styles={customSelectStyles} />
+                         </div>
                     )}
                     <Button onClick={handleExportExcel}>Exportar a Excel</Button>
                 </div>
