@@ -34,7 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       <div className={`fixed inset-y-0 left-0 flex flex-col h-screen p-3 bg-white dark:bg-gray-800 shadow-lg w-64 z-40 transform transition-transform md:relative md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="space-y-3 flex flex-col flex-1">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Mi CRM</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Laro Payment</h2>
           </div>
           <nav className="flex-1 p-2 space-y-2 overflow-y-auto">
             <NavLink to="/dashboard" onClick={handleLinkClick} className="flex items-center p-2 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
