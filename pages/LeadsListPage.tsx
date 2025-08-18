@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Lead, USER_ROLES } from '../types';
 import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
+import Select from 'react-select'; // Se importa la nueva librería
 
 // Componente para una fila de la tabla (no cambia)
 const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
@@ -47,16 +48,19 @@ const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
     );
 };
 
-// Componente principal de la página (con el nuevo filtro por etapa)
+// --- Componente principal de la página (con filtros de selección múltiple) ---
 const LeadsListPage: React.FC = () => {
     const { allLeads, sellers, providers, stages, getStageById, getUserById, getProviderById } = useLeads();
     const { user } = useAuth();
-    const [selectedSellerId, setSelectedSellerId] = useState('all');
-    const [selectedProviderId, setSelectedProviderId] = useState('all');
-    const [selectedStageId, setSelectedStageId] = useState('all'); // Nuevo estado para el filtro de etapa
+    
+    // --- CAMBIO #1: Los estados ahora guardan un array de IDs ---
+    const [selectedSellerIds, setSelectedSellerIds] = useState<string[]>([]);
+    const [selectedProviderIds, setSelectedProviderIds] = useState<string[]>([]);
+    const [selectedStageIds, setSelectedStageIds] = useState<string[]>([]);
 
     const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
 
+    // --- CAMBIO #2: La lógica de filtrado ahora comprueba si el ID está en el array ---
     const visibleLeads = useMemo(() => {
         let leadsToDisplay = allLeads;
         
@@ -64,50 +68,41 @@ const LeadsListPage: React.FC = () => {
             leadsToDisplay = allLeads.filter(lead => lead.ownerId === user?.id);
         }
         
-        if (isManager && selectedSellerId !== 'all') {
-            leadsToDisplay = leadsToDisplay.filter(lead => lead.ownerId === selectedSellerId);
+        if (isManager && selectedSellerIds.length > 0) {
+            leadsToDisplay = leadsToDisplay.filter(lead => selectedSellerIds.includes(lead.ownerId));
         }
 
-        if (isManager && selectedProviderId !== 'all') {
-            leadsToDisplay = leadsToDisplay.filter(lead => lead.providerId === selectedProviderId);
+        if (isManager && selectedProviderIds.length > 0) {
+            leadsToDisplay = leadsToDisplay.filter(lead => selectedProviderIds.includes(lead.providerId || ''));
         }
 
-        if (selectedStageId !== 'all') { // Lógica para el nuevo filtro
-            leadsToDisplay = leadsToDisplay.filter(lead => lead.status === selectedStageId);
+        if (selectedStageIds.length > 0) {
+            leadsToDisplay = leadsToDisplay.filter(lead => selectedStageIds.includes(lead.status));
         }
         
         return leadsToDisplay.sort((a, b) => 
             new Date(b.lastUpdate || b.createdAt).getTime() - new Date(a.lastUpdate || a.createdAt).getTime()
         );
 
-    }, [allLeads, user, isManager, selectedSellerId, selectedProviderId, selectedStageId]); // Se añade la nueva dependencia
+    }, [allLeads, user, isManager, selectedSellerIds, selectedProviderIds, selectedStageIds]);
 
     const handleExportExcel = () => {
-        const dataToExport = visibleLeads.map(lead => {
-            const startDate = new Date(lead.createdAt);
-            const endDate = new Date(lead.lastUpdate || lead.createdAt);
-            const timeDiff = endDate.getTime() - startDate.getTime();
-            const daysInProcess = Math.floor(timeDiff / (1000 * 3600 * 24));
-
-            return {
-                "Prospecto": lead.name,
-                "Empresa": lead.company,
-                "Etapa": getStageById(lead.status)?.name || 'N/A',
-                "Vendedor Asignado": getUserById(lead.ownerId)?.name || 'N/A',
-                "Fecha de Ingreso": new Date(lead.createdAt).toLocaleDateString('es-ES'),
-                "Última Modificación": new Date(lead.lastUpdate || lead.createdAt).toLocaleDateString('es-ES'),
-                "Días en Proceso": daysInProcess,
-                "Referido por": getProviderById(lead.providerId || '')?.name || 'N/A',
-                "Email": lead.email,
-                "Teléfono": lead.phone,
-            };
-        });
-
+        const dataToExport = visibleLeads.map(lead => ({
+            "Prospecto": lead.name, "Empresa": lead.company, "Etapa": getStageById(lead.status)?.name || 'N/A',
+            "Vendedor Asignado": getUserById(lead.ownerId)?.name || 'N/A', "Fecha de Ingreso": new Date(lead.createdAt).toLocaleDateString('es-ES'),
+            "Última Modificación": new Date(lead.lastUpdate || lead.createdAt).toLocaleDateString('es-ES'), "Días en Proceso": Math.floor((new Date(lead.lastUpdate || lead.createdAt).getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24)),
+            "Referido por": getProviderById(lead.providerId || '')?.name || 'N/A', "Email": lead.email, "Teléfono": lead.phone,
+        }));
         const worksheet = XLSX.utils.json_to_sheet(dataToExport);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Prospectos");
         XLSX.writeFile(workbook, "Reporte_Prospectos.xlsx");
     };
+
+    // --- CAMBIO #3: Se preparan las opciones para los nuevos componentes de selección ---
+    const sellerOptions = sellers.map(s => ({ value: s.id, label: s.name }));
+    const providerOptions = providers.map(p => ({ value: p.id, label: p.name }));
+    const stageOptions = stages.map(s => ({ value: s.id, label: s.name }));
 
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
@@ -117,23 +112,15 @@ const LeadsListPage: React.FC = () => {
                 <div className="flex flex-wrap sm:flex-nowrap gap-4 items-center">
                     {isManager && (
                         <>
-                            <div className="w-full sm:w-auto">
-                                <select value={selectedStageId} onChange={(e) => setSelectedStageId(e.target.value)} className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                                    <option value="all">Todas las Etapas</option>
-                                    {stages.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
-                                </select>
+                            {/* --- CAMBIO #4: Se reemplazan los <select> por los nuevos componentes --- */}
+                            <div className="w-full sm:w-56">
+                                <Select isMulti options={stageOptions} onChange={selected => setSelectedStageIds(selected.map(s => s.value))} placeholder="Filtrar por Etapa..." />
                             </div>
-                            <div className="w-full sm:w-auto">
-                                <select value={selectedProviderId} onChange={(e) => setSelectedProviderId(e.target.value)} className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                                    <option value="all">Todos los Proveedores</option>
-                                    {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                </select>
+                            <div className="w-full sm:w-56">
+                                <Select isMulti options={providerOptions} onChange={selected => setSelectedProviderIds(selected.map(p => p.value))} placeholder="Filtrar por Proveedor..." />
                             </div>
-                            <div className="w-full sm:w-auto">
-                                <select value={selectedSellerId} onChange={(e) => setSelectedSellerId(e.target.value)} className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                                    <option value="all">Todos los Vendedores</option>
-                                    {sellers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                </select>
+                            <div className="w-full sm:w-56">
+                                <Select isMulti options={sellerOptions} onChange={selected => setSelectedSellerIds(selected.map(s => s.value))} placeholder="Filtrar por Vendedor..." />
                             </div>
                         </>
                     )}
