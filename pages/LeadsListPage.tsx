@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Lead, USER_ROLES } from '../types';
 import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
-import Select, { components, OptionProps, MultiValueProps } from 'react-select'; // Se importan más herramientas de la librería
+import Select, { components, OptionProps, ValueContainerProps } from 'react-select'; // Se importan más herramientas
 
 // --- NUEVO: Componente personalizado para las opciones con Checkbox ---
 const OptionWithCheckbox = (props: OptionProps<any, true>) => {
@@ -17,6 +17,24 @@ const OptionWithCheckbox = (props: OptionProps<any, true>) => {
     </div>
   );
 };
+
+// --- NUEVO: Componente para mostrar el resumen de selecciones ---
+const CustomValueContainer = ({ children, ...props }: ValueContainerProps<any, true>) => {
+  const { getValue, hasValue } = props;
+  const selectedCount = getValue().length;
+  const placeholder = props.selectProps.placeholder;
+
+  return (
+    <components.ValueContainer {...props}>
+      {!hasValue ? (
+        placeholder
+      ) : (
+        `${selectedCount} seleccionado(s)`
+      )}
+    </components.ValueContainer>
+  );
+};
+
 
 // Componente para una fila de la tabla (no cambia)
 const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
@@ -113,30 +131,38 @@ const LeadsListPage: React.FC = () => {
     const providerOptions = providers.map(p => ({ value: p.id, label: p.name }));
     const stageOptions = stages.map(s => ({ value: s.id, label: s.name }));
 
-    // --- NUEVO: Estilos personalizados para los selectores ---
+    // --- NUEVO: Estilos personalizados y robustos para los selectores ---
     const customSelectStyles = {
-        control: (provided: any) => ({
+        control: (provided: any, state: { isFocused: any; }) => ({
             ...provided,
-            backgroundColor: 'var(--bg-secondary)',
-            borderColor: 'var(--border-color)',
+            backgroundColor: document.documentElement.classList.contains('dark') ? '#374151' : '#F3F4F6', // bg-gray-700 dark, bg-gray-100 light
+            borderColor: state.isFocused ? '#38BDF8' : '#D1D5DB', // focus:ring-sky-500, border-gray-300
+            boxShadow: state.isFocused ? '0 0 0 1px #38BDF8' : 'none',
+            '&:hover': {
+                borderColor: '#9CA3AF', // hover:border-gray-400
+            },
         }),
         menu: (provided: any) => ({
             ...provided,
-            backgroundColor: 'var(--bg-secondary)',
+            backgroundColor: document.documentElement.classList.contains('dark') ? '#1F2937' : '#FFFFFF', // bg-gray-800 dark, bg-white light
+            border: '1px solid #4B5563', // border-gray-600
         }),
         option: (provided: any, state: { isSelected: any; isFocused: any; }) => ({
             ...provided,
-            backgroundColor: state.isSelected ? 'var(--primary-color)' : state.isFocused ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
-            color: 'var(--text-color)',
+            backgroundColor: state.isSelected ? '#0EA5E9' : state.isFocused ? (document.documentElement.classList.contains('dark') ? '#4B5563' : '#E5E7EB') : 'transparent',
+            color: document.documentElement.classList.contains('dark') ? '#F9FAFB' : '#111827', // text-gray-50 dark, text-gray-900 light
+            '&:hover': {
+                backgroundColor: state.isSelected ? '#0284C7' : (document.documentElement.classList.contains('dark') ? '#374151' : '#F3F4F6'),
+            },
         }),
-        multiValue: (provided: any) => ({
+        placeholder: (provided: any) => ({
             ...provided,
-            backgroundColor: 'var(--primary-color-light)',
+            color: document.documentElement.classList.contains('dark') ? '#D1D5DB' : '#6B7280', // text-gray-300 dark, text-gray-500 light
         }),
-        multiValueLabel: (provided: any) => ({
+        valueContainer: (provided: any) => ({
             ...provided,
-            color: 'var(--primary-color-dark)',
-        }),
+            color: document.documentElement.classList.contains('dark') ? '#F9FAFB' : '#111827',
+        })
     };
 
     return (
@@ -147,15 +173,14 @@ const LeadsListPage: React.FC = () => {
                 <div className="flex flex-wrap sm:flex-nowrap gap-4 items-center">
                     {isManager && (
                         <>
-                            {/* --- CAMBIO #4: Se actualizan los componentes Select --- */}
                             <div className="w-full sm:w-56">
-                                <Select isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={stageOptions} onChange={selected => setSelectedStageIds(selected.map(s => s.value))} placeholder="Filtrar por Etapa..." components={{ Option: OptionWithCheckbox }} styles={customSelectStyles} />
+                                <Select isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={stageOptions} onChange={selected => setSelectedStageIds(selected.map(s => s.value))} placeholder="Filtrar por Etapa..." components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} styles={customSelectStyles} />
                             </div>
                             <div className="w-full sm:w-56">
-                                <Select isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={providerOptions} onChange={selected => setSelectedProviderIds(selected.map(p => p.value))} placeholder="Filtrar por Proveedor..." components={{ Option: OptionWithCheckbox }} styles={customSelectStyles} />
+                                <Select isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={providerOptions} onChange={selected => setSelectedProviderIds(selected.map(p => p.value))} placeholder="Filtrar por Proveedor..." components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} styles={customSelectStyles} />
                             </div>
                             <div className="w-full sm:w-56">
-                                <Select isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={sellerOptions} onChange={selected => setSelectedSellerIds(selected.map(s => s.value))} placeholder="Filtrar por Vendedor..." components={{ Option: OptionWithCheckbox }} styles={customSelectStyles} />
+                                <Select isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={sellerOptions} onChange={selected => setSelectedSellerIds(selected.map(s => s.value))} placeholder="Filtrar por Vendedor..." components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} styles={customSelectStyles} />
                             </div>
                         </>
                     )}
