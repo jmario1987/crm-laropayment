@@ -44,7 +44,10 @@ export type Lead = {
   notificationForSeller?: boolean;
   notificationForManagerId?: string;
   sellerHasViewedNotification?: boolean;
-  affiliateNumber?: string; // <-- SE AÑADIÓ ESTE NUEVO CAMPO
+  affiliateNumber?: string;
+  // --- NUEVOS CAMPOS PARA EL MÓDULO DE CONCILIACIÓN ---
+  billingHistory?: { [monthYear: string]: boolean }; // Ej: { "08-2025": true, "07-2025": false }
+  clientStatus?: 'Activo' | 'Inactivo';
 };
 
 // Definición del Producto
