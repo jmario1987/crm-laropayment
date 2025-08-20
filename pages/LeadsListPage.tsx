@@ -25,20 +25,18 @@ const CustomValueContainer = ({ children, ...props }: ValueContainerProps<any, t
   );
 };
 
-// Componente para una fila de la tabla (con la fórmula corregida)
+// Componente para una fila de la tabla (simplificado)
 const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
     const { getUserById, getStageById } = useLeads();
     const sellerName = getUserById(lead.ownerId)?.name || 'No asignado';
     const stage = getStageById(lead.status);
     const stageName = stage?.name || 'Desconocido';
-    const lastModification = useMemo(() => new Date(lead.lastUpdate || lead.createdAt).toLocaleString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }), [lead.lastUpdate, lead.createdAt]);
     const creationDate = useMemo(() => new Date(lead.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }), [lead.createdAt]);
     
-    // --- LÓGICA CORREGIDA ---
-    // Ahora calcula la diferencia entre HOY y la fecha de creación.
+    // Se calcula la diferencia entre HOY y la fecha de creación.
     const daysInProcess = useMemo(() => {
         const startDate = new Date(lead.createdAt);
-        const today = new Date(); // Fecha actual
+        const today = new Date();
         const timeDiff = today.getTime() - startDate.getTime();
         const days = Math.floor(timeDiff / (1000 * 3600 * 24));
         return days;
@@ -51,7 +49,7 @@ const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
             <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{sellerName}</td>
             <td className="px-6 py-4"><span className="px-2 py-1 text-xs font-bold rounded-full text-white" style={{ backgroundColor: stage?.color || '#cccccc' }}>{stageName}</span></td>
             <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{creationDate}</td>
-            <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{lastModification}</td>
+            {/* Se elimina la columna de "Última Modificación" de la vista */}
             <td className="px-6 py-4 font-semibold text-gray-800 dark:text-gray-200 text-center">{daysInProcess}</td>
         </tr>
     );
@@ -94,18 +92,18 @@ const LeadsListPage: React.FC = () => {
         if (selectedStageIds.length > 0) {
             leadsToDisplay = leadsToDisplay.filter(lead => selectedStageIds.includes(lead.status));
         }
+        // La tabla sigue ordenada por la última actualización para mostrar los más activos primero.
         return leadsToDisplay.sort((a, b) => new Date(b.lastUpdate || b.createdAt).getTime() - new Date(a.lastUpdate || a.createdAt).getTime());
     }, [allLeads, user, isManager, selectedSellerIds, selectedProviderIds, selectedStageIds]);
 
     const handleExportExcel = () => {
         const dataToExport = visibleLeads.map(lead => {
-            // --- LÓGICA CORREGIDA EN EXCEL ---
             const daysInProcess = Math.floor((new Date().getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24));
             
             return {
                 "Prospecto": lead.name, "Empresa": lead.company, "Etapa": getStageById(lead.status)?.name || 'N/A',
                 "Vendedor Asignado": getUserById(lead.ownerId)?.name || 'N/A', "Fecha de Ingreso": new Date(lead.createdAt).toLocaleDateString('es-ES'),
-                "Última Modificación": new Date(lead.lastUpdate || lead.createdAt).toLocaleDateString('es-ES'), 
+                // Se elimina la columna de "Última Modificación" de la exportación
                 "Días en Proceso": daysInProcess,
                 "Referido por": getProviderById(lead.providerId || '')?.name || 'N/A', "Email": lead.email, "Teléfono": lead.phone,
             };
@@ -162,7 +160,7 @@ const LeadsListPage: React.FC = () => {
                             <th scope="col" className="px-6 py-3">Vendedor Asignado</th>
                             <th scope="col" className="px-6 py-3">Etapa Actual</th>
                             <th scope="col" className="px-6 py-3">Fecha de Ingreso</th>
-                            <th scope="col" className="px-6 py-3">Última Modificación</th>
+                            {/* Se elimina el encabezado de "Última Modificación" */}
                             <th scope="col" className="px-6 py-3 text-center">Días en Proceso</th>
                         </tr>
                     </thead>
