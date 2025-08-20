@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useLeads } from '../hooks/useLeads';
 import { useAuth } from '../hooks/useAuth';
 import { Lead, USER_ROLES } from '../types';
@@ -6,53 +6,34 @@ import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
 import Select, { components, OptionProps, ValueContainerProps } from 'react-select';
 
-// --- NUEVO: Componente para las opciones con Checkbox ---
-const OptionWithCheckbox = (props: OptionProps<any, true>) => {
-  return (
-    <components.Option {...props}>
-      <input type="checkbox" checked={props.isSelected} onChange={() => null} className="mr-2 accent-sky-600" />
-      <label>{props.label}</label>
-    </components.Option>
-  );
-};
+// Componentes personalizados para Select (no cambian)
+const OptionWithCheckbox = (props: OptionProps<any, true>) => (
+  <components.Option {...props}>
+    <input type="checkbox" checked={props.isSelected} onChange={() => null} className="mr-2 accent-sky-600" />
+    <label>{props.label}</label>
+  </components.Option>
+);
 
-// --- NUEVO: Componente para mostrar el resumen de selecciones (ej: "3 seleccionados") ---
 const CustomValueContainer = ({ children, ...props }: ValueContainerProps<any, true>) => {
   const { getValue, hasValue } = props;
   const selectedCount = getValue().length;
   const placeholder = props.selectProps.placeholder;
-
   return (
     <components.ValueContainer {...props}>
-      {!hasValue ? (
-        placeholder
-      ) : (
-        <span className="text-gray-800 dark:text-gray-200">{selectedCount} seleccionado(s)</span>
-      )}
+      {!hasValue ? placeholder : <span className="text-gray-800 dark:text-gray-200">{selectedCount} seleccionado(s)</span>}
     </components.ValueContainer>
   );
 };
 
-// Componente para una fila de la tabla (sin cambios)
+// Componente para una fila de la tabla (no cambia)
 const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
     const { getUserById, getStageById } = useLeads();
     const sellerName = getUserById(lead.ownerId)?.name || 'No asignado';
     const stage = getStageById(lead.status);
     const stageName = stage?.name || 'Desconocido';
-    const lastModification = useMemo(() => {
-        const referenceDate = lead.lastUpdate || lead.createdAt;
-        return new Date(referenceDate).toLocaleString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    }, [lead.lastUpdate, lead.createdAt]);
-    const creationDate = useMemo(() => {
-        return new Date(lead.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
-    }, [lead.createdAt]);
-    const daysInProcess = useMemo(() => {
-        const startDate = new Date(lead.createdAt);
-        const endDate = new Date(lead.lastUpdate || lead.createdAt);
-        const timeDiff = endDate.getTime() - startDate.getTime();
-        const days = Math.floor(timeDiff / (1000 * 3600 * 24));
-        return days;
-    }, [lead.createdAt, lead.lastUpdate]);
+    const lastModification = useMemo(() => new Date(lead.lastUpdate || lead.createdAt).toLocaleString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }), [lead.lastUpdate, lead.createdAt]);
+    const creationDate = useMemo(() => new Date(lead.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }), [lead.createdAt]);
+    const daysInProcess = useMemo(() => Math.floor((new Date(lead.lastUpdate || lead.createdAt).getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24)), [lead.createdAt, lead.lastUpdate]);
 
     return (
         <tr className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
@@ -74,8 +55,23 @@ const LeadsListPage: React.FC = () => {
     const [selectedSellerIds, setSelectedSellerIds] = useState<string[]>([]);
     const [selectedProviderIds, setSelectedProviderIds] = useState<string[]>([]);
     const [selectedStageIds, setSelectedStageIds] = useState<string[]>([]);
+    
+    // --- NUEVA LÓGICA PARA CONTROLAR LOS MENÚS ---
+    const [openMenu, setOpenMenu] = useState<string | null>(null);
+    const filtersRef = useRef<HTMLDivElement>(null);
 
     const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
+
+    // Efecto para cerrar los menús al hacer clic fuera
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (filtersRef.current && !filtersRef.current.contains(event.target as Node)) {
+                setOpenMenu(null);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     const visibleLeads = useMemo(() => {
         let leadsToDisplay = [...allLeads];
@@ -111,32 +107,10 @@ const LeadsListPage: React.FC = () => {
     const providerOptions = providers.map(p => ({ value: p.id, label: p.name }));
     const stageOptions = stages.map(s => ({ value: s.id, label: s.name }));
     
-    // --- ESTILOS CORREGIDOS Y SIMPLIFICADOS ---
     const customSelectStyles = {
-        control: (base: any, state: { isFocused: any; }) => ({
-            ...base,
-            minHeight: '38px',
-            backgroundColor: 'white',
-            borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
-            boxShadow: state.isFocused ? '0 0 0 1px #3B82F6' : 'none',
-            '&:hover': { borderColor: '#9CA3AF' },
-            borderRadius: '0.375rem',
-        }),
-        menu: (base: any) => ({
-            ...base,
-            zIndex: 10,
-            backgroundColor: 'white',
-            borderRadius: '0.375rem',
-            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-        }),
-        option: (base: any, state: { isSelected: any; isFocused: any; }) => ({
-            ...base,
-            backgroundColor: state.isSelected ? '#3B82F6' : state.isFocused ? '#EFF6FF' : 'white',
-            color: state.isSelected ? 'white' : '#1F2937',
-            '&:hover': {
-                backgroundColor: state.isSelected ? '#2563EB' : '#DBEAFE',
-            },
-        }),
+        control: (base: any, state: { isFocused: any; }) => ({ ...base, minHeight: '38px', backgroundColor: 'white', borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB', boxShadow: state.isFocused ? '0 0 0 1px #3B82F6' : 'none', '&:hover': { borderColor: '#9CA3AF' }, borderRadius: '0.375rem' }),
+        menu: (base: any) => ({ ...base, zIndex: 10, backgroundColor: 'white', borderRadius: '0.375rem', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' }),
+        option: (base: any, state: { isSelected: any; isFocused: any; }) => ({ ...base, backgroundColor: state.isSelected ? '#3B82F6' : state.isFocused ? '#EFF6FF' : 'white', color: state.isSelected ? 'white' : '#1F2937', '&:hover': { backgroundColor: state.isSelected ? '#2563EB' : '#DBEAFE' } }),
         placeholder: (base: any) => ({ ...base, color: '#6B7280' }),
         valueContainer: (base: any) => ({ ...base, padding: '2px 8px' }),
     };
@@ -145,22 +119,22 @@ const LeadsListPage: React.FC = () => {
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
             <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
                 <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Listado de Prospectos</h3>
-                <div className="flex flex-wrap sm:flex-nowrap gap-4 items-center">
+                <div className="flex flex-wrap sm:flex-nowrap gap-4 items-center" ref={filtersRef}>
                     {isManager ? (
                         <>
                             <div className="w-full sm:w-56 text-sm">
-                                <Select isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={stageOptions} onChange={selected => setSelectedStageIds(selected.map(s => s.value))} placeholder="Filtrar por Etapa..." components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} styles={customSelectStyles} />
+                                <Select menuIsOpen={openMenu === 'stage'} onMenuOpen={() => setOpenMenu('stage')} isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={stageOptions} onChange={selected => setSelectedStageIds(selected.map(s => s.value))} placeholder="Filtrar por Etapa..." components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} styles={customSelectStyles} />
                             </div>
                             <div className="w-full sm:w-56 text-sm">
-                                <Select isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={providerOptions} onChange={selected => setSelectedProviderIds(selected.map(p => p.value))} placeholder="Filtrar por Proveedor..." components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} styles={customSelectStyles} />
+                                <Select menuIsOpen={openMenu === 'provider'} onMenuOpen={() => setOpenMenu('provider')} isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={providerOptions} onChange={selected => setSelectedProviderIds(selected.map(p => p.value))} placeholder="Filtrar por Proveedor..." components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} styles={customSelectStyles} />
                             </div>
                             <div className="w-full sm:w-56 text-sm">
-                                <Select isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={sellerOptions} onChange={selected => setSelectedSellerIds(selected.map(s => s.value))} placeholder="Filtrar por Vendedor..." components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} styles={customSelectStyles} />
+                                <Select menuIsOpen={openMenu === 'seller'} onMenuOpen={() => setOpenMenu('seller')} isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={sellerOptions} onChange={selected => setSelectedSellerIds(selected.map(s => s.value))} placeholder="Filtrar por Vendedor..." components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} styles={customSelectStyles} />
                             </div>
                         </>
                     ) : (
                          <div className="w-full sm:w-56 text-sm">
-                            <Select isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={stageOptions} onChange={selected => setSelectedStageIds(selected.map(s => s.value))} placeholder="Filtrar por Etapa..." components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} styles={customSelectStyles} />
+                            <Select menuIsOpen={openMenu === 'stage'} onMenuOpen={() => setOpenMenu('stage')} isMulti closeMenuOnSelect={false} hideSelectedOptions={false} options={stageOptions} onChange={selected => setSelectedStageIds(selected.map(s => s.value))} placeholder="Filtrar por Etapa..." components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} styles={customSelectStyles} />
                          </div>
                     )}
                     <Button onClick={handleExportExcel}>Exportar a Excel</Button>
