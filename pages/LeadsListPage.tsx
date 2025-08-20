@@ -25,7 +25,7 @@ const CustomValueContainer = ({ children, ...props }: ValueContainerProps<any, t
   );
 };
 
-// Componente para una fila de la tabla (no cambia)
+// Componente para una fila de la tabla (con la fórmula corregida)
 const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
     const { getUserById, getStageById } = useLeads();
     const sellerName = getUserById(lead.ownerId)?.name || 'No asignado';
@@ -33,7 +33,16 @@ const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
     const stageName = stage?.name || 'Desconocido';
     const lastModification = useMemo(() => new Date(lead.lastUpdate || lead.createdAt).toLocaleString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }), [lead.lastUpdate, lead.createdAt]);
     const creationDate = useMemo(() => new Date(lead.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }), [lead.createdAt]);
-    const daysInProcess = useMemo(() => Math.floor((new Date(lead.lastUpdate || lead.createdAt).getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24)), [lead.createdAt, lead.lastUpdate]);
+    
+    // --- LÓGICA CORREGIDA ---
+    // Ahora calcula la diferencia entre HOY y la fecha de creación.
+    const daysInProcess = useMemo(() => {
+        const startDate = new Date(lead.createdAt);
+        const today = new Date(); // Fecha actual
+        const timeDiff = today.getTime() - startDate.getTime();
+        const days = Math.floor(timeDiff / (1000 * 3600 * 24));
+        return days;
+    }, [lead.createdAt]);
 
     return (
         <tr className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
@@ -56,13 +65,11 @@ const LeadsListPage: React.FC = () => {
     const [selectedProviderIds, setSelectedProviderIds] = useState<string[]>([]);
     const [selectedStageIds, setSelectedStageIds] = useState<string[]>([]);
     
-    // --- NUEVA LÓGICA PARA CONTROLAR LOS MENÚS ---
     const [openMenu, setOpenMenu] = useState<string | null>(null);
     const filtersRef = useRef<HTMLDivElement>(null);
 
     const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
 
-    // Efecto para cerrar los menús al hacer clic fuera
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (filtersRef.current && !filtersRef.current.contains(event.target as Node)) {
@@ -91,12 +98,18 @@ const LeadsListPage: React.FC = () => {
     }, [allLeads, user, isManager, selectedSellerIds, selectedProviderIds, selectedStageIds]);
 
     const handleExportExcel = () => {
-        const dataToExport = visibleLeads.map(lead => ({
-            "Prospecto": lead.name, "Empresa": lead.company, "Etapa": getStageById(lead.status)?.name || 'N/A',
-            "Vendedor Asignado": getUserById(lead.ownerId)?.name || 'N/A', "Fecha de Ingreso": new Date(lead.createdAt).toLocaleDateString('es-ES'),
-            "Última Modificación": new Date(lead.lastUpdate || lead.createdAt).toLocaleDateString('es-ES'), "Días en Proceso": Math.floor((new Date(lead.lastUpdate || lead.createdAt).getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24)),
-            "Referido por": getProviderById(lead.providerId || '')?.name || 'N/A', "Email": lead.email, "Teléfono": lead.phone,
-        }));
+        const dataToExport = visibleLeads.map(lead => {
+            // --- LÓGICA CORREGIDA EN EXCEL ---
+            const daysInProcess = Math.floor((new Date().getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24));
+            
+            return {
+                "Prospecto": lead.name, "Empresa": lead.company, "Etapa": getStageById(lead.status)?.name || 'N/A',
+                "Vendedor Asignado": getUserById(lead.ownerId)?.name || 'N/A', "Fecha de Ingreso": new Date(lead.createdAt).toLocaleDateString('es-ES'),
+                "Última Modificación": new Date(lead.lastUpdate || lead.createdAt).toLocaleDateString('es-ES'), 
+                "Días en Proceso": daysInProcess,
+                "Referido por": getProviderById(lead.providerId || '')?.name || 'N/A', "Email": lead.email, "Teléfono": lead.phone,
+            };
+        });
         const worksheet = XLSX.utils.json_to_sheet(dataToExport);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Prospectos");
