@@ -1,7 +1,7 @@
 // pages/LeadsListPage.tsx
 
 import React from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { useLeads } from '../hooks/useLeads';
 import { useAuth } from '../hooks/useAuth';
 import { Lead } from '../types';
@@ -9,6 +9,7 @@ import Select from 'react-select';
 import { OptionWithCheckbox, CustomValueContainer } from '../components/ui/CustomMultiSelect';
 import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
+import { useClickOutside } from '../hooks/useClickOutside'; // <-- Se importa nuestro nuevo hook
 
 const LeadsListPage: React.FC = () => {
     const { allLeads = [], stages = [], users = [], providers = [], getStageById = () => undefined } = useLeads() || {};
@@ -19,6 +20,11 @@ const LeadsListPage: React.FC = () => {
     const [selectedSellers, setSelectedSellers] = useState<{ value: string; label: string; }[]>([]);
     const [selectedProviders, setSelectedProviders] = useState<{ value: string; label: string; }[]>([]);
     const [openMenu, setOpenMenu] = useState<string | null>(null);
+
+    // ---- SOLUCIÓN: Se crea una referencia para el contenedor de los filtros ----
+    const filtersRef = useClickOutside<HTMLDivElement>(() => {
+        setOpenMenu(null); // Esto es lo que se ejecuta al hacer clic afuera
+    });
 
     const isManager = user?.role === 'Administrador' || user?.role === 'Supervisor';
 
@@ -31,7 +37,6 @@ const LeadsListPage: React.FC = () => {
 
     const filteredLeads = useMemo(() => {
         let leads = user?.role === 'Vendedor' ? allLeads.filter(lead => lead.ownerId === user.id) : allLeads;
-
         if (isManager) {
             if (selectedStages.length > 0) {
                 const stageIds = selectedStages.map(s => s.value);
@@ -46,21 +51,16 @@ const LeadsListPage: React.FC = () => {
                 leads = leads.filter(lead => lead.providerId && providerIds.includes(lead.providerId));
             }
         }
-        
         return leads;
     }, [allLeads, user, isManager, selectedStages, selectedSellers, selectedProviders]);
 
     const sortedLeads = useMemo(() => {
         const sortableLeads = [...filteredLeads];
-        
         if (!sortConfig) {
             return sortableLeads;
         }
-
-        // ---- SOLUCIÓN 1: Lógica de ordenamiento reescrita para ser 100% segura con TypeScript ----
         sortableLeads.sort((a, b) => {
             const direction = sortConfig.direction === 'ascending' ? 1 : -1;
-
             switch (sortConfig.key) {
                 case 'name':
                     return a.name.localeCompare(b.name) * direction;
@@ -74,7 +74,6 @@ const LeadsListPage: React.FC = () => {
                     return 0;
             }
         });
-        
         return sortableLeads;
     }, [filteredLeads, sortConfig]);
 
@@ -87,7 +86,6 @@ const LeadsListPage: React.FC = () => {
     };
 
     const handleExportExcel = () => {
-        // ---- SOLUCIÓN 2: Se añade el tipo explícito (lead: Lead) para ayudar a TypeScript ----
         const dataToExport = sortedLeads.map((lead: Lead) => {
             const daysInProcess = Math.floor((new Date().getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24));
             return {
@@ -116,7 +114,8 @@ const LeadsListPage: React.FC = () => {
             <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Listado General de Prospectos</h2>
             
             {isManager && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                // ---- SOLUCIÓN: Se envuelve el bloque de filtros con la referencia 'filtersRef' ----
+                <div ref={filtersRef} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     <Select 
                         isMulti 
                         options={stageOptions} 
