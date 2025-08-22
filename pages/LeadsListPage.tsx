@@ -54,10 +54,15 @@ const LeadsListPage: React.FC = () => {
     }, [allLeads, user, isManager, selectedStages, selectedSellers, selectedProviders]);
 
     const sortedLeads = useMemo(() => {
+        // ---- SOLUCIÓN AL BUG DE DUPLICACIÓN ----
+        // Se crea una NUEVA copia del array 'filteredLeads' usando el operador 'spread' (...).
+        // Esto evita la mutación directa del estado y previene el bug de duplicación.
         const sortableLeads = [...filteredLeads];
+        
         if (!sortConfig) {
             return sortableLeads;
         }
+        
         sortableLeads.sort((a, b) => {
             const direction = sortConfig.direction === 'ascending' ? 1 : -1;
             switch (sortConfig.key) {
@@ -110,10 +115,7 @@ const LeadsListPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            {/* ---- CAMBIO 1: Se eliminó el título H2 que estaba aquí ---- */}
-
             {isManager && (
-                // ---- CAMBIO 2: Se ajustó el contenedor para alinear filtros y botón ----
                 <div ref={filtersRef} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg items-center">
                     <Select 
                         isMulti 
