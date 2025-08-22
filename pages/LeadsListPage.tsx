@@ -10,22 +10,23 @@ import { OptionWithCheckbox, CustomValueContainer } from '../components/ui/Custo
 import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
 
-// (El resto del código de la página, actualizado con los filtros)
 const LeadsListPage: React.FC = () => {
     const { allLeads = [], stages = [], users = [], providers = [], getStageById = () => undefined } = useLeads() || {};
     const { user } = useAuth();
     
-    // ---- SOLUCIÓN 1: Se especifica que la clave de ordenamiento solo puede ser una de estas opciones ---
     const [sortConfig, setSortConfig] = useState<{ key: 'name' | 'createdAt' | 'daysInProcess'; direction: 'ascending' | 'descending' } | null>(null);
-
     const [selectedStages, setSelectedStages] = useState<{ value: string; label: string; }[]>([]);
     const [selectedSellers, setSelectedSellers] = useState<{ value: string; label: string; }[]>([]);
     const [selectedProviders, setSelectedProviders] = useState<{ value: string; label: string; }[]>([]);
+    const [openMenu, setOpenMenu] = useState<string | null>(null);
 
     const isManager = user?.role === 'Administrador' || user?.role === 'Supervisor';
 
     const stageOptions = useMemo(() => stages.map(s => ({ value: s.id, label: s.name })), [stages]);
-    const sellerOptions = useMemo(() => users.map(u => ({ value: u.id, label: u.name })), [users]);
+    const sellerOptions = useMemo(() => 
+        users.filter(u => u.role === 'Vendedor').map(u => ({ value: u.id, label: u.name })), 
+        [users]
+    );
     const providerOptions = useMemo(() => providers.map(p => ({ value: p.id, label: p.name })), [providers]);
 
     const filteredLeads = useMemo(() => {
@@ -50,30 +51,28 @@ const LeadsListPage: React.FC = () => {
     }, [allLeads, user, isManager, selectedStages, selectedSellers, selectedProviders]);
 
     const sortedLeads = useMemo(() => {
-        let sortableLeads = [...filteredLeads];
+        const sortableLeads = [...filteredLeads];
         
-        // ---- SOLUCIÓN 2: Se añade una guarda para cuando no hay un orden seleccionado (sortConfig es null) ----
-        if (sortConfig === null) {
+        if (!sortConfig) {
             return sortableLeads;
         }
 
-        // ---- SOLUCIÓN 3: Se añaden los tipos explícitos 'a: Lead' y 'b: Lead' a la función de ordenamiento ----
-        sortableLeads.sort((a: Lead, b: Lead) => {
-            const aValue = sortConfig.key === 'daysInProcess' 
-                ? (new Date().getTime() - new Date(a.createdAt).getTime()) 
-                : a[sortConfig.key];
-            
-            const bValue = sortConfig.key === 'daysInProcess' 
-                ? (new Date().getTime() - new Date(b.createdAt).getTime()) 
-                : b[sortConfig.key];
-            
-            if (aValue < bValue) {
-                return sortConfig.direction === 'ascending' ? -1 : 1;
+        // ---- SOLUCIÓN 1: Lógica de ordenamiento reescrita para ser 100% segura con TypeScript ----
+        sortableLeads.sort((a, b) => {
+            const direction = sortConfig.direction === 'ascending' ? 1 : -1;
+
+            switch (sortConfig.key) {
+                case 'name':
+                    return a.name.localeCompare(b.name) * direction;
+                case 'createdAt':
+                    return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * direction;
+                case 'daysInProcess':
+                    const aDays = new Date().getTime() - new Date(a.createdAt).getTime();
+                    const bDays = new Date().getTime() - new Date(b.createdAt).getTime();
+                    return (aDays - bDays) * direction;
+                default:
+                    return 0;
             }
-            if (aValue > bValue) {
-                return sortConfig.direction === 'ascending' ? 1 : -1;
-            }
-            return 0;
         });
         
         return sortableLeads;
@@ -88,7 +87,8 @@ const LeadsListPage: React.FC = () => {
     };
 
     const handleExportExcel = () => {
-        const dataToExport = sortedLeads.map(lead => {
+        // ---- SOLUCIÓN 2: Se añade el tipo explícito (lead: Lead) para ayudar a TypeScript ----
+        const dataToExport = sortedLeads.map((lead: Lead) => {
             const daysInProcess = Math.floor((new Date().getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24));
             return {
                 'Prospecto': lead.name,
@@ -117,9 +117,42 @@ const LeadsListPage: React.FC = () => {
             
             {isManager && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <Select options={stageOptions} isMulti closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedStages(selected as any)} placeholder="Filtrar por Etapa..." />
-                    <Select options={sellerOptions} isMulti closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedSellers(selected as any)} placeholder="Filtrar por Vendedor..." />
-                    <Select options={providerOptions} isMulti closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedProviders(selected as any)} placeholder="Filtrar por Proveedor..." />
+                    <Select 
+                        isMulti 
+                        options={stageOptions} 
+                        closeMenuOnSelect={false}
+                        hideSelectedOptions={false}
+                        components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} 
+                        onChange={(selected) => setSelectedStages(selected as any)} 
+                        placeholder="Filtrar por Etapa..."
+                        onMenuOpen={() => setOpenMenu('stage')}
+                        onMenuClose={() => setOpenMenu(null)}
+                        menuIsOpen={openMenu === 'stage'}
+                    />
+                    <Select 
+                        isMulti 
+                        options={sellerOptions} 
+                        closeMenuOnSelect={false}
+                        hideSelectedOptions={false}
+                        components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} 
+                        onChange={(selected) => setSelectedSellers(selected as any)} 
+                        placeholder="Filtrar por Vendedor..." 
+                        onMenuOpen={() => setOpenMenu('seller')}
+                        onMenuClose={() => setOpenMenu(null)}
+                        menuIsOpen={openMenu === 'seller'}
+                    />
+                    <Select 
+                        isMulti 
+                        options={providerOptions} 
+                        closeMenuOnSelect={false}
+                        hideSelectedOptions={false}
+                        components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} 
+                        onChange={(selected) => setSelectedProviders(selected as any)} 
+                        placeholder="Filtrar por Proveedor..."
+                        onMenuOpen={() => setOpenMenu('provider')}
+                        onMenuClose={() => setOpenMenu(null)}
+                        menuIsOpen={openMenu === 'provider'}
+                    />
                 </div>
             )}
 
@@ -139,7 +172,7 @@ const LeadsListPage: React.FC = () => {
                     </thead>
                     <tbody>
                         {sortedLeads.map(lead => (
-                            <tr key={lead.id} className="bg-white border-b dark:bg-gray-900 dark:border-gray-700 hover:bg-gray-50 dark:hover-bg-gray-600">
+                            <tr key={lead.id} className="bg-white border-b dark:bg-gray-900 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                                 <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{lead.name}</td>
                                 <td className="px-6 py-4">{getStageById(lead.status)?.name || 'N/A'}</td>
                                 <td className="px-6 py-4">{new Date(lead.createdAt).toLocaleDateString()}</td>
