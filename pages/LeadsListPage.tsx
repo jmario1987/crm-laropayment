@@ -1,4 +1,4 @@
-// pages/LeadsListPage.tsx
+// pages/LeadsListPage.tsx (CON CÓDIGO DE DIAGNÓSTICO)
 
 import React from 'react';
 import { useMemo, useState } from 'react';
@@ -15,6 +15,9 @@ const LeadsListPage: React.FC = () => {
     const { allLeads = [], stages = [], users = [], providers = [], getStageById = () => undefined } = useLeads() || {};
     const { user } = useAuth();
     
+    // --- MENSAJE DE DEPURACIÓN 1: DATOS ORIGINALES ---
+    console.log(`%c[DATOS CRUDOS] Total de prospectos recibidos: ${allLeads.length}`, "color: blue; font-weight: bold;");
+
     const [sortConfig, setSortConfig] = useState<{ key: 'name' | 'createdAt' | 'daysInProcess'; direction: 'ascending' | 'descending' } | null>(null);
     const [selectedStages, setSelectedStages] = useState<{ value: string; label: string; }[]>([]);
     const [selectedSellers, setSelectedSellers] = useState<{ value: string; label: string; }[]>([]);
@@ -50,16 +53,16 @@ const LeadsListPage: React.FC = () => {
                 leads = leads.filter(lead => lead.providerId && providerIds.includes(lead.providerId));
             }
         }
+        // --- MENSAJE DE DEPURACIÓN 2: DATOS FILTRADOS ---
+        console.log(`%c[DATOS FILTRADOS] Prospectos después de aplicar filtros: ${leads.length}`, "color: green; font-weight: bold;");
         return leads;
     }, [allLeads, user, isManager, selectedStages, selectedSellers, selectedProviders]);
 
     const sortedLeads = useMemo(() => {
-        // ---- SOLUCIÓN AL BUG DE DUPLICACIÓN ----
-        // Se crea una NUEVA copia del array 'filteredLeads' usando el operador 'spread' (...).
-        // Esto evita la mutación directa del estado y previene el bug de duplicación.
         const sortableLeads = [...filteredLeads];
-        
         if (!sortConfig) {
+            // --- MENSAJE DE DEPURACIÓN 3A: DATOS SIN ORDENAR ---
+            console.log(`%c[DATOS ORDENADOS] Sin ordenamiento. Total: ${sortableLeads.length}`, "color: orange; font-weight: bold;");
             return sortableLeads;
         }
         
@@ -78,10 +81,13 @@ const LeadsListPage: React.FC = () => {
                     return 0;
             }
         });
+        // --- MENSAJE DE DEPURACIÓN 3B: DATOS ORDENADOS ---
+        console.log(`%c[DATOS ORDENADOS] Prospectos después de ordenar. Total: ${sortableLeads.length}`, "color: orange; font-weight: bold;");
         return sortableLeads;
     }, [filteredLeads, sortConfig]);
 
     const requestSort = (key: 'name' | 'createdAt' | 'daysInProcess') => {
+        console.log(`%c[ACCIÓN DE USUARIO] Clic para ordenar por: ${key}`, "color: purple; font-weight: bold;");
         let direction: 'ascending' | 'descending' = 'ascending';
         if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
             direction = 'descending';
@@ -93,13 +99,10 @@ const LeadsListPage: React.FC = () => {
         const dataToExport = sortedLeads.map((lead: Lead) => {
             const daysInProcess = Math.floor((new Date().getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24));
             return {
-                'Prospecto': lead.name,
-                'Empresa': lead.company,
-                'Etapa': getStageById(lead.status)?.name || 'N/A',
+                'Prospecto': lead.name, 'Empresa': lead.company, 'Etapa': getStageById(lead.status)?.name || 'N/A',
                 'Vendedor': users.find(u => u.id === lead.ownerId)?.name || 'N/A',
                 'Proveedor': providers.find(p => p.id === lead.providerId)?.name || 'N/A',
-                'Fecha de Ingreso': new Date(lead.createdAt).toLocaleDateString(),
-                'Días en Proceso': daysInProcess,
+                'Fecha de Ingreso': new Date(lead.createdAt).toLocaleDateString(), 'Días en Proceso': daysInProcess,
             };
         });
         const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -117,42 +120,9 @@ const LeadsListPage: React.FC = () => {
         <div className="space-y-6">
             {isManager && (
                 <div ref={filtersRef} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg items-center">
-                    <Select 
-                        isMulti 
-                        options={stageOptions} 
-                        closeMenuOnSelect={false}
-                        hideSelectedOptions={false}
-                        components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} 
-                        onChange={(selected) => setSelectedStages(selected as any)} 
-                        placeholder="Filtrar por Etapa..."
-                        onMenuOpen={() => setOpenMenu('stage')}
-                        onMenuClose={() => setOpenMenu(null)}
-                        menuIsOpen={openMenu === 'stage'}
-                    />
-                    <Select 
-                        isMulti 
-                        options={sellerOptions} 
-                        closeMenuOnSelect={false}
-                        hideSelectedOptions={false}
-                        components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} 
-                        onChange={(selected) => setSelectedSellers(selected as any)} 
-                        placeholder="Filtrar por Vendedor..." 
-                        onMenuOpen={() => setOpenMenu('seller')}
-                        onMenuClose={() => setOpenMenu(null)}
-                        menuIsOpen={openMenu === 'seller'}
-                    />
-                    <Select 
-                        isMulti 
-                        options={providerOptions} 
-                        closeMenuOnSelect={false}
-                        hideSelectedOptions={false}
-                        components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} 
-                        onChange={(selected) => setSelectedProviders(selected as any)} 
-                        placeholder="Filtrar por Proveedor..."
-                        onMenuOpen={() => setOpenMenu('provider')}
-                        onMenuClose={() => setOpenMenu(null)}
-                        menuIsOpen={openMenu === 'provider'}
-                    />
+                    <Select isMulti options={stageOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedStages(selected as any)} placeholder="Filtrar por Etapa..." onMenuOpen={() => setOpenMenu('stage')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'stage'} />
+                    <Select isMulti options={sellerOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedSellers(selected as any)} placeholder="Filtrar por Vendedor..." onMenuOpen={() => setOpenMenu('seller')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'seller'} />
+                    <Select isMulti options={providerOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedProviders(selected as any)} placeholder="Filtrar por Proveedor..." onMenuOpen={() => setOpenMenu('provider')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'provider'} />
                     <Button onClick={handleExportExcel}>Exportar a Excel</Button>
                 </div>
             )}
