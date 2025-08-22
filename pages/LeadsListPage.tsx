@@ -1,4 +1,4 @@
-// pages/LeadsListPage.tsx (CON CÓDIGO DE DIAGNÓSTICO)
+// pages/LeadsListPage.tsx
 
 import React from 'react';
 import { useMemo, useState } from 'react';
@@ -14,10 +14,12 @@ import { useClickOutside } from '../hooks/useClickOutside';
 const LeadsListPage: React.FC = () => {
     const { allLeads = [], stages = [], users = [], providers = [], getStageById = () => undefined } = useLeads() || {};
     const { user } = useAuth();
-    
-    // --- MENSAJE DE DEPURACIÓN 1: DATOS ORIGINALES ---
-    console.log(`%c[DATOS CRUDOS] Total de prospectos recibidos: ${allLeads.length}`, "color: blue; font-weight: bold;");
 
+    // ---- SOLUCIÓN DEFINITIVA AL BUG DE DUPLICACIÓN ----
+    // Creamos una copia segura e inmutable de los leads tan pronto como los recibimos.
+    // Todas las operaciones posteriores se harán sobre esta copia limpia.
+    const leadsCopy = useMemo(() => [...allLeads], [allLeads]);
+    
     const [sortConfig, setSortConfig] = useState<{ key: 'name' | 'createdAt' | 'daysInProcess'; direction: 'ascending' | 'descending' } | null>(null);
     const [selectedStages, setSelectedStages] = useState<{ value: string; label: string; }[]>([]);
     const [selectedSellers, setSelectedSellers] = useState<{ value: string; label: string; }[]>([]);
@@ -38,7 +40,8 @@ const LeadsListPage: React.FC = () => {
     const providerOptions = useMemo(() => providers.map(p => ({ value: p.id, label: p.name })), [providers]);
 
     const filteredLeads = useMemo(() => {
-        let leads = user?.role === 'Vendedor' ? allLeads.filter(lead => lead.ownerId === user.id) : allLeads;
+        // Ahora usamos la copia segura 'leadsCopy' en lugar de 'allLeads'
+        let leads = user?.role === 'Vendedor' ? leadsCopy.filter(lead => lead.ownerId === user.id) : leadsCopy;
         if (isManager) {
             if (selectedStages.length > 0) {
                 const stageIds = selectedStages.map(s => s.value);
@@ -53,16 +56,12 @@ const LeadsListPage: React.FC = () => {
                 leads = leads.filter(lead => lead.providerId && providerIds.includes(lead.providerId));
             }
         }
-        // --- MENSAJE DE DEPURACIÓN 2: DATOS FILTRADOS ---
-        console.log(`%c[DATOS FILTRADOS] Prospectos después de aplicar filtros: ${leads.length}`, "color: green; font-weight: bold;");
         return leads;
-    }, [allLeads, user, isManager, selectedStages, selectedSellers, selectedProviders]);
+    }, [leadsCopy, user, isManager, selectedStages, selectedSellers, selectedProviders]);
 
     const sortedLeads = useMemo(() => {
         const sortableLeads = [...filteredLeads];
         if (!sortConfig) {
-            // --- MENSAJE DE DEPURACIÓN 3A: DATOS SIN ORDENAR ---
-            console.log(`%c[DATOS ORDENADOS] Sin ordenamiento. Total: ${sortableLeads.length}`, "color: orange; font-weight: bold;");
             return sortableLeads;
         }
         
@@ -81,13 +80,10 @@ const LeadsListPage: React.FC = () => {
                     return 0;
             }
         });
-        // --- MENSAJE DE DEPURACIÓN 3B: DATOS ORDENADOS ---
-        console.log(`%c[DATOS ORDENADOS] Prospectos después de ordenar. Total: ${sortableLeads.length}`, "color: orange; font-weight: bold;");
         return sortableLeads;
     }, [filteredLeads, sortConfig]);
 
     const requestSort = (key: 'name' | 'createdAt' | 'daysInProcess') => {
-        console.log(`%c[ACCIÓN DE USUARIO] Clic para ordenar por: ${key}`, "color: purple; font-weight: bold;");
         let direction: 'ascending' | 'descending' = 'ascending';
         if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
             direction = 'descending';
