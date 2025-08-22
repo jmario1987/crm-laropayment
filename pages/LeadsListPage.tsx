@@ -1,146 +1,151 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+// pages/LeadsListPage.tsx
+
+import React from 'react';
+import { useMemo, useState } from 'react';
 import { useLeads } from '../hooks/useLeads';
 import { useAuth } from '../hooks/useAuth';
-import { Lead, USER_ROLES } from '../types';
+import { Lead } from '../types';
+import Select from 'react-select';
+import { OptionWithCheckbox, CustomValueContainer } from '../components/ui/CustomMultiSelect';
 import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
-import Select, { components, OptionProps, ValueContainerProps } from 'react-select';
 
-// Componentes personalizados para Select (no cambian)
-const OptionWithCheckbox = (props: OptionProps<any, true>) => (
-  <components.Option {...props}>
-    <input type="checkbox" checked={props.isSelected} onChange={() => null} className="mr-2 accent-sky-600" />
-    <label>{props.label}</label>
-  </components.Option>
-);
-
-const CustomValueContainer = ({ children, ...props }: ValueContainerProps<any, true>) => {
-  const { getValue, hasValue } = props;
-  const selectedCount = getValue().length;
-  const placeholder = props.selectProps.placeholder;
-  return (
-    <components.ValueContainer {...props}>
-      {!hasValue ? placeholder : <span className="text-gray-800 dark:text-gray-200">{selectedCount} seleccionado(s)</span>}
-    </components.ValueContainer>
-  );
-};
-
-// Componente para una fila de la tabla (sin cambios)
-const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
-    const { getUserById, getStageById } = useLeads();
-    const sellerName = getUserById(lead.ownerId)?.name || 'No asignado';
-    const stage = getStageById(lead.status);
-    const stageName = stage?.name || 'Desconocido';
-    const creationDate = useMemo(() => new Date(lead.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }), [lead.createdAt]);
-    const daysInProcess = useMemo(() => Math.floor((new Date().getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24)), [lead.createdAt]);
-
-    return (
-        <tr className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
-            <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{lead.name}</td>
-            <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{lead.company}</td>
-            <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{sellerName}</td>
-            <td className="px-6 py-4"><span className="px-2 py-1 text-xs font-bold rounded-full text-white" style={{ backgroundColor: stage?.color || '#cccccc' }}>{stageName}</span></td>
-            <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{creationDate}</td>
-            <td className="px-6 py-4 font-semibold text-gray-800 dark:text-gray-200 text-center">{daysInProcess}</td>
-        </tr>
-    );
-};
-
-// --- COMPONENTE PRINCIPAL CON LÓGICA DE ORDENAMIENTO ---
+// (El resto del código de la página, actualizado con los filtros)
 const LeadsListPage: React.FC = () => {
-    const { allLeads, sellers, providers, stages, getStageById, getUserById, getProviderById } = useLeads();
+    const { allLeads = [], stages = [], users = [], providers = [], getStageById = () => undefined } = useLeads() || {};
     const { user } = useAuth();
     
-    const [selectedSellerIds, setSelectedSellerIds] = useState<string[]>([]);
-    const [selectedProviderIds, setSelectedProviderIds] = useState<string[]>([]);
-    const [selectedStageIds, setSelectedStageIds] = useState<string[]>([]);
-    const [openMenu, setOpenMenu] = useState<string | null>(null);
-    const filtersRef = useRef<HTMLDivElement>(null);
+    // ---- SOLUCIÓN 1: Se especifica que la clave de ordenamiento solo puede ser una de estas opciones ---
+    const [sortConfig, setSortConfig] = useState<{ key: 'name' | 'createdAt' | 'daysInProcess'; direction: 'ascending' | 'descending' } | null>(null);
 
-    // --- NUEVO ESTADO PARA EL ORDENAMIENTO ---
-    type SortableKeys = 'name' | 'company' | 'createdAt' | 'lastUpdate';
-    const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' }>({ key: 'lastUpdate', direction: 'desc' });
+    const [selectedStages, setSelectedStages] = useState<{ value: string; label: string; }[]>([]);
+    const [selectedSellers, setSelectedSellers] = useState<{ value: string; label: string; }[]>([]);
+    const [selectedProviders, setSelectedProviders] = useState<{ value: string; label: string; }[]>([]);
 
-    const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
+    const isManager = user?.role === 'Administrador' || user?.role === 'Supervisor';
 
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (filtersRef.current && !filtersRef.current.contains(event.target as Node)) {
-                setOpenMenu(null);
+    const stageOptions = useMemo(() => stages.map(s => ({ value: s.id, label: s.name })), [stages]);
+    const sellerOptions = useMemo(() => users.map(u => ({ value: u.id, label: u.name })), [users]);
+    const providerOptions = useMemo(() => providers.map(p => ({ value: p.id, label: p.name })), [providers]);
+
+    const filteredLeads = useMemo(() => {
+        let leads = user?.role === 'Vendedor' ? allLeads.filter(lead => lead.ownerId === user.id) : allLeads;
+
+        if (isManager) {
+            if (selectedStages.length > 0) {
+                const stageIds = selectedStages.map(s => s.value);
+                leads = leads.filter(lead => stageIds.includes(lead.status));
             }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
-    const visibleLeads = useMemo(() => {
-        let leadsToDisplay = [...allLeads];
-        // ... (lógica de filtrado sin cambios)
-        if (!isManager) { leadsToDisplay = leadsToDisplay.filter(lead => lead.ownerId === user?.id); }
-        if (isManager && selectedSellerIds.length > 0) { leadsToDisplay = leadsToDisplay.filter(lead => selectedSellerIds.includes(lead.ownerId)); }
-        if (isManager && selectedProviderIds.length > 0) { leadsToDisplay = leadsToDisplay.filter(lead => selectedProviderIds.includes(lead.providerId || '')); }
-        if (selectedStageIds.length > 0) { leadsToDisplay = leadsToDisplay.filter(lead => selectedStageIds.includes(lead.status)); }
+            if (selectedSellers.length > 0) {
+                const sellerIds = selectedSellers.map(s => s.value);
+                leads = leads.filter(lead => sellerIds.includes(lead.ownerId));
+            }
+            if (selectedProviders.length > 0) {
+                const providerIds = selectedProviders.map(p => p.value);
+                leads = leads.filter(lead => lead.providerId && providerIds.includes(lead.providerId));
+            }
+        }
         
-        // --- NUEVA LÓGICA DE ORDENAMIENTO DINÁMICO ---
-        leadsToDisplay.sort((a, b) => {
-            const valA = a[sortConfig.key] || '';
-            const valB = b[sortConfig.key] || '';
-            if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return leads;
+    }, [allLeads, user, isManager, selectedStages, selectedSellers, selectedProviders]);
+
+    const sortedLeads = useMemo(() => {
+        let sortableLeads = [...filteredLeads];
+        
+        // ---- SOLUCIÓN 2: Se añade una guarda para cuando no hay un orden seleccionado (sortConfig es null) ----
+        if (sortConfig === null) {
+            return sortableLeads;
+        }
+
+        // ---- SOLUCIÓN 3: Se añaden los tipos explícitos 'a: Lead' y 'b: Lead' a la función de ordenamiento ----
+        sortableLeads.sort((a: Lead, b: Lead) => {
+            const aValue = sortConfig.key === 'daysInProcess' 
+                ? (new Date().getTime() - new Date(a.createdAt).getTime()) 
+                : a[sortConfig.key];
+            
+            const bValue = sortConfig.key === 'daysInProcess' 
+                ? (new Date().getTime() - new Date(b.createdAt).getTime()) 
+                : b[sortConfig.key];
+            
+            if (aValue < bValue) {
+                return sortConfig.direction === 'ascending' ? -1 : 1;
+            }
+            if (aValue > bValue) {
+                return sortConfig.direction === 'ascending' ? 1 : -1;
+            }
             return 0;
         });
+        
+        return sortableLeads;
+    }, [filteredLeads, sortConfig]);
 
-        return leadsToDisplay;
-    }, [allLeads, user, isManager, selectedSellerIds, selectedProviderIds, selectedStageIds, sortConfig]);
-
-    const requestSort = (key: SortableKeys) => {
-        let direction: 'asc' | 'desc' = 'asc';
-        if (sortConfig.key === key && sortConfig.direction === 'asc') {
-            direction = 'desc';
+    const requestSort = (key: 'name' | 'createdAt' | 'daysInProcess') => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
         }
         setSortConfig({ key, direction });
     };
 
-    const getSortIndicator = (key: SortableKeys) => {
-        if (sortConfig.key !== key) return null;
-        return sortConfig.direction === 'asc' ? '🔼' : '🔽';
+    const handleExportExcel = () => {
+        const dataToExport = sortedLeads.map(lead => {
+            const daysInProcess = Math.floor((new Date().getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24));
+            return {
+                'Prospecto': lead.name,
+                'Empresa': lead.company,
+                'Etapa': getStageById(lead.status)?.name || 'N/A',
+                'Vendedor': users.find(u => u.id === lead.ownerId)?.name || 'N/A',
+                'Proveedor': providers.find(p => p.id === lead.providerId)?.name || 'N/A',
+                'Fecha de Ingreso': new Date(lead.createdAt).toLocaleDateString(),
+                'Días en Proceso': daysInProcess,
+            };
+        });
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Prospectos');
+        XLSX.writeFile(workbook, 'Reporte_Prospectos.xlsx');
     };
 
-    const handleExportExcel = () => { /* ... (lógica de exportación sin cambios) ... */ };
-    const sellerOptions = sellers.map(s => ({ value: s.id, label: s.name }));
-    const providerOptions = providers.map(p => ({ value: p.id, label: p.name }));
-    const stageOptions = stages.map(s => ({ value: s.id, label: s.name }));
-    const customSelectStyles = { /* ... (estilos sin cambios) ... */ };
+    const getSortIndicator = (key: string) => {
+        if (!sortConfig || sortConfig.key !== key) return null;
+        return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
+    };
 
     return (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-            <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Listado de Prospectos</h3>
-                {/* ... (sección de filtros sin cambios) ... */}
+        <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Listado General de Prospectos</h2>
+            
+            {isManager && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <Select options={stageOptions} isMulti closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedStages(selected as any)} placeholder="Filtrar por Etapa..." />
+                    <Select options={sellerOptions} isMulti closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedSellers(selected as any)} placeholder="Filtrar por Vendedor..." />
+                    <Select options={providerOptions} isMulti closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedProviders(selected as any)} placeholder="Filtrar por Proveedor..." />
+                </div>
+            )}
+
+            <div className="flex justify-end">
+                <Button onClick={handleExportExcel}>Exportar a Excel</Button>
             </div>
+
             <div className="relative overflow-x-auto shadow-md sm:rounded-lg">
                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                         <tr>
-                            {/* --- ENCABEZADOS DE TABLA AHORA CLICABLES --- */}
-                            <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => requestSort('name')}>
-                                Prospecto {getSortIndicator('name')}
-                            </th>
-                            <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => requestSort('company')}>
-                                Empresa {getSortIndicator('company')}
-                            </th>
-                            <th scope="col" className="px-6 py-3">Vendedor Asignado</th>
-                            <th scope="col" className="px-6 py-3">Etapa Actual</th>
-                            <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => requestSort('createdAt')}>
-                                Fecha de Ingreso {getSortIndicator('createdAt')}
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-center cursor-pointer" onClick={() => console.log('Sorting by days in process requires special logic')}>
-                                Días en Proceso {/* {getSortIndicator('daysInProcess')} --- Nota: Requiere cálculo previo para ordenar */}
-                            </th>
+                            <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => requestSort('name')}>Prospecto {getSortIndicator('name')}</th>
+                            <th scope="col" className="px-6 py-3">Etapa</th>
+                            <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => requestSort('createdAt')}>Fecha de Ingreso {getSortIndicator('createdAt')}</th>
+                            <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => requestSort('daysInProcess')}>Días en Proceso {getSortIndicator('daysInProcess')}</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {visibleLeads.map(lead => <LeadRow key={lead.id} lead={lead} />)}
+                        {sortedLeads.map(lead => (
+                            <tr key={lead.id} className="bg-white border-b dark:bg-gray-900 dark:border-gray-700 hover:bg-gray-50 dark:hover-bg-gray-600">
+                                <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{lead.name}</td>
+                                <td className="px-6 py-4">{getStageById(lead.status)?.name || 'N/A'}</td>
+                                <td className="px-6 py-4">{new Date(lead.createdAt).toLocaleDateString()}</td>
+                                <td className="px-6 py-4">{Math.floor((new Date().getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24))}</td>
+                            </tr>
+                        ))}
                     </tbody>
                 </table>
             </div>
