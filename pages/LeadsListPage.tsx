@@ -1,7 +1,7 @@
 // pages/LeadsListPage.tsx
 
 import React from 'react';
-import { useMemo, useState, useRef } from 'react';
+import { useMemo, useState } from 'react';
 import { useLeads } from '../hooks/useLeads';
 import { useAuth } from '../hooks/useAuth';
 import { Lead } from '../types';
@@ -9,7 +9,7 @@ import Select from 'react-select';
 import { OptionWithCheckbox, CustomValueContainer } from '../components/ui/CustomMultiSelect';
 import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
-import { useClickOutside } from '../hooks/useClickOutside'; // <-- Se importa nuestro nuevo hook
+import { useClickOutside } from '../hooks/useClickOutside';
 
 const LeadsListPage: React.FC = () => {
     const { allLeads = [], stages = [], users = [], providers = [], getStageById = () => undefined } = useLeads() || {};
@@ -21,9 +21,8 @@ const LeadsListPage: React.FC = () => {
     const [selectedProviders, setSelectedProviders] = useState<{ value: string; label: string; }[]>([]);
     const [openMenu, setOpenMenu] = useState<string | null>(null);
 
-    // ---- SOLUCIÓN: Se crea una referencia para el contenedor de los filtros ----
     const filtersRef = useClickOutside<HTMLDivElement>(() => {
-        setOpenMenu(null); // Esto es lo que se ejecuta al hacer clic afuera
+        setOpenMenu(null);
     });
 
     const isManager = user?.role === 'Administrador' || user?.role === 'Supervisor';
@@ -111,11 +110,11 @@ const LeadsListPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Listado General de Prospectos</h2>
-            
+            {/* ---- CAMBIO 1: Se eliminó el título H2 que estaba aquí ---- */}
+
             {isManager && (
-                // ---- SOLUCIÓN: Se envuelve el bloque de filtros con la referencia 'filtersRef' ----
-                <div ref={filtersRef} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                // ---- CAMBIO 2: Se ajustó el contenedor para alinear filtros y botón ----
+                <div ref={filtersRef} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg items-center">
                     <Select 
                         isMulti 
                         options={stageOptions} 
@@ -152,12 +151,9 @@ const LeadsListPage: React.FC = () => {
                         onMenuClose={() => setOpenMenu(null)}
                         menuIsOpen={openMenu === 'provider'}
                     />
+                    <Button onClick={handleExportExcel}>Exportar a Excel</Button>
                 </div>
             )}
-
-            <div className="flex justify-end">
-                <Button onClick={handleExportExcel}>Exportar a Excel</Button>
-            </div>
 
             <div className="relative overflow-x-auto shadow-md sm:rounded-lg">
                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
