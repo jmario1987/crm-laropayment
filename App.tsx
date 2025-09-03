@@ -1,12 +1,12 @@
 import { Routes, Route } from 'react-router-dom';
 import ProtectedRoute from './components/auth/ProtectedRoute';
-import LoginPage from './components/layout/LoginPage';
-import MainLayout from './components/layout/Layout'; // Apuntamos al nuevo Layout
+import Login from './pages/Login'; // <-- CAMBIO IMPORTANTE
+import MainLayout from './components/layout/Layout';
 
 function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/login" element={<Login />} /> {/* <-- CAMBIO IMPORTANTE */}
       <Route 
         path="/*" 
         element={
