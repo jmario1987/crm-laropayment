@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useLeads } from '../../hooks/useLeads';
 import Modal from '../ui/Modal';
@@ -66,7 +65,8 @@ const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClose }) =>
             <div>
                 <h3 className="text-lg font-medium text-gray-800 dark:text-gray-200">Paso 1: Descargar Plantilla</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Descargue el archivo de Excel, llénelo con la información de sus prospectos y guárdelo en su computadora.</p>
-                <Button onClick={generateTemplate} variant="secondary" className="mt-3">
+                {/* --- LÍNEA CORREGIDA --- */}
+                <Button onClick={() => generateTemplate(stages, products, providers)} variant="secondary" className="mt-3">
                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     Descargar Plantilla
                 </Button>
