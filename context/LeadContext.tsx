@@ -4,7 +4,8 @@ import { db } from '../firebaseConfig';
 import { collection, getDocs, doc, getDoc, writeBatch, setDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 
-type Action = | { type: 'SET_STATE'; payload: State } | { type: 'ADD_LEAD'; payload: Lead } | { type: 'UPDATE_LEAD'; payload: Partial<Lead> & { id: string } } | { type: 'DELETE_LEAD'; payload: string } | { type: 'ADD_BULK_LEADS'; payload: Lead[] } | { type: 'ADD_USER'; payload: User } | { type: 'UPDATE_USER'; payload: User } | { type: 'ADD_ROLE'; payload: string } | { type: 'DELETE_ROLE'; payload: string } | { type: 'ADD_PRODUCT'; payload: Product } | { type: 'UPDATE_PRODUCT'; payload: Product } | { type: 'DELETE_PRODUCT'; payload: string } | { type: 'ADD_PROVIDER'; payload: Provider } | { type: 'UPDATE_PROVIDER'; payload: Provider } | { type: 'DELETE_PROVIDER'; payload: string } | { type: 'ADD_STAGE'; payload: Stage } | { type: 'UPDATE_STAGE'; payload: Stage } | { type: 'DELETE_STAGE'; payload: string } | { type: 'UPDATE_STAGES_ORDER'; payload: Stage[] };
+// CAMBIO CLAVE: Se simplifica el tipo de 'UPDATE_LEAD' para que espere un objeto 'Lead' completo.
+type Action = | { type: 'SET_STATE'; payload: State } | { type: 'ADD_LEAD'; payload: Lead } | { type: 'UPDATE_LEAD'; payload: Lead } | { type: 'DELETE_LEAD'; payload: string } | { type: 'ADD_BULK_LEADS'; payload: Lead[] } | { type: 'ADD_USER'; payload: User } | { type: 'UPDATE_USER'; payload: User } | { type: 'ADD_ROLE'; payload: string } | { type: 'DELETE_ROLE'; payload: string } | { type: 'ADD_PRODUCT'; payload: Product } | { type: 'UPDATE_PRODUCT'; payload: Product } | { type: 'DELETE_PRODUCT'; payload: string } | { type: 'ADD_PROVIDER'; payload: Provider } | { type: 'UPDATE_PROVIDER'; payload: Provider } | { type: 'DELETE_PROVIDER'; payload: string } | { type: 'ADD_STAGE'; payload: Stage } | { type: 'UPDATE_STAGE'; payload: Stage } | { type: 'DELETE_STAGE'; payload: string } | { type: 'UPDATE_STAGES_ORDER'; payload: Stage[] };
 
 interface State { 
   leads: Lead[]; 
@@ -26,7 +27,6 @@ const initialState: State = {
   tags: [] 
 };
 
-// ESTA ES LA FUNCIÓN CON LA CORRECCIÓN FINAL
 const leadReducer = (state: State, action: Action): State => {
     switch (action.type) {
         case 'SET_STATE': return { ...action.payload };
@@ -35,26 +35,21 @@ const leadReducer = (state: State, action: Action): State => {
             setDoc(doc(db, 'leads', action.payload.id), action.payload); 
             return { ...state, leads: [action.payload, ...state.leads] };
         
-        // --- LA SOLUCIÓN DEFINITIVA ESTÁ AQUÍ ---
         case 'UPDATE_LEAD': {
             setDoc(doc(db, 'leads', action.payload.id), action.payload, { merge: true });
             const updatedLeads = state.leads.map(lead => {
                 if (lead.id === action.payload.id) {
-                    // Fusiona el prospecto viejo con los campos nuevos del prospecto actualizado
-                    return { ...lead, ...action.payload };
+                    return action.payload; // Reemplaza con el objeto completo y actualizado
                 }
                 return lead;
             });
-            // Devuelve un estado completamente nuevo para forzar la actualización
             return { ...state, leads: updatedLeads };
         }
-        // --- FIN DE LA SOLUCIÓN ---
 
         case 'DELETE_LEAD': 
             deleteDoc(doc(db, 'leads', action.payload)); 
             return { ...state, leads: state.leads.filter(l => l.id !== action.payload) };
 
-        // El resto de los casos no necesitan cambios
         case 'ADD_BULK_LEADS': { const batch = writeBatch(db); action.payload.forEach(lead => batch.set(doc(db, "leads", lead.id), lead)); batch.commit(); return { ...state, leads: [...action.payload, ...state.leads] }; }
         case 'ADD_USER': setDoc(doc(db, 'users', action.payload.id), action.payload); return { ...state, users: [...state.users, action.payload] };
         case 'UPDATE_USER': setDoc(doc(db, 'users', action.payload.id), action.payload, { merge: true }); return { ...state, users: state.users.map(u => u.id === action.payload.id ? action.payload : u) };
@@ -96,6 +91,7 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const stagnantLeads = useMemo(() => state.leads.filter(lead => {
       const stage = state.stages.find(s => s.id === lead.status);
       if (!stage || stage.type !== 'open') return false;
+      if (!lead.lastUpdate) return false;
       const daysDifference = Math.floor((new Date().getTime() - new Date(lead.lastUpdate).getTime()) / (1000 * 3600 * 24));
       return daysDifference >= 8;
   }), [state.leads, state.stages]);

@@ -81,28 +81,44 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
     const ownerId = isManager ? formData.ownerId : user.id;
 
-    const newLeadData: Lead = {
-      id: lead?.id || new Date().toISOString(),
-      name: formData.name,
-      company: formData.company,
-      email: formData.email,
-      phone: formData.phone,
-      status: formData.status as LeadStatus,
-      createdAt: lead?.createdAt || new Date().toISOString(),
-      statusHistory: updatedStatusHistory,
-      ownerId,
-      productIds: formData.productIds,
-      observations: finalObservations,
-      lastUpdate: new Date().toISOString(),
-      affiliateNumber: formData.affiliateNumber,
-      tagIds: formData.tagId ? [formData.tagId] : [],
-      providerId: formData.providerId,
+    // CAMBIO CLAVE: Construimos un objeto parcial y luego lo fusionamos para asegurar que el objeto final es un 'Lead' completo.
+    const partialNewData: Partial<Lead> = {
+        name: formData.name,
+        company: formData.company,
+        email: formData.email,
+        phone: formData.phone,
+        status: formData.status as LeadStatus,
+        statusHistory: updatedStatusHistory,
+        ownerId,
+        productIds: formData.productIds,
+        observations: finalObservations,
+        lastUpdate: new Date().toISOString(),
+        affiliateNumber: formData.affiliateNumber,
+        tagIds: formData.tagId ? [formData.tagId] : [],
+        providerId: formData.providerId,
     };
 
     if (lead) {
-      dispatch({ type: 'UPDATE_LEAD', payload: { ...lead, ...newLeadData } });
+      // Para actualizar, fusionamos el prospecto viejo con los datos nuevos
+      const updatedLead: Lead = { ...lead, ...partialNewData };
+      dispatch({ type: 'UPDATE_LEAD', payload: updatedLead });
     } else {
-      dispatch({ type: 'ADD_LEAD', payload: newLeadData });
+      // Para crear, necesitamos un objeto Lead completo
+      const newLead: Lead = {
+        id: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        ...partialNewData,
+        // Aseguramos que todos los campos obligatorios estén presentes
+        name: partialNewData.name!,
+        company: partialNewData.company!,
+        email: partialNewData.email!,
+        phone: partialNewData.phone!,
+        status: partialNewData.status!,
+        ownerId: partialNewData.ownerId!,
+        observations: partialNewData.observations!,
+        lastUpdate: partialNewData.lastUpdate!,
+      };
+      dispatch({ type: 'ADD_LEAD', payload: newLead });
     }
     onSuccess();
   };
