@@ -1,6 +1,5 @@
 import React, { createContext, useReducer, useEffect, ReactNode, Dispatch, useRef, useMemo } from 'react';
 import { Lead, User, UserRole, Product, Provider, Stage, USER_ROLES } from '../types';
-import { initialRoles } from '../data/mockData';
 import { db } from '../firebaseConfig';
 import { collection, getDocs, writeBatch, doc, setDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
@@ -105,7 +104,7 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             stages: allData[2].docs.map(doc => doc.data() as Stage),
             products: allData[3].docs.map(doc => doc.data() as Product), 
             providers: allData[4].docs.map(doc => doc.data() as Provider),
-            roles: initialRoles 
+            roles: [USER_ROLES.Admin, USER_ROLES.Supervisor, USER_ROLES.Vendedor] 
           }});
         }
       } catch (error) {
