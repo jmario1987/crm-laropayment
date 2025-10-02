@@ -11,25 +11,24 @@ const TimelineIcon: React.FC<{ color: string }> = ({ color }) => (
     </span>
 );
 
-
+// <-- CAMBIO: Se especifica que 'history' puede ser undefined
 const LeadTimeline: React.FC<{ history: StatusHistoryEntry[] | undefined }> = ({ history }) => {
     const { getStageById } = useLeads();
-    
-    // <-- CAMBIO CLAVE: Se maneja el caso de que el historial sea undefined de forma más segura.
+
+    // <-- CAMBIO CLAVE: Esta es la comprobación que soluciona el error.
+    // Si no hay historial o está vacío, muestra un mensaje y se detiene aquí.
     if (!history || history.length === 0) {
         return <p className="text-gray-500 dark:text-gray-400">No hay historial de etapas disponible.</p>;
     }
-    
-    // Se ordena el historial del más reciente al más antiguo
+
+    // El resto del código solo se ejecuta si el historial SÍ existe.
     const sortedHistory = [...history].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return (
         <ol className="relative border-l border-gray-200 dark:border-gray-700 ml-4">                  
             {sortedHistory.map((entry, index) => {
-                // <-- CAMBIO CLAVE: Se añade una comprobación para evitar errores si una entrada del historial es inválida.
-                if (!entry || !entry.status) {
-                    return null; // No renderiza nada si la entrada no es correcta
-                }
+                // Se añade una seguridad extra por si una entrada del historial es inválida
+                if (!entry || !entry.status) return null;
 
                 const stage = getStageById(entry.status);
                 const stageName = stage?.name || `Etapa (ID: ${entry.status})`;
