@@ -4,8 +4,10 @@ import { Lead, LeadStatus, USER_ROLES, StatusHistoryEntry } from '../../types';
 import Button from '../ui/Button';
 import { useAuth } from '../../hooks/useAuth';
 import MultiSelectDropdown from '../ui/MultiSelectDropdown';
+// --- ESTAS SON LAS IMPORTACIONES QUE FALTABAN ---
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
+// --- FIN DE LA CORRECCIÓN ---
 
 interface LeadFormProps {
   lead?: Lead;
