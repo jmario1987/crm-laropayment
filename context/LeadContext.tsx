@@ -4,7 +4,6 @@ import { db } from '../firebaseConfig';
 import { collection, getDocs, doc, getDoc, writeBatch, setDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 
-// --- ESTA ES LA LISTA COMPLETA Y CORRECTA DE ACCIONES ---
 type Action = 
   | { type: 'SET_STATE'; payload: State } 
   | { type: 'ADD_LEAD'; payload: Lead } 
@@ -25,7 +24,6 @@ type Action =
   | { type: 'UPDATE_STAGE'; payload: Stage } 
   | { type: 'DELETE_STAGE'; payload: string } 
   | { type: 'UPDATE_STAGES_ORDER'; payload: Stage[] };
-// --- FIN DE LA CORRECCIÓN ---
 
 interface State { 
   leads: Lead[]; 
@@ -53,8 +51,6 @@ const leadReducer = (state: State, action: Action): State => {
         case 'ADD_LEAD': return { ...state, leads: [action.payload, ...state.leads] };
         case 'UPDATE_LEAD': return { ...state, leads: state.leads.map(l => l.id === action.payload.id ? action.payload : l) };
         case 'DELETE_LEAD': return { ...state, leads: state.leads.filter(l => l.id !== action.payload) };
-        
-        // Se restauran los casos que faltaban
         case 'ADD_USER': return { ...state, users: [...state.users, action.payload] };
         case 'UPDATE_USER': return { ...state, users: state.users.map(u => u.id === action.payload.id ? action.payload : u) };
         case 'ADD_PRODUCT': return { ...state, products: [...state.products, action.payload] };
@@ -67,7 +63,6 @@ const leadReducer = (state: State, action: Action): State => {
         case 'UPDATE_STAGE': return { ...state, stages: state.stages.map(s => s.id === action.payload.id ? action.payload : s) };
         case 'DELETE_STAGE': return { ...state, stages: state.stages.filter(s => s.id !== action.payload) };
         case 'UPDATE_STAGES_ORDER': return { ...state, stages: action.payload };
-
         default: return state;
     }
 };
@@ -76,12 +71,18 @@ interface LeadContextType {
   state: State;
   dispatch: Dispatch<Action>;
   reloadData: () => void;
+  stagnantLeads: Lead[];
+  sellerNotifications: Lead[];
+  managerResponseNotifications: Lead[];
 }
 
 export const LeadContext = createContext<LeadContextType>({
   state: initialState,
   dispatch: () => null,
   reloadData: () => {}, 
+  stagnantLeads: [],
+  sellerNotifications: [],
+  managerResponseNotifications: [],
 });
 
 export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -90,6 +91,25 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   
   const [version, setVersion] = useState(0);
   const reloadData = () => setVersion(v => v + 1);
+
+  const stagnantLeads = useMemo(() => {
+    return state.leads.filter(lead => {
+      const stage = state.stages.find(s => s.id === lead.status);
+      if (!stage || stage.type !== 'open' || !lead.lastUpdate) return false;
+      const daysDifference = Math.floor((new Date().getTime() - new Date(lead.lastUpdate).getTime()) / (1000 * 3600 * 24));
+      return daysDifference >= 8;
+    });
+  }, [state.leads, state.stages]);
+
+  const sellerNotifications = useMemo(() => {
+    if (!user || user.role !== USER_ROLES.Vendedor) return [];
+    return state.leads.filter(lead => lead.notificationForSeller && lead.ownerId === user.id);
+  }, [state.leads, user]);
+
+  const managerResponseNotifications = useMemo(() => {
+    if (!user || (user.role !== USER_ROLES.Admin && user.role !== USER_ROLES.Supervisor)) return [];
+    return state.leads.filter(lead => lead.sellerHasViewedNotification && lead.notificationForManagerId === user.id);
+  }, [state.leads, user]);
 
   useEffect(() => {
     const initializeAndLoadData = async () => {
@@ -133,7 +153,7 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [user, authLoading, version]);
 
   return (
-    <LeadContext.Provider value={{ state, dispatch, reloadData }}>
+    <LeadContext.Provider value={{ state, dispatch, reloadData, stagnantLeads, sellerNotifications, managerResponseNotifications }}>
       {children}
     </LeadContext.Provider>
   );
