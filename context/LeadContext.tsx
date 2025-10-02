@@ -31,7 +31,20 @@ const leadReducer = (state: State, action: Action): State => {
         case 'SET_STATE': return { ...action.payload };
         case 'ADD_LEAD': setDoc(doc(db, 'leads', action.payload.id), action.payload); return { ...state, leads: [action.payload, ...state.leads] };
         case 'ADD_BULK_LEADS': { const batch = writeBatch(db); action.payload.forEach(lead => batch.set(doc(db, "leads", lead.id), lead)); batch.commit(); return { ...state, leads: [...action.payload, ...state.leads] }; }
-        case 'UPDATE_LEAD': setDoc(doc(db, 'leads', action.payload.id), action.payload, { merge: true }); return { ...state, leads: state.leads.map(l => l.id === action.payload.id ? action.payload : l) };
+        
+        // --- ESTA ES LA LÍNEA CORREGIDA ---
+        case 'UPDATE_LEAD': 
+            setDoc(doc(db, 'leads', action.payload.id), action.payload, { merge: true }); 
+            return { 
+                ...state, 
+                leads: state.leads.map(l => 
+                    l.id === action.payload.id 
+                    ? { ...l, ...action.payload } // Se fusionan los datos para forzar el refresco
+                    : l
+                ) 
+            };
+        // --- FIN DE LA CORRECCIÓN ---
+
         case 'DELETE_LEAD': deleteDoc(doc(db, 'leads', action.payload)); return { ...state, leads: state.leads.filter(l => l.id !== action.payload) };
         case 'ADD_USER': setDoc(doc(db, 'users', action.payload.id), action.payload); return { ...state, users: [...state.users, action.payload] };
         case 'UPDATE_USER': setDoc(doc(db, 'users', action.payload.id), action.payload, { merge: true }); return { ...state, users: state.users.map(u => u.id === action.payload.id ? action.payload : u) };
