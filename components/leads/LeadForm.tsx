@@ -28,7 +28,8 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     providerId: lead?.providerId || '',
     observations: '',
     affiliateNumber: lead?.affiliateNumber || '',
-    tagIds: lead?.tagIds || [],
+    // <-- CAMBIO: Ahora guardamos un solo 'tagId', no una lista.
+    tagId: lead?.tagIds?.[0] || '', 
   });
 
   const isWonStageSelected = useMemo(() => {
@@ -40,13 +41,12 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     return tags.filter(tag => tag.stageId === formData.status);
   }, [formData.status, tags]);
 
-  const tagOptions = relevantTags.map(t => ({ value: t.id, label: t.name }));
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     
+    // <-- CAMBIO: Si cambia la etapa, se resetea la sub-etapa
     if (name === 'status') {
-        setFormData((prev) => ({ ...prev, [name]: value, tagIds: [] }));
+        setFormData((prev) => ({ ...prev, [name]: value, tagId: '' }));
     } else {
         setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -54,10 +54,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
   
   const handleProductSelectionChange = (selectedIds: string[]) => {
       setFormData(prev => ({...prev, productIds: selectedIds}));
-  };
-
-  const handleTagSelectionChange = (selectedIds: string[]) => {
-    setFormData(prev => ({...prev, tagIds: selectedIds}));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -91,12 +87,11 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
         notificationUpdates.sellerHasViewedNotification = true;
       }
     }
-
-    // <-- CAMBIO CLAVE: Lógica corregida para actualizar el historial de etapas
+    
     let updatedStatusHistory: StatusHistoryEntry[] = lead?.statusHistory || [];
-    if (!lead) { // Si es un prospecto nuevo
+    if (!lead) {
         updatedStatusHistory = [{ status: formData.status as LeadStatus, date: new Date().toISOString() }];
-    } else if (lead.status !== formData.status) { // Si es uno existente y la etapa cambió
+    } else if (lead.status !== formData.status) {
         updatedStatusHistory = [...updatedStatusHistory, { status: formData.status as LeadStatus, date: new Date().toISOString() }];
     }
 
@@ -110,13 +105,14 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       phone: formData.phone,
       status: formData.status as LeadStatus,
       createdAt: lead?.createdAt || new Date().toISOString(),
-      statusHistory: updatedStatusHistory, // Se usa el historial corregido
+      statusHistory: updatedStatusHistory,
       ownerId,
       productIds: formData.productIds,
       observations: finalObservations,
       lastUpdate: new Date().toISOString(),
       affiliateNumber: formData.affiliateNumber,
-      tagIds: formData.tagIds,
+      // <-- CAMBIO: Guardamos el tagId en una lista (array) para mantener la estructura de datos
+      tagIds: formData.tagId ? [formData.tagId] : [],
       ...notificationUpdates,
     };
 
@@ -136,7 +132,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-2">
-      {/* El resto del JSX del formulario se mantiene igual */}
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre</label>
         <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
@@ -159,17 +154,18 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
           {sortedStages.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
         </select>
       </div>
+
+      {/* <-- CAMBIO: Se reemplaza el selector múltiple por un selector simple y estable --> */}
       {relevantTags.length > 0 && (
         <div>
-          <label htmlFor="tagIds" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sub-Etapa / Etiquetas</label>
-          <MultiSelectDropdown
-            options={tagOptions}
-            selectedValues={formData.tagIds}
-            onChange={handleTagSelectionChange}
-            placeholder="Seleccionar sub-etapas..."
-          />
+          <label htmlFor="tagId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sub-Etapa</label>
+          <select name="tagId" id="tagId" value={formData.tagId} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">
+            <option value="">Ninguna</option>
+            {relevantTags.map(tag => <option key={tag.id} value={tag.id}>{tag.name}</option>)}
+          </select>
         </div>
       )}
+
       {isWonStageSelected && (
         <div>
           <label htmlFor="affiliateNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -178,6 +174,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
           <input type="text" name="affiliateNumber" id="affiliateNumber" value={formData.affiliateNumber} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
         </div>
       )}
+
       {(user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor) && (
         <div>
           <label htmlFor="ownerId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Asignar a Vendedor</label>

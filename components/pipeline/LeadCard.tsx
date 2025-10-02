@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Lead, Stage } from '../../types';
 import LeadDetailsModal from '../leads/LeadDetailsModal';
-import { useLeads } from '../../hooks/useLeads'; // <-- NUEVO: Importamos el hook
+import { useLeads } from '../../hooks/useLeads';
 
 interface LeadCardProps {
   lead: Lead;
@@ -11,8 +11,10 @@ interface LeadCardProps {
 
 const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const { tags } = useLeads(); // <-- NUEVO: Obtenemos la lista global de etiquetas
+  const { tags } = useLeads();
 
+  // <-- CAMBIO: Se comenta temporalmente el cálculo que causa el error.
+  /*
   const daysInCurrentStage = useMemo(() => {
     if (!lead.statusHistory || lead.statusHistory.length === 0) {
       const timeDiff = new Date().getTime() - new Date(lead.createdAt).getTime();
@@ -22,7 +24,7 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
     const timeDiff = new Date().getTime() - new Date(lastStageEntry.date).getTime();
     return Math.floor(timeDiff / (1000 * 60 * 60 * 24));
   }, [lead.statusHistory, lead.createdAt]);
-
+  */
 
   const daysSinceLastUpdate = useMemo(() => {
     const referenceDate = lead.lastUpdate || lead.createdAt;
@@ -30,7 +32,6 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
     return Math.floor(timeDiff / (1000 * 60 * 60 * 24));
   }, [lead.lastUpdate, lead.createdAt]);
 
-  // <-- NUEVO: Lógica para encontrar las etiquetas asignadas
   const assignedTags = useMemo(() => {
     if (!lead.tagIds) return [];
     return lead.tagIds
@@ -78,7 +79,6 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
             </div>
             <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">{lead.company}</p>
             
-            {/* <-- NUEVO: Muestra las etiquetas en la tarjeta --> */}
             {assignedTags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
                     {assignedTags.map(tag => (
@@ -90,11 +90,8 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
             )}
         </div>
 
-        <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600 flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
-          <div title={`Días en esta etapa: ${daysInCurrentStage}`} className="flex items-center space-x-1">
-            <span>🗓️</span>
-            <span>{daysInCurrentStage}d en etapa</span>
-          </div>
+        <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600 flex justify-end items-center text-xs text-gray-500 dark:text-gray-400">
+          {/* <-- CAMBIO: Se elimina el indicador de "días en etapa" para dar estabilidad --> */}
           <div className="flex items-center">
             {stage.type !== 'lost' && getTimeBadge()}
           </div>
