@@ -1,13 +1,34 @@
 import React, { createContext, useReducer, useEffect, ReactNode, Dispatch, useRef, useMemo } from 'react';
-import { Lead, User, UserRole, Product, Provider, Stage, USER_ROLES } from '../types';
+// <-- CAMBIO: Se importa el nuevo tipo 'Tag'
+import { Lead, User, UserRole, Product, Provider, Stage, USER_ROLES, Tag } from '../types'; 
 import { db } from '../firebaseConfig';
 import { collection, getDocs, writeBatch, doc, setDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 
 // --- SIN CAMBIOS EN ESTA SECCIÓN ---
 type Action = | { type: 'SET_STATE'; payload: State } | { type: 'ADD_LEAD'; payload: Lead } | { type: 'UPDATE_LEAD'; payload: Lead } | { type: 'DELETE_LEAD'; payload: string } | { type: 'ADD_BULK_LEADS'; payload: Lead[] } | { type: 'ADD_USER'; payload: User } | { type: 'UPDATE_USER'; payload: User } | { type: 'ADD_ROLE'; payload: string } | { type: 'DELETE_ROLE'; payload: string } | { type: 'ADD_PRODUCT'; payload: Product } | { type: 'UPDATE_PRODUCT'; payload: Product } | { type: 'DELETE_PRODUCT'; payload: string } | { type: 'ADD_PROVIDER'; payload: Provider } | { type: 'UPDATE_PROVIDER'; payload: Provider } | { type: 'DELETE_PROVIDER'; payload: string } | { type: 'ADD_STAGE'; payload: Stage } | { type: 'UPDATE_STAGE'; payload: Stage } | { type: 'DELETE_STAGE'; payload: string } | { type: 'UPDATE_STAGES_ORDER'; payload: Stage[] };
-interface State { leads: Lead[]; users: User[]; roles: UserRole[]; products: Product[]; providers: Provider[]; stages: Stage[]; }
-const initialState: State = { leads: [], users: [], roles: [], products: [], providers: [], stages: [] };
+
+// <-- CAMBIO: Se añade 'tags' a la estructura del estado
+interface State { 
+  leads: Lead[]; 
+  users: User[]; 
+  roles: UserRole[]; 
+  products: Product[]; 
+  providers: Provider[]; 
+  stages: Stage[]; 
+  tags: Tag[]; // <-- CAMBIO
+}
+
+// <-- CAMBIO: Se inicializa 'tags' como un array vacío
+const initialState: State = { 
+  leads: [], 
+  users: [], 
+  roles: [], 
+  products: [], 
+  providers: [], 
+  stages: [],
+  tags: [] // <-- CAMBIO
+};
 
 const leadReducer = (state: State, action: Action): State => {
     switch (action.type) {
@@ -32,8 +53,6 @@ const leadReducer = (state: State, action: Action): State => {
     }
 };
 
-// --- INTERFAZ DEL CONTEXTO ACTUALIZADA ---
-// Ahora incluye las 3 listas de notificaciones
 interface LeadContextType {
   state: State;
   dispatch: Dispatch<Action>;
@@ -79,34 +98,48 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return state.leads.filter(lead => lead.sellerHasViewedNotification && lead.notificationForManagerId === user.id);
   }, [state.leads, user]);
 
-
   useEffect(() => {
+    // <-- CAMBIO: Toda la función fue reestructurada para cargar las etiquetas y manejar los permisos de rol correctamente.
     const initializeAndLoadData = async () => {
       if (authLoading || !user || isDataLoaded.current) return;
       isDataLoaded.current = true;
       try {
-        const usersSnapshot = await getDocs(collection(db, "users"));
-        if (usersSnapshot.empty && user.role === USER_ROLES.Admin) {
-            console.log("Base de datos vacía. Subiendo datos iniciales...");
-        } else {
-          console.log("Cargando datos desde Firestore...");
-          const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
-          const leadsQuery = isManager ? query(collection(db, "leads")) : query(collection(db, "leads"), where("ownerId", "==", user.id));
-          
-          const allData = await Promise.all([
-            getDocs(leadsQuery), getDocs(collection(db, "users")), getDocs(collection(db, "stages")),
-            getDocs(collection(db, "products")), getDocs(collection(db, "providers"))
-          ]);
+        console.log("Cargando datos desde Firestore para el rol:", user.role);
+        const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
+        const leadsQuery = isManager ? query(collection(db, "leads")) : query(collection(db, "leads"), where("ownerId", "==", user.id));
 
-          dispatch({ type: 'SET_STATE', payload: { 
-            leads: allData[0].docs.map(doc => doc.data() as Lead), 
-            users: allData[1].docs.map(doc => doc.data() as User), 
-            stages: allData[2].docs.map(doc => doc.data() as Stage),
-            products: allData[3].docs.map(doc => doc.data() as Product), 
-            providers: allData[4].docs.map(doc => doc.data() as Provider),
-            roles: [USER_ROLES.Admin, USER_ROLES.Supervisor, USER_ROLES.Vendedor] 
-          }});
+        // Preparamos las peticiones comunes para todos los roles, incluyendo la nueva colección de 'tags'
+        const dataPromises = [
+          getDocs(leadsQuery),
+          getDocs(collection(db, "stages")),
+          getDocs(collection(db, "products")),
+          getDocs(collection(db, "providers")),
+          getDocs(collection(db, "tags")) // <-- CAMBIO
+        ];
+
+        // Solo si es manager, añadimos la petición de la lista de usuarios para evitar errores de permisos
+        if (isManager) {
+          dataPromises.push(getDocs(collection(db, "users")));
         }
+
+        const allData = await Promise.all(dataPromises);
+
+        // Si el usuario es un vendedor, la lista de usuarios estará vacía. 
+        // Si es manager, contendrá los datos del índice [5].
+        const usersData = isManager ? allData[5].docs.map(doc => doc.data() as User) : [];
+
+        dispatch({
+          type: 'SET_STATE', payload: {
+            leads: allData[0].docs.map(doc => doc.data() as Lead),
+            stages: allData[1].docs.map(doc => doc.data() as Stage),
+            products: allData[2].docs.map(doc => doc.data() as Product),
+            providers: allData[3].docs.map(doc => doc.data() as Provider),
+            tags: allData[4].docs.map(doc => doc.data() as Tag), // <-- CAMBIO
+            users: usersData,
+            roles: [USER_ROLES.Admin, USER_ROLES.Supervisor, USER_ROLES.Vendedor]
+          }
+        });
+
       } catch (error) {
         console.error("Error al inicializar los datos: ", error);
       }

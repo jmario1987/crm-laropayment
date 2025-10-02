@@ -72,3 +72,12 @@ export interface Stage {
   type: 'open' | 'won' | 'lost';
   color: string;
 }
+
+// ... tus otras interfaces (Lead, User, Stage, etc.) ...
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+  stageId: string;
+}
