@@ -28,6 +28,7 @@ export type StatusHistoryEntry = {
 
 // Definición del Prospecto (Lead)
 export type Lead = {
+  // --- CAMPOS OBLIGATORIOS ---
   id: string;
   name: string;
   company: string;
@@ -40,8 +41,8 @@ export type Lead = {
   lastUpdate: string;
 
   // --- CAMPOS OPCIONALES ---
-  // Se marcan con '?' para indicar que pueden no existir en prospectos antiguos.
-  // Esta es la corrección clave que evita todos los errores.
+  // La '?' es la clave. Le dice a TypeScript que estos campos pueden no existir.
+  // Esto soluciona el error de despliegue en Vercel.
   providerId?: string;
   productIds?: string[];
   tagIds?: string[];
