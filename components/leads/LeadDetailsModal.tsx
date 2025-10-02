@@ -22,7 +22,6 @@ const LeadDetailItem: React.FC<{ icon: React.ReactNode, label: string, value: st
 
 const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClose }) => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    // <-- NUEVO: Añadimos 'tags' para tener acceso a la lista global de etiquetas
     const { getUserById, products, getProviderById, getStageById, tags } = useLeads();
 
     const handleEditSuccess = () => {
@@ -34,15 +33,15 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
     const stage = getStageById(lead.status);
 
     const interestedProducts = useMemo(() => {
-        return lead.productIds
+        // <-- CAMBIO CLAVE: Se añade '|| []' para evitar el error si lead.productIds no existe.
+        return (lead.productIds || [])
             .map(id => products.find(p => p.id === id))
             .filter((p): p is NonNullable<typeof p> => p != null);
     }, [lead.productIds, products]);
 
-    // <-- NUEVO: Lógica para encontrar las etiquetas asignadas a este prospecto
     const assignedTags = useMemo(() => {
-        if (!lead.tagIds) return [];
-        return lead.tagIds
+        // <-- CAMBIO CLAVE: Se añade '|| []' para hacerlo más robusto.
+        return (lead.tagIds || [])
             .map(id => tags.find(t => t.id === id))
             .filter((t): t is NonNullable<typeof t> => t != null);
     }, [lead.tagIds, tags]);
@@ -82,7 +81,6 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                                 label="Etapa Principal"
                                 value={stage?.name}
                             />
-                            {/* <-- NUEVO: Muestra las etiquetas/sub-etapas asignadas --> */}
                             <LeadDetailItem
                                 icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>}
                                 label="Sub-Etapa"
