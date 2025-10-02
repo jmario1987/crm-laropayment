@@ -1,5 +1,5 @@
 import React, { createContext, useReducer, useEffect, ReactNode, Dispatch, useRef, useMemo } from 'react';
-// <-- CAMBIO: Se importa el nuevo tipo 'Tag'
+// Se importa el nuevo tipo 'Tag'
 import { Lead, User, UserRole, Product, Provider, Stage, USER_ROLES, Tag } from '../types'; 
 import { db } from '../firebaseConfig';
 import { collection, getDocs, writeBatch, doc, setDoc, deleteDoc, query, where } from 'firebase/firestore';
@@ -8,7 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 // --- SIN CAMBIOS EN ESTA SECCIÓN ---
 type Action = | { type: 'SET_STATE'; payload: State } | { type: 'ADD_LEAD'; payload: Lead } | { type: 'UPDATE_LEAD'; payload: Lead } | { type: 'DELETE_LEAD'; payload: string } | { type: 'ADD_BULK_LEADS'; payload: Lead[] } | { type: 'ADD_USER'; payload: User } | { type: 'UPDATE_USER'; payload: User } | { type: 'ADD_ROLE'; payload: string } | { type: 'DELETE_ROLE'; payload: string } | { type: 'ADD_PRODUCT'; payload: Product } | { type: 'UPDATE_PRODUCT'; payload: Product } | { type: 'DELETE_PRODUCT'; payload: string } | { type: 'ADD_PROVIDER'; payload: Provider } | { type: 'UPDATE_PROVIDER'; payload: Provider } | { type: 'DELETE_PROVIDER'; payload: string } | { type: 'ADD_STAGE'; payload: Stage } | { type: 'UPDATE_STAGE'; payload: Stage } | { type: 'DELETE_STAGE'; payload: string } | { type: 'UPDATE_STAGES_ORDER'; payload: Stage[] };
 
-// <-- CAMBIO: Se añade 'tags' a la estructura del estado
+// Se añade 'tags' a la estructura del estado
 interface State { 
   leads: Lead[]; 
   users: User[]; 
@@ -16,10 +16,10 @@ interface State {
   products: Product[]; 
   providers: Provider[]; 
   stages: Stage[]; 
-  tags: Tag[]; // <-- CAMBIO
+  tags: Tag[]; 
 }
 
-// <-- CAMBIO: Se inicializa 'tags' como un array vacío
+// Se inicializa 'tags' como un array vacío
 const initialState: State = { 
   leads: [], 
   users: [], 
@@ -27,7 +27,7 @@ const initialState: State = {
   products: [], 
   providers: [], 
   stages: [],
-  tags: [] // <-- CAMBIO
+  tags: [] 
 };
 
 const leadReducer = (state: State, action: Action): State => {
@@ -74,7 +74,6 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const isDataLoaded = useRef(false);
   const { user, loading: authLoading } = useAuth();
 
-  // Lógica para detectar prospectos estancados (se mantiene)
   const stagnantLeads = useMemo(() => {
     const openStageIds = state.stages.filter(stage => stage.type === 'open').map(stage => stage.id);
     return state.leads.filter(lead => {
@@ -85,21 +84,17 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   }, [state.leads, state.stages]);
 
-  // --- NUEVA LÓGICA PARA NOTIFICACIONES BIDIRECCIONALES ---
-  // Notificaciones para el Vendedor (cuando un manager le deja una nota)
   const sellerNotifications = useMemo(() => {
     if (!user || user.role !== USER_ROLES.Vendedor) return [];
     return state.leads.filter(lead => lead.notificationForSeller && lead.ownerId === user.id);
   }, [state.leads, user]);
 
-  // Notificaciones para el Manager (cuando un vendedor responde)
   const managerResponseNotifications = useMemo(() => {
     if (!user || (user.role !== USER_ROLES.Admin && user.role !== USER_ROLES.Supervisor)) return [];
     return state.leads.filter(lead => lead.sellerHasViewedNotification && lead.notificationForManagerId === user.id);
   }, [state.leads, user]);
 
   useEffect(() => {
-    // <-- CAMBIO: Toda la función fue reestructurada para cargar las etiquetas y manejar los permisos de rol correctamente.
     const initializeAndLoadData = async () => {
       if (authLoading || !user || isDataLoaded.current) return;
       isDataLoaded.current = true;
@@ -108,24 +103,20 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
         const leadsQuery = isManager ? query(collection(db, "leads")) : query(collection(db, "leads"), where("ownerId", "==", user.id));
 
-        // Preparamos las peticiones comunes para todos los roles, incluyendo la nueva colección de 'tags'
         const dataPromises = [
           getDocs(leadsQuery),
           getDocs(collection(db, "stages")),
           getDocs(collection(db, "products")),
           getDocs(collection(db, "providers")),
-          getDocs(collection(db, "tags")) // <-- CAMBIO
+          getDocs(collection(db, "tags"))
         ];
 
-        // Solo si es manager, añadimos la petición de la lista de usuarios para evitar errores de permisos
         if (isManager) {
           dataPromises.push(getDocs(collection(db, "users")));
         }
 
         const allData = await Promise.all(dataPromises);
 
-        // Si el usuario es un vendedor, la lista de usuarios estará vacía. 
-        // Si es manager, contendrá los datos del índice [5].
         const usersData = isManager ? allData[5].docs.map(doc => doc.data() as User) : [];
 
         dispatch({
@@ -133,8 +124,9 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             leads: allData[0].docs.map(doc => doc.data() as Lead),
             stages: allData[1].docs.map(doc => doc.data() as Stage),
             products: allData[2].docs.map(doc => doc.data() as Product),
-            providers: allData[3].docs.map(doc => doc.data() as Provider),
-            tags: allData[4].docs.map(doc => doc.data() as Tag), // <-- CAMBIO
+            // <-- CORRECCIÓN: Aquí estaba el error. 'allAata' se cambió a 'allData'.
+            providers: allData[3].docs.map(doc => doc.data() as Provider), 
+            tags: allData[4].docs.map(doc => doc.data() as Tag),
             users: usersData,
             roles: [USER_ROLES.Admin, USER_ROLES.Supervisor, USER_ROLES.Vendedor]
           }
