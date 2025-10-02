@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useLeads } from '../../hooks/useLeads';
-import { Lead, LeadStatus, USER_ROLES } from '../../types';
+import { Lead, LeadStatus, USER_ROLES, StatusHistoryEntry } from '../../types';
 import Button from '../ui/Button';
 import { useAuth } from '../../hooks/useAuth';
 import MultiSelectDropdown from '../ui/MultiSelectDropdown';
@@ -11,7 +11,6 @@ interface LeadFormProps {
 }
 
 const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
-  // <-- NUEVO: Añadimos 'tags' para tener acceso a la lista global de etiquetas
   const { dispatch, sellers, products, providers, stages, tags } = useLeads();
   const { user } = useAuth();
   
@@ -29,7 +28,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     providerId: lead?.providerId || '',
     observations: '',
     affiliateNumber: lead?.affiliateNumber || '',
-    // <-- NUEVO: Añadimos las etiquetas al estado del formulario
     tagIds: lead?.tagIds || [],
   });
 
@@ -38,18 +36,15 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     return selectedStage?.type === 'won';
   }, [formData.status, stages]);
 
-  // <-- NUEVO: Lógica para filtrar las etiquetas relevantes según la etapa seleccionada
   const relevantTags = useMemo(() => {
     return tags.filter(tag => tag.stageId === formData.status);
   }, [formData.status, tags]);
 
-  // <-- NUEVO: Opciones para el selector de etiquetas
   const tagOptions = relevantTags.map(t => ({ value: t.id, label: t.name }));
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     
-    // <-- NUEVO: Si cambiamos la etapa, reseteamos las etiquetas seleccionadas
     if (name === 'status') {
         setFormData((prev) => ({ ...prev, [name]: value, tagIds: [] }));
     } else {
@@ -61,7 +56,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       setFormData(prev => ({...prev, productIds: selectedIds}));
   };
 
-  // <-- NUEVO: Handler para el cambio de selección de etiquetas
   const handleTagSelectionChange = (selectedIds: string[]) => {
     setFormData(prev => ({...prev, tagIds: selectedIds}));
   };
@@ -78,12 +72,9 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     let finalObservations = lead?.observations || '';
     if (formData.observations.trim() !== '') {
         const autor = user.name || 'Usuario del Sistema';
-        const fecha = new Date().toLocaleString('es-ES', {
-            day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit'
-        });
+        const fecha = new Date().toLocaleString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
         const entradaHistorial = `--- ${fecha} - ${autor} ---\n${formData.observations.trim()}`;
-        const observacionesAntiguas = lead?.observations || '';
-        finalObservations = entradaHistorial + '\n\n' + observacionesAntiguas;
+        finalObservations = entradaHistorial + '\n\n' + (lead?.observations || '');
     }
 
     const notificationUpdates: Partial<Lead> = {};
@@ -101,6 +92,14 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       }
     }
 
+    // <-- CAMBIO CLAVE: Lógica corregida para actualizar el historial de etapas
+    let updatedStatusHistory: StatusHistoryEntry[] = lead?.statusHistory || [];
+    if (!lead) { // Si es un prospecto nuevo
+        updatedStatusHistory = [{ status: formData.status as LeadStatus, date: new Date().toISOString() }];
+    } else if (lead.status !== formData.status) { // Si es uno existente y la etapa cambió
+        updatedStatusHistory = [...updatedStatusHistory, { status: formData.status as LeadStatus, date: new Date().toISOString() }];
+    }
+
     const ownerId = isManager ? formData.ownerId : user.id;
 
     const newLeadData: Partial<Lead> = {
@@ -111,13 +110,12 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       phone: formData.phone,
       status: formData.status as LeadStatus,
       createdAt: lead?.createdAt || new Date().toISOString(),
-      statusHistory: lead?.statusHistory || [{ status: formData.status as LeadStatus, date: new Date().toISOString() }],
+      statusHistory: updatedStatusHistory, // Se usa el historial corregido
       ownerId,
       productIds: formData.productIds,
       observations: finalObservations,
       lastUpdate: new Date().toISOString(),
       affiliateNumber: formData.affiliateNumber,
-      // <-- NUEVO: Añadimos las etiquetas a los datos del prospecto
       tagIds: formData.tagIds,
       ...notificationUpdates,
     };
@@ -138,6 +136,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-2">
+      {/* El resto del JSX del formulario se mantiene igual */}
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre</label>
         <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
@@ -160,8 +159,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
           {sortedStages.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
         </select>
       </div>
-
-      {/* <-- NUEVO: Selector de Sub-Etapas (Etiquetas) --> */}
       {relevantTags.length > 0 && (
         <div>
           <label htmlFor="tagIds" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sub-Etapa / Etiquetas</label>
@@ -173,7 +170,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
           />
         </div>
       )}
-
       {isWonStageSelected && (
         <div>
           <label htmlFor="affiliateNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -182,7 +178,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
           <input type="text" name="affiliateNumber" id="affiliateNumber" value={formData.affiliateNumber} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
         </div>
       )}
-
       {(user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor) && (
         <div>
           <label htmlFor="ownerId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Asignar a Vendedor</label>

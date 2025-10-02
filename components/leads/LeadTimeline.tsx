@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { StatusHistoryEntry } from '../../types';
 import { useLeads } from '../../hooks/useLeads';
@@ -13,19 +12,27 @@ const TimelineIcon: React.FC<{ color: string }> = ({ color }) => (
 );
 
 
-const LeadTimeline: React.FC<{ history: StatusHistoryEntry[] }> = ({ history }) => {
+const LeadTimeline: React.FC<{ history: StatusHistoryEntry[] | undefined }> = ({ history }) => {
     const { getStageById } = useLeads();
-    const sortedHistory = [...(history || [])].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    if (!sortedHistory.length) {
+    
+    // <-- CAMBIO CLAVE: Se maneja el caso de que el historial sea undefined de forma más segura.
+    if (!history || history.length === 0) {
         return <p className="text-gray-500 dark:text-gray-400">No hay historial de etapas disponible.</p>;
     }
+    
+    // Se ordena el historial del más reciente al más antiguo
+    const sortedHistory = [...history].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return (
         <ol className="relative border-l border-gray-200 dark:border-gray-700 ml-4">                  
             {sortedHistory.map((entry, index) => {
+                // <-- CAMBIO CLAVE: Se añade una comprobación para evitar errores si una entrada del historial es inválida.
+                if (!entry || !entry.status) {
+                    return null; // No renderiza nada si la entrada no es correcta
+                }
+
                 const stage = getStageById(entry.status);
-                const stageName = stage?.name || 'Etapa Desconocida';
+                const stageName = stage?.name || `Etapa (ID: ${entry.status})`;
                 const stageColor = stage?.color || '#9ca3af';
 
                 return (
