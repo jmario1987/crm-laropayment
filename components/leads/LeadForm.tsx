@@ -4,6 +4,8 @@ import { Lead, LeadStatus, USER_ROLES, StatusHistoryEntry } from '../../types';
 import Button from '../ui/Button';
 import { useAuth } from '../../hooks/useAuth';
 import MultiSelectDropdown from '../ui/MultiSelectDropdown';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
 
 interface LeadFormProps {
   lead?: Lead;
@@ -11,10 +13,10 @@ interface LeadFormProps {
 }
 
 const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
-  const { dispatch, sellers, products, providers, stages, tags } = useLeads();
+  const { dispatch, sellers, products, providers, stages, tags, reloadData } = useLeads();
   const { user } = useAuth();
   
-  const sortedStages = [...stages].sort((a,b) => a.order - b.order);
+  const sortedStages = useMemo(() => [...stages].sort((a,b) => a.order - b.order), [stages]);
   const defaultStatus = sortedStages.find(s => s.type === 'open')?.id || sortedStages[0]?.id || '';
 
   const [formData, setFormData] = useState({
@@ -42,7 +44,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    
     if (name === 'status') {
         setFormData((prev) => ({ ...prev, [name]: value, tagId: '' }));
     } else {
@@ -54,77 +55,74 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       setFormData(prev => ({...prev, productIds: selectedIds}));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-
-    if (isWonStageSelected && !formData.affiliateNumber.trim()) {
-        alert('El Número de Afiliado es obligatorio para marcar un prospecto como Ganado.');
-        return;
-    }
 
     let finalObservations = lead?.observations || '';
     if (formData.observations.trim() !== '') {
         const autor = user.name || 'Usuario del Sistema';
         const fecha = new Date().toLocaleString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
-        const entradaHistorial = `--- ${fecha} - ${autor} ---\n${formData.observations.trim()}`;
-        finalObservations = entradaHistorial + '\n\n' + (lead?.observations || '');
+        finalObservations = `--- ${fecha} - ${autor} ---\n${formData.observations.trim()}\n\n` + (lead?.observations || '');
     }
     
     let updatedStatusHistory: StatusHistoryEntry[] = lead?.statusHistory || [];
-    if (!lead) {
-        updatedStatusHistory = [{ status: formData.status as LeadStatus, date: new Date().toISOString() }];
-    } else if (lead.status !== formData.status) {
+    if (!lead || (lead && lead.status !== formData.status)) {
         updatedStatusHistory = [...updatedStatusHistory, { status: formData.status as LeadStatus, date: new Date().toISOString() }];
     }
 
     const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
     const ownerId = isManager ? formData.ownerId : user.id;
 
-    const partialNewData: Partial<Lead> = {
+    if (lead) {
+      const updatedLead: Lead = {
+        ...lead,
         name: formData.name,
         company: formData.company,
         email: formData.email,
         phone: formData.phone,
-        status: formData.status as LeadStatus,
-        statusHistory: updatedStatusHistory,
-        ownerId,
+        status: formData.status,
+        ownerId: ownerId,
         productIds: formData.productIds,
+        providerId: formData.providerId,
         observations: finalObservations,
         lastUpdate: new Date().toISOString(),
         affiliateNumber: formData.affiliateNumber,
         tagIds: formData.tagId ? [formData.tagId] : [],
-        providerId: formData.providerId,
-        _version: (lead?._version || 0) + 1, // <-- AUMENTAMOS LA VERSIÓN
-    };
-
-    if (lead) {
-      const updatedLead: Lead = { ...lead, ...partialNewData };
+        statusHistory: updatedStatusHistory,
+      };
+      await setDoc(doc(db, 'leads', lead.id), updatedLead);
       dispatch({ type: 'UPDATE_LEAD', payload: updatedLead });
     } else {
       const newLead: Lead = {
         id: new Date().toISOString(),
         createdAt: new Date().toISOString(),
-        ...partialNewData,
-        name: partialNewData.name!,
-        company: partialNewData.company!,
-        email: partialNewData.email!,
-        phone: partialNewData.phone!,
-        status: partialNewData.status!,
-        ownerId: partialNewData.ownerId!,
-        observations: partialNewData.observations!,
-        lastUpdate: partialNewData.lastUpdate!,
+        name: formData.name,
+        company: formData.company,
+        email: formData.email,
+        phone: formData.phone,
+        status: formData.status,
+        ownerId: ownerId,
+        productIds: formData.productIds,
+        providerId: formData.providerId,
+        observations: finalObservations,
+        lastUpdate: new Date().toISOString(),
+        affiliateNumber: formData.affiliateNumber,
+        tagIds: formData.tagId ? [formData.tagId] : [],
+        statusHistory: updatedStatusHistory,
       };
+      await setDoc(doc(db, 'leads', newLead.id), newLead);
       dispatch({ type: 'ADD_LEAD', payload: newLead });
     }
+    
     onSuccess();
+    reloadData();
   };
 
   const productOptions = products.map(p => ({ value: p.id, label: p.name }));
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-2">
-      {/* El resto del formulario no cambia */}
       <div><label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre</label><input type="text" name="name" id="name" value={formData.name} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" /></div>
       <div><label htmlFor="company" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Empresa</label><input type="text" name="company" id="company" value={formData.company} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" /></div>
       <div><label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label><input type="email" name="email" id="email" value={formData.email} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" /></div>

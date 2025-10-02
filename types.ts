@@ -51,7 +51,7 @@ export type Lead = {
   affiliateNumber?: string;
   billingHistory?: { [monthYear: string]: boolean };
   clientStatus?: 'Activo' | 'Inactivo';
-  _version?: number; // <-- ESTA ES LA LÍNEA AÑADIDA
+  _version?: number; // Campo para forzar el refresco visual
 };
 
 // Definición del Producto
@@ -77,7 +77,7 @@ export interface Stage {
   color: string;
 }
 
-// Definición de la Etiqueta (Sub-Etapa)
+// Definición de la Etiqueta (Sub-Etapa) - ESTA ES LA PARTE QUE FALTABA
 export interface Tag {
   id: string;
   name: string;
