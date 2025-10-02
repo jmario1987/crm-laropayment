@@ -11,16 +11,24 @@ interface LeadCardProps {
 
 const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const { tags } = useLeads();
+  
+  // <-- CAMBIO CLAVE: Obtenemos la lista COMPLETA de prospectos y etiquetas.
+  const { allLeads, tags } = useLeads();
 
+  // <-- CAMBIO CLAVE: Buscamos la versión más "fresca" de este prospecto en la lista global.
+  // Esto garantiza que siempre tengamos los últimos datos, sin importar si el componente padre se refrescó.
+  const freshLead = useMemo(() => allLeads.find(l => l.id === lead.id) || lead, [allLeads, lead]);
+
+  // A partir de ahora, todo usa 'freshLead' en lugar de 'lead' para asegurar que los datos son los más recientes.
+  
   const daysInCurrentStage = useMemo(() => {
     try {
-      if (!lead.statusHistory || lead.statusHistory.length === 0) {
-        if (!lead.createdAt) return 0;
-        const timeDiff = new Date().getTime() - new Date(lead.createdAt).getTime();
+      if (!freshLead.statusHistory || freshLead.statusHistory.length === 0) {
+        if (!freshLead.createdAt) return 0;
+        const timeDiff = new Date().getTime() - new Date(freshLead.createdAt).getTime();
         return Math.floor(timeDiff / (1000 * 60 * 60 * 24));
       }
-      const lastStageEntry = lead.statusHistory[lead.statusHistory.length - 1];
+      const lastStageEntry = freshLead.statusHistory[freshLead.statusHistory.length - 1];
       if (!lastStageEntry || !lastStageEntry.date) return 0;
       
       const timeDiff = new Date().getTime() - new Date(lastStageEntry.date).getTime();
@@ -30,21 +38,21 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
       console.error("Error calculando días en etapa:", error);
       return 0;
     }
-  }, [lead.statusHistory, lead.createdAt]);
+  }, [freshLead.statusHistory, freshLead.createdAt]);
 
 
   const daysSinceLastUpdate = useMemo(() => {
-    const referenceDate = lead.lastUpdate || lead.createdAt;
+    const referenceDate = freshLead.lastUpdate || freshLead.createdAt;
     if (!referenceDate) return 0;
     const timeDiff = new Date().getTime() - new Date(referenceDate).getTime();
     return Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-  }, [lead.lastUpdate, lead.createdAt]);
+  }, [freshLead.lastUpdate, freshLead.createdAt]);
 
   const assignedTags = useMemo(() => {
-    return (lead.tagIds || [])
+    return (freshLead.tagIds || [])
         .map(id => tags.find(t => t.id === id))
         .filter((t): t is NonNullable<typeof t> => t != null);
-  }, [lead.tagIds, tags]);
+  }, [freshLead.tagIds, tags]);
 
 
   const getTimeBadge = () => {
@@ -64,8 +72,8 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
   };
   
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-    e.dataTransfer.setData('leadId', lead.id);
-    e.dataTransfer.setData('originalStatus', lead.status);
+    e.dataTransfer.setData('leadId', freshLead.id);
+    e.dataTransfer.setData('originalStatus', freshLead.status);
     e.currentTarget.classList.add('opacity-50');
   };
 
@@ -82,9 +90,9 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
       >
         <div onClick={openDetailsModal} className="cursor-pointer">
             <div className="flex justify-between items-start">
-              <h4 className="font-bold text-gray-900 dark:text-white flex-1 pr-2">{lead.name}</h4>
+              <h4 className="font-bold text-gray-900 dark:text-white flex-1 pr-2">{freshLead.name}</h4>
             </div>
-            <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">{lead.company}</p>
+            <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">{freshLead.company}</p>
             
             {assignedTags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
@@ -109,7 +117,7 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
       </div>
       
       {isDetailsModalOpen && <LeadDetailsModal
-        lead={lead}
+        lead={freshLead} // Le pasamos el prospecto actualizado al modal
         isOpen={isDetailsModalOpen}
         onClose={() => setIsDetailsModalOpen(false)}
       />}
