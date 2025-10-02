@@ -28,7 +28,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     providerId: lead?.providerId || '',
     observations: '',
     affiliateNumber: lead?.affiliateNumber || '',
-    // <-- CAMBIO: Ahora guardamos un solo 'tagId', no una lista.
     tagId: lead?.tagIds?.[0] || '', 
   });
 
@@ -44,7 +43,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     
-    // <-- CAMBIO: Si cambia la etapa, se resetea la sub-etapa
     if (name === 'status') {
         setFormData((prev) => ({ ...prev, [name]: value, tagId: '' }));
     } else {
@@ -72,21 +70,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
         const entradaHistorial = `--- ${fecha} - ${autor} ---\n${formData.observations.trim()}`;
         finalObservations = entradaHistorial + '\n\n' + (lead?.observations || '');
     }
-
-    const notificationUpdates: Partial<Lead> = {};
-    const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
-
-    if (lead) {
-      if (isManager && formData.observations.trim() !== '') {
-        notificationUpdates.notificationForSeller = true;
-        notificationUpdates.notificationForManagerId = user.id;
-        notificationUpdates.sellerHasViewedNotification = false;
-      }
-      else if (!isManager && lead.notificationForSeller) {
-        notificationUpdates.notificationForSeller = false;
-        notificationUpdates.sellerHasViewedNotification = true;
-      }
-    }
     
     let updatedStatusHistory: StatusHistoryEntry[] = lead?.statusHistory || [];
     if (!lead) {
@@ -95,9 +78,10 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
         updatedStatusHistory = [...updatedStatusHistory, { status: formData.status as LeadStatus, date: new Date().toISOString() }];
     }
 
+    const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
     const ownerId = isManager ? formData.ownerId : user.id;
 
-    const newLeadData: Partial<Lead> = {
+    const newLeadData: Lead = {
       id: lead?.id || new Date().toISOString(),
       name: formData.name,
       company: formData.company,
@@ -111,19 +95,14 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       observations: finalObservations,
       lastUpdate: new Date().toISOString(),
       affiliateNumber: formData.affiliateNumber,
-      // <-- CAMBIO: Guardamos el tagId en una lista (array) para mantener la estructura de datos
       tagIds: formData.tagId ? [formData.tagId] : [],
-      ...notificationUpdates,
+      providerId: formData.providerId,
     };
 
-    if (formData.providerId) {
-        newLeadData.providerId = formData.providerId;
-    }
-
     if (lead) {
-      dispatch({ type: 'UPDATE_LEAD', payload: newLeadData as Lead });
+      dispatch({ type: 'UPDATE_LEAD', payload: { ...lead, ...newLeadData } });
     } else {
-      dispatch({ type: 'ADD_LEAD', payload: newLeadData as Lead });
+      dispatch({ type: 'ADD_LEAD', payload: newLeadData });
     }
     onSuccess();
   };
@@ -154,8 +133,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
           {sortedStages.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
         </select>
       </div>
-
-      {/* <-- CAMBIO: Se reemplaza el selector múltiple por un selector simple y estable --> */}
       {relevantTags.length > 0 && (
         <div>
           <label htmlFor="tagId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sub-Etapa</label>
@@ -165,7 +142,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
           </select>
         </div>
       )}
-
       {isWonStageSelected && (
         <div>
           <label htmlFor="affiliateNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -174,7 +150,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
           <input type="text" name="affiliateNumber" id="affiliateNumber" value={formData.affiliateNumber} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
         </div>
       )}
-
       {(user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor) && (
         <div>
           <label htmlFor="ownerId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Asignar a Vendedor</label>
@@ -187,7 +162,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
         <label htmlFor="productIds" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Productos de Interés</label>
         <MultiSelectDropdown
           options={productOptions}
-          selectedValues={formData.productIds}
+          selectedValues={formData.productIds || []}
           onChange={handleProductSelectionChange}
           placeholder="Seleccionar productos..."
         />

@@ -13,35 +13,35 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const { tags } = useLeads();
 
-  // <-- CAMBIO: Se restaura el cálculo de 'días en etapa' con una versión más segura.
   const daysInCurrentStage = useMemo(() => {
     try {
       if (!lead.statusHistory || lead.statusHistory.length === 0) {
+        if (!lead.createdAt) return 0;
         const timeDiff = new Date().getTime() - new Date(lead.createdAt).getTime();
         return Math.floor(timeDiff / (1000 * 60 * 60 * 24));
       }
       const lastStageEntry = lead.statusHistory[lead.statusHistory.length - 1];
-      if (!lastStageEntry || !lastStageEntry.date) return 0; // Seguridad extra
+      if (!lastStageEntry || !lastStageEntry.date) return 0;
       
       const timeDiff = new Date().getTime() - new Date(lastStageEntry.date).getTime();
       const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-      return isNaN(days) ? 0 : days; // Seguridad extra si la fecha es inválida
+      return isNaN(days) ? 0 : days;
     } catch (error) {
       console.error("Error calculando días en etapa:", error);
-      return 0; // Si todo falla, devuelve 0 para no romper la app
+      return 0;
     }
   }, [lead.statusHistory, lead.createdAt]);
 
 
   const daysSinceLastUpdate = useMemo(() => {
     const referenceDate = lead.lastUpdate || lead.createdAt;
+    if (!referenceDate) return 0;
     const timeDiff = new Date().getTime() - new Date(referenceDate).getTime();
     return Math.floor(timeDiff / (1000 * 60 * 60 * 24));
   }, [lead.lastUpdate, lead.createdAt]);
 
   const assignedTags = useMemo(() => {
-    if (!lead.tagIds) return [];
-    return lead.tagIds
+    return (lead.tagIds || [])
         .map(id => tags.find(t => t.id === id))
         .filter((t): t is NonNullable<typeof t> => t != null);
   }, [lead.tagIds, tags]);
@@ -97,7 +97,6 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
             )}
         </div>
 
-        {/* <-- CAMBIO: Se restaura la sección del doble indicador --> */}
         <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600 flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
           <div title={`Días en esta etapa: ${daysInCurrentStage}`} className="flex items-center space-x-1">
             <span>🗓️</span>

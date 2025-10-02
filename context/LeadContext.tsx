@@ -4,7 +4,6 @@ import { db } from '../firebaseConfig';
 import { collection, getDocs, doc, getDoc, writeBatch, setDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 
-// --- El resto del archivo hasta 'LeadProvider' se mantiene igual ---
 type Action = | { type: 'SET_STATE'; payload: State } | { type: 'ADD_LEAD'; payload: Lead } | { type: 'UPDATE_LEAD'; payload: Lead } | { type: 'DELETE_LEAD'; payload: string } | { type: 'ADD_BULK_LEADS'; payload: Lead[] } | { type: 'ADD_USER'; payload: User } | { type: 'UPDATE_USER'; payload: User } | { type: 'ADD_ROLE'; payload: string } | { type: 'DELETE_ROLE'; payload: string } | { type: 'ADD_PRODUCT'; payload: Product } | { type: 'UPDATE_PRODUCT'; payload: Product } | { type: 'DELETE_PRODUCT'; payload: string } | { type: 'ADD_PROVIDER'; payload: Provider } | { type: 'UPDATE_PROVIDER'; payload: Provider } | { type: 'DELETE_PROVIDER'; payload: string } | { type: 'ADD_STAGE'; payload: Stage } | { type: 'UPDATE_STAGE'; payload: Stage } | { type: 'DELETE_STAGE'; payload: string } | { type: 'UPDATE_STAGES_ORDER'; payload: Stage[] };
 
 interface State { 
@@ -71,15 +70,12 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const isDataLoaded = useRef(false);
   const { user, loading: authLoading } = useAuth();
 
-  const stagnantLeads = useMemo(() => {
-    const openStageIds = state.stages.filter(stage => stage.type === 'open').map(stage => stage.id);
-    return state.leads.filter(lead => {
-      const isInOpenStage = openStageIds.includes(lead.status);
-      if (!isInOpenStage) return false;
+  const stagnantLeads = useMemo(() => state.leads.filter(lead => {
+      const stage = state.stages.find(s => s.id === lead.status);
+      if (!stage || stage.type !== 'open') return false;
       const daysDifference = Math.floor((new Date().getTime() - new Date(lead.lastUpdate).getTime()) / (1000 * 3600 * 24));
       return daysDifference >= 8;
-    });
-  }, [state.leads, state.stages]);
+  }), [state.leads, state.stages]);
 
   const sellerNotifications = useMemo(() => {
     if (!user || user.role !== USER_ROLES.Vendedor) return [];
@@ -92,15 +88,14 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [state.leads, user]);
 
   useEffect(() => {
-    // <-- CAMBIO RADICAL: Lógica de carga de datos reescrita para ser más simple y robusta
     const initializeAndLoadData = async () => {
       if (authLoading || !user || isDataLoaded.current) return;
       isDataLoaded.current = true;
       try {
-        console.log("Cargando datos (método robusto)... Rol:", user.role);
+        console.log("Cargando datos (método final)... Rol:", user.role);
         const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
         
-        // 1. Cargar Usuarios (depende del rol)
+        // Cargar Usuarios
         let usersData: User[] = [];
         if (isManager) {
           const usersSnapshot = await getDocs(collection(db, "users"));
@@ -112,12 +107,12 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           }
         }
 
-        // 2. Cargar Prospectos (depende del rol)
+        // Cargar Prospectos
         const leadsQuery = isManager ? query(collection(db, "leads")) : query(collection(db, "leads"), where("ownerId", "==", user.id));
         const leadsSnapshot = await getDocs(leadsQuery);
         const leads = leadsSnapshot.docs.map(doc => doc.data() as Lead);
 
-        // 3. Cargar el resto de colecciones
+        // Cargar el resto de colecciones
         const stagesSnapshot = await getDocs(collection(db, "stages"));
         const stages = stagesSnapshot.docs.map(doc => doc.data() as Stage);
 
@@ -130,7 +125,7 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const tagsSnapshot = await getDocs(collection(db, "tags"));
         const tags = tagsSnapshot.docs.map(doc => doc.data() as Tag);
 
-        // 4. Guardar todo en el estado global
+        // Guardar todo en el estado global
         dispatch({
           type: 'SET_STATE', payload: {
             leads,

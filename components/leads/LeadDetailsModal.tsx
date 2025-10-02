@@ -26,7 +26,7 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
 
     const handleEditSuccess = () => {
         setIsEditModalOpen(false);
-        onClose(); // <-- CAMBIO CLAVE: Cierra el modal de detalles para refrescar la vista.
+        onClose(); 
     };
     
     const ownerName = getUserById(lead.ownerId)?.name;

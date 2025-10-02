@@ -35,19 +35,23 @@ export type Lead = {
   phone: string;
   status: LeadStatus;
   ownerId: string;
-  productIds: string[];
-  providerId?: string;
   observations: string;
   createdAt: string;
-  statusHistory: StatusHistoryEntry[];
   lastUpdate: string;
+
+  // --- CAMPOS OPCIONALES ---
+  // Se marcan con '?' para indicar que pueden no existir en prospectos antiguos.
+  // Esta es la corrección clave que evita todos los errores.
+  providerId?: string;
+  productIds?: string[];
+  tagIds?: string[];
+  statusHistory?: StatusHistoryEntry[];
   notificationForSeller?: boolean;
   notificationForManagerId?: string;
   sellerHasViewedNotification?: boolean;
   affiliateNumber?: string;
   billingHistory?: { [monthYear: string]: boolean };
   clientStatus?: 'Activo' | 'Inactivo';
-  tagIds?: string[]; // <-- CAMBIO: Se añade el nuevo campo para las etiquetas. Es opcional.
 };
 
 // Definición del Producto
