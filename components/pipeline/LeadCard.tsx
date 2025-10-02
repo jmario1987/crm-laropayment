@@ -13,18 +13,25 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const { tags } = useLeads();
 
-  // <-- CAMBIO: Se comenta temporalmente el cálculo que causa el error.
-  /*
+  // <-- CAMBIO: Se restaura el cálculo de 'días en etapa' con una versión más segura.
   const daysInCurrentStage = useMemo(() => {
-    if (!lead.statusHistory || lead.statusHistory.length === 0) {
-      const timeDiff = new Date().getTime() - new Date(lead.createdAt).getTime();
-      return Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+    try {
+      if (!lead.statusHistory || lead.statusHistory.length === 0) {
+        const timeDiff = new Date().getTime() - new Date(lead.createdAt).getTime();
+        return Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+      }
+      const lastStageEntry = lead.statusHistory[lead.statusHistory.length - 1];
+      if (!lastStageEntry || !lastStageEntry.date) return 0; // Seguridad extra
+      
+      const timeDiff = new Date().getTime() - new Date(lastStageEntry.date).getTime();
+      const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+      return isNaN(days) ? 0 : days; // Seguridad extra si la fecha es inválida
+    } catch (error) {
+      console.error("Error calculando días en etapa:", error);
+      return 0; // Si todo falla, devuelve 0 para no romper la app
     }
-    const lastStageEntry = lead.statusHistory[lead.statusHistory.length - 1];
-    const timeDiff = new Date().getTime() - new Date(lastStageEntry.date).getTime();
-    return Math.floor(timeDiff / (1000 * 60 * 60 * 24));
   }, [lead.statusHistory, lead.createdAt]);
-  */
+
 
   const daysSinceLastUpdate = useMemo(() => {
     const referenceDate = lead.lastUpdate || lead.createdAt;
@@ -90,8 +97,12 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
             )}
         </div>
 
-        <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600 flex justify-end items-center text-xs text-gray-500 dark:text-gray-400">
-          {/* <-- CAMBIO: Se elimina el indicador de "días en etapa" para dar estabilidad --> */}
+        {/* <-- CAMBIO: Se restaura la sección del doble indicador --> */}
+        <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600 flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+          <div title={`Días en esta etapa: ${daysInCurrentStage}`} className="flex items-center space-x-1">
+            <span>🗓️</span>
+            <span>{daysInCurrentStage}d en etapa</span>
+          </div>
           <div className="flex items-center">
             {stage.type !== 'lost' && getTimeBadge()}
           </div>

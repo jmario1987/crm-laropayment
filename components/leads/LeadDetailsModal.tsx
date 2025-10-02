@@ -26,6 +26,7 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
 
     const handleEditSuccess = () => {
         setIsEditModalOpen(false);
+        onClose(); // <-- CAMBIO CLAVE: Cierra el modal de detalles para refrescar la vista.
     };
     
     const ownerName = getUserById(lead.ownerId)?.name;
@@ -33,14 +34,12 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
     const stage = getStageById(lead.status);
 
     const interestedProducts = useMemo(() => {
-        // <-- CAMBIO CLAVE: Se añade '|| []' para evitar el error si lead.productIds no existe.
         return (lead.productIds || [])
             .map(id => products.find(p => p.id === id))
             .filter((p): p is NonNullable<typeof p> => p != null);
     }, [lead.productIds, products]);
 
     const assignedTags = useMemo(() => {
-        // <-- CAMBIO CLAVE: Se añade '|| []' para hacerlo más robusto.
         return (lead.tagIds || [])
             .map(id => tags.find(t => t.id === id))
             .filter((t): t is NonNullable<typeof t> => t != null);
