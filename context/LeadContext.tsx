@@ -4,7 +4,28 @@ import { db } from '../firebaseConfig';
 import { collection, getDocs, doc, getDoc, writeBatch, setDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 
-type Action = | { type: 'SET_STATE'; payload: State } | { type: 'ADD_LEAD'; payload: Lead } | { type: 'UPDATE_LEAD'; payload: Lead } | { type: 'DELETE_LEAD'; payload: string };
+// --- ESTA ES LA LISTA COMPLETA Y CORRECTA DE ACCIONES ---
+type Action = 
+  | { type: 'SET_STATE'; payload: State } 
+  | { type: 'ADD_LEAD'; payload: Lead } 
+  | { type: 'UPDATE_LEAD'; payload: Lead } 
+  | { type: 'DELETE_LEAD'; payload: string } 
+  | { type: 'ADD_BULK_LEADS'; payload: Lead[] } 
+  | { type: 'ADD_USER'; payload: User } 
+  | { type: 'UPDATE_USER'; payload: User } 
+  | { type: 'ADD_ROLE'; payload: string } 
+  | { type: 'DELETE_ROLE'; payload: string } 
+  | { type: 'ADD_PRODUCT'; payload: Product } 
+  | { type: 'UPDATE_PRODUCT'; payload: Product } 
+  | { type: 'DELETE_PRODUCT'; payload: string } 
+  | { type: 'ADD_PROVIDER'; payload: Provider } 
+  | { type: 'UPDATE_PROVIDER'; payload: Provider } 
+  | { type: 'DELETE_PROVIDER'; payload: string } 
+  | { type: 'ADD_STAGE'; payload: Stage } 
+  | { type: 'UPDATE_STAGE'; payload: Stage } 
+  | { type: 'DELETE_STAGE'; payload: string } 
+  | { type: 'UPDATE_STAGES_ORDER'; payload: Stage[] };
+// --- FIN DE LA CORRECCIÓN ---
 
 interface State { 
   leads: Lead[]; 
@@ -32,6 +53,21 @@ const leadReducer = (state: State, action: Action): State => {
         case 'ADD_LEAD': return { ...state, leads: [action.payload, ...state.leads] };
         case 'UPDATE_LEAD': return { ...state, leads: state.leads.map(l => l.id === action.payload.id ? action.payload : l) };
         case 'DELETE_LEAD': return { ...state, leads: state.leads.filter(l => l.id !== action.payload) };
+        
+        // Se restauran los casos que faltaban
+        case 'ADD_USER': return { ...state, users: [...state.users, action.payload] };
+        case 'UPDATE_USER': return { ...state, users: state.users.map(u => u.id === action.payload.id ? action.payload : u) };
+        case 'ADD_PRODUCT': return { ...state, products: [...state.products, action.payload] };
+        case 'UPDATE_PRODUCT': return { ...state, products: state.products.map(p => p.id === action.payload.id ? action.payload : p) };
+        case 'DELETE_PRODUCT': return { ...state, products: state.products.filter(p => p.id !== action.payload) };
+        case 'ADD_PROVIDER': return { ...state, providers: [...state.providers, action.payload] };
+        case 'UPDATE_PROVIDER': return { ...state, providers: state.providers.map(p => p.id === action.payload.id ? action.payload : p) };
+        case 'DELETE_PROVIDER': return { ...state, providers: state.providers.filter(p => p.id !== action.payload) };
+        case 'ADD_STAGE': return { ...state, stages: [...state.stages, action.payload] };
+        case 'UPDATE_STAGE': return { ...state, stages: state.stages.map(s => s.id === action.payload.id ? action.payload : s) };
+        case 'DELETE_STAGE': return { ...state, stages: state.stages.filter(s => s.id !== action.payload) };
+        case 'UPDATE_STAGES_ORDER': return { ...state, stages: action.payload };
+
         default: return state;
     }
 };
