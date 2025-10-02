@@ -11,16 +11,10 @@ interface LeadCardProps {
 
 const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  
-  // <-- CAMBIO CLAVE: Obtenemos la lista COMPLETA de prospectos y etiquetas.
   const { allLeads, tags } = useLeads();
 
-  // <-- CAMBIO CLAVE: Buscamos la versión más "fresca" de este prospecto en la lista global.
-  // Esto garantiza que siempre tengamos los últimos datos, sin importar si el componente padre se refrescó.
   const freshLead = useMemo(() => allLeads.find(l => l.id === lead.id) || lead, [allLeads, lead]);
 
-  // A partir de ahora, todo usa 'freshLead' en lugar de 'lead' para asegurar que los datos son los más recientes.
-  
   const daysInCurrentStage = useMemo(() => {
     try {
       if (!freshLead.statusHistory || freshLead.statusHistory.length === 0) {
@@ -52,7 +46,8 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
     return (freshLead.tagIds || [])
         .map(id => tags.find(t => t.id === id))
         .filter((t): t is NonNullable<typeof t> => t != null);
-  }, [freshLead.tagIds, tags]);
+  // <-- SE AÑADE LA VERSIÓN COMO DEPENDENCIA PARA FORZAR EL RE-CÁLCULO
+  }, [freshLead.tagIds, tags, freshLead._version]);
 
 
   const getTimeBadge = () => {
@@ -117,7 +112,7 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
       </div>
       
       {isDetailsModalOpen && <LeadDetailsModal
-        lead={freshLead} // Le pasamos el prospecto actualizado al modal
+        lead={freshLead}
         isOpen={isDetailsModalOpen}
         onClose={() => setIsDetailsModalOpen(false)}
       />}

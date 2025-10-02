@@ -41,8 +41,6 @@ export type Lead = {
   lastUpdate: string;
 
   // --- CAMPOS OPCIONALES ---
-  // La '?' es la clave. Le dice a TypeScript que estos campos pueden no existir.
-  // Esto soluciona el error de despliegue en Vercel.
   providerId?: string;
   productIds?: string[];
   tagIds?: string[];
@@ -53,6 +51,7 @@ export type Lead = {
   affiliateNumber?: string;
   billingHistory?: { [monthYear: string]: boolean };
   clientStatus?: 'Activo' | 'Inactivo';
+  _version?: number; // <-- ESTA ES LA LÍNEA AÑADIDA
 };
 
 // Definición del Producto
