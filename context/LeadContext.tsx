@@ -1,7 +1,7 @@
 import React, { createContext, useReducer, useEffect, ReactNode, Dispatch, useRef, useMemo } from 'react';
 import { Lead, User, UserRole, Product, Provider, Stage, USER_ROLES, Tag } from '../types'; 
 import { db } from '../firebaseConfig';
-import { collection, getDocs, doc, getDoc, writeBatch, setDoc, deleteDoc, query, where, QuerySnapshot, DocumentSnapshot, DocumentData } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, writeBatch, setDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 
 // --- El resto del archivo hasta 'LeadProvider' se mantiene igual ---
@@ -92,28 +92,15 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [state.leads, user]);
 
   useEffect(() => {
-    // <-- CAMBIO CLAVE: Toda esta función fue reescrita para ser más clara y sin errores de tipo.
+    // <-- CAMBIO RADICAL: Lógica de carga de datos reescrita para ser más simple y robusta
     const initializeAndLoadData = async () => {
       if (authLoading || !user || isDataLoaded.current) return;
       isDataLoaded.current = true;
       try {
-        console.log("Cargando datos desde Firestore para el rol:", user.role);
+        console.log("Cargando datos (método robusto)... Rol:", user.role);
         const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
         
-        // 1. Peticiones de datos comunes para todos los roles
-        const leadsQuery = isManager ? query(collection(db, "leads")) : query(collection(db, "leads"), where("ownerId", "==", user.id));
-        
-        const commonPromises = [
-          getDocs(leadsQuery),
-          getDocs(collection(db, "stages")),
-          getDocs(collection(db, "products")),
-          getDocs(collection(db, "providers")),
-          getDocs(collection(db, "tags")),
-        ];
-
-        const commonResults = await Promise.all(commonPromises);
-
-        // 2. Petición de datos de usuarios (hecha por separado para claridad)
+        // 1. Cargar Usuarios (depende del rol)
         let usersData: User[] = [];
         if (isManager) {
           const usersSnapshot = await getDocs(collection(db, "users"));
@@ -124,13 +111,24 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             usersData = [userDoc.data() as User];
           }
         }
+
+        // 2. Cargar Prospectos (depende del rol)
+        const leadsQuery = isManager ? query(collection(db, "leads")) : query(collection(db, "leads"), where("ownerId", "==", user.id));
+        const leadsSnapshot = await getDocs(leadsQuery);
+        const leads = leadsSnapshot.docs.map(doc => doc.data() as Lead);
+
+        // 3. Cargar el resto de colecciones
+        const stagesSnapshot = await getDocs(collection(db, "stages"));
+        const stages = stagesSnapshot.docs.map(doc => doc.data() as Stage);
+
+        const productsSnapshot = await getDocs(collection(db, "products"));
+        const products = productsSnapshot.docs.map(doc => doc.data() as Product);
+
+        const providersSnapshot = await getDocs(collection(db, "providers"));
+        const providers = providersSnapshot.docs.map(doc => doc.data() as Provider);
         
-        // 3. Extraer los datos de los resultados comunes
-        const leads = commonResults[0].docs.map(doc => doc.data() as Lead);
-        const stages = commonResults[1].docs.map(doc => doc.data() as Stage);
-        const products = commonResults[2].docs.map(doc => doc.data() as Product);
-        const providers = commonResults[3].docs.map(doc => doc.data() as Provider);
-        const tags = commonResults[4].docs.map(doc => doc.data() as Tag);
+        const tagsSnapshot = await getDocs(collection(db, "tags"));
+        const tags = tagsSnapshot.docs.map(doc => doc.data() as Tag);
 
         // 4. Guardar todo en el estado global
         dispatch({
@@ -144,9 +142,10 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             roles: [USER_ROLES.Admin, USER_ROLES.Supervisor, USER_ROLES.Vendedor]
           }
         });
+        console.log("¡Datos cargados exitosamente!");
 
       } catch (error) {
-        console.error("Error MUY GRAVE al inicializar los datos: ", error);
+        console.error("Error definitivo al inicializar los datos: ", error);
       }
     };
     initializeAndLoadData();
