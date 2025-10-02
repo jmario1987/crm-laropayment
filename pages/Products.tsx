@@ -26,7 +26,10 @@ const Products: React.FC = () => {
     };
 
     const handleDelete = (productId: string) => {
-        const isProductInUse = allLeads.some(lead => lead.productIds.includes(productId));
+        // <-- CAMBIO CLAVE: Se añade 'lead.productIds &&' para evitar el error.
+        // Ahora, solo revisa la lista si existe.
+        const isProductInUse = allLeads.some(lead => lead.productIds && lead.productIds.includes(productId));
+        
         if (isProductInUse) {
             alert('No se puede eliminar un producto que está asociado a uno o más prospectos.');
             return;
