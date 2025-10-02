@@ -1,14 +1,12 @@
 import React, { createContext, useReducer, useEffect, ReactNode, Dispatch, useRef, useMemo } from 'react';
-// Se importa el nuevo tipo 'Tag'
 import { Lead, User, UserRole, Product, Provider, Stage, USER_ROLES, Tag } from '../types'; 
 import { db } from '../firebaseConfig';
-import { collection, getDocs, writeBatch, doc, setDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, writeBatch, setDoc, deleteDoc, query, where, QuerySnapshot, DocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 
-// --- SIN CAMBIOS EN ESTA SECCIÓN ---
+// --- El resto del archivo hasta 'LeadProvider' se mantiene igual ---
 type Action = | { type: 'SET_STATE'; payload: State } | { type: 'ADD_LEAD'; payload: Lead } | { type: 'UPDATE_LEAD'; payload: Lead } | { type: 'DELETE_LEAD'; payload: string } | { type: 'ADD_BULK_LEADS'; payload: Lead[] } | { type: 'ADD_USER'; payload: User } | { type: 'UPDATE_USER'; payload: User } | { type: 'ADD_ROLE'; payload: string } | { type: 'DELETE_ROLE'; payload: string } | { type: 'ADD_PRODUCT'; payload: Product } | { type: 'UPDATE_PRODUCT'; payload: Product } | { type: 'DELETE_PRODUCT'; payload: string } | { type: 'ADD_PROVIDER'; payload: Provider } | { type: 'UPDATE_PROVIDER'; payload: Provider } | { type: 'DELETE_PROVIDER'; payload: string } | { type: 'ADD_STAGE'; payload: Stage } | { type: 'UPDATE_STAGE'; payload: Stage } | { type: 'DELETE_STAGE'; payload: string } | { type: 'UPDATE_STAGES_ORDER'; payload: Stage[] };
 
-// Se añade 'tags' a la estructura del estado
 interface State { 
   leads: Lead[]; 
   users: User[]; 
@@ -19,7 +17,6 @@ interface State {
   tags: Tag[]; 
 }
 
-// Se inicializa 'tags' como un array vacío
 const initialState: State = { 
   leads: [], 
   users: [], 
@@ -95,45 +92,61 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [state.leads, user]);
 
   useEffect(() => {
+    // <-- CAMBIO CLAVE: Toda esta función fue reescrita para ser más clara y sin errores de tipo.
     const initializeAndLoadData = async () => {
       if (authLoading || !user || isDataLoaded.current) return;
       isDataLoaded.current = true;
       try {
         console.log("Cargando datos desde Firestore para el rol:", user.role);
         const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
+        
+        // 1. Peticiones de datos comunes para todos los roles
         const leadsQuery = isManager ? query(collection(db, "leads")) : query(collection(db, "leads"), where("ownerId", "==", user.id));
-
-        const dataPromises = [
+        
+        const commonPromises = [
           getDocs(leadsQuery),
           getDocs(collection(db, "stages")),
           getDocs(collection(db, "products")),
           getDocs(collection(db, "providers")),
-          getDocs(collection(db, "tags"))
+          getDocs(collection(db, "tags")),
         ];
 
+        const commonResults = await Promise.all(commonPromises);
+
+        // 2. Petición de datos de usuarios (hecha por separado para claridad)
+        let usersData: User[] = [];
         if (isManager) {
-          dataPromises.push(getDocs(collection(db, "users")));
+          const usersSnapshot = await getDocs(collection(db, "users"));
+          usersData = usersSnapshot.docs.map(doc => doc.data() as User);
+        } else {
+          const userDoc = await getDoc(doc(db, "users", user.id));
+          if (userDoc.exists()) {
+            usersData = [userDoc.data() as User];
+          }
         }
+        
+        // 3. Extraer los datos de los resultados comunes
+        const leads = commonResults[0].docs.map(doc => doc.data() as Lead);
+        const stages = commonResults[1].docs.map(doc => doc.data() as Stage);
+        const products = commonResults[2].docs.map(doc => doc.data() as Product);
+        const providers = commonResults[3].docs.map(doc => doc.data() as Provider);
+        const tags = commonResults[4].docs.map(doc => doc.data() as Tag);
 
-        const allData = await Promise.all(dataPromises);
-
-        const usersData = isManager ? allData[5].docs.map(doc => doc.data() as User) : [];
-
+        // 4. Guardar todo en el estado global
         dispatch({
           type: 'SET_STATE', payload: {
-            leads: allData[0].docs.map(doc => doc.data() as Lead),
-            stages: allData[1].docs.map(doc => doc.data() as Stage),
-            products: allData[2].docs.map(doc => doc.data() as Product),
-            // <-- CORRECCIÓN: Aquí estaba el error. 'allAata' se cambió a 'allData'.
-            providers: allData[3].docs.map(doc => doc.data() as Provider), 
-            tags: allData[4].docs.map(doc => doc.data() as Tag),
+            leads,
+            stages,
+            products,
+            providers,
+            tags,
             users: usersData,
             roles: [USER_ROLES.Admin, USER_ROLES.Supervisor, USER_ROLES.Vendedor]
           }
         });
 
       } catch (error) {
-        console.error("Error al inicializar los datos: ", error);
+        console.error("Error MUY GRAVE al inicializar los datos: ", error);
       }
     };
     initializeAndLoadData();
