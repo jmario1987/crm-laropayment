@@ -11,7 +11,8 @@ interface LeadFormProps {
 }
 
 const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
-  const { dispatch, sellers, products, providers, stages } = useLeads();
+  // <-- NUEVO: Añadimos 'tags' para tener acceso a la lista global de etiquetas
+  const { dispatch, sellers, products, providers, stages, tags } = useLeads();
   const { user } = useAuth();
   
   const sortedStages = [...stages].sort((a,b) => a.order - b.order);
@@ -27,33 +28,51 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     productIds: lead?.productIds || [],
     providerId: lead?.providerId || '',
     observations: '',
-    affiliateNumber: lead?.affiliateNumber || '', // Se añade el nuevo campo al estado
+    affiliateNumber: lead?.affiliateNumber || '',
+    // <-- NUEVO: Añadimos las etiquetas al estado del formulario
+    tagIds: lead?.tagIds || [],
   });
 
-  // --- NUEVA LÓGICA PARA DETECTAR ETAPA "GANADO" ---
   const isWonStageSelected = useMemo(() => {
     const selectedStage = stages.find(s => s.id === formData.status);
     return selectedStage?.type === 'won';
   }, [formData.status, stages]);
 
+  // <-- NUEVO: Lógica para filtrar las etiquetas relevantes según la etapa seleccionada
+  const relevantTags = useMemo(() => {
+    return tags.filter(tag => tag.stageId === formData.status);
+  }, [formData.status, tags]);
+
+  // <-- NUEVO: Opciones para el selector de etiquetas
+  const tagOptions = relevantTags.map(t => ({ value: t.id, label: t.name }));
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // <-- NUEVO: Si cambiamos la etapa, reseteamos las etiquetas seleccionadas
+    if (name === 'status') {
+        setFormData((prev) => ({ ...prev, [name]: value, tagIds: [] }));
+    } else {
+        setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
   
   const handleProductSelectionChange = (selectedIds: string[]) => {
       setFormData(prev => ({...prev, productIds: selectedIds}));
   };
 
+  // <-- NUEVO: Handler para el cambio de selección de etiquetas
+  const handleTagSelectionChange = (selectedIds: string[]) => {
+    setFormData(prev => ({...prev, tagIds: selectedIds}));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
-    // --- NUEVA VALIDACIÓN ---
-    // Si la etapa es "Ganado", el número de afiliado no puede estar vacío.
     if (isWonStageSelected && !formData.affiliateNumber.trim()) {
         alert('El Número de Afiliado es obligatorio para marcar un prospecto como Ganado.');
-        return; // Detiene el envío del formulario
+        return;
     }
 
     let finalObservations = lead?.observations || '';
@@ -97,7 +116,9 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       productIds: formData.productIds,
       observations: finalObservations,
       lastUpdate: new Date().toISOString(),
-      affiliateNumber: formData.affiliateNumber, // Se añade el número de afiliado
+      affiliateNumber: formData.affiliateNumber,
+      // <-- NUEVO: Añadimos las etiquetas a los datos del prospecto
+      tagIds: formData.tagIds,
       ...notificationUpdates,
     };
 
@@ -117,7 +138,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-2">
-      {/* --- EL RESTO DEL FORMULARIO SE MANTIENE IGUAL --- */}
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre</label>
         <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
@@ -135,27 +155,31 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
         <input type="tel" name="phone" id="phone" value={formData.phone} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
       </div>
       <div>
-        <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Estado</label>
+        <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Etapa Principal</label>
         <select name="status" id="status" value={formData.status} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">
           {sortedStages.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
         </select>
       </div>
 
-      {/* --- NUEVO CAMPO CONDICIONAL --- */}
+      {/* <-- NUEVO: Selector de Sub-Etapas (Etiquetas) --> */}
+      {relevantTags.length > 0 && (
+        <div>
+          <label htmlFor="tagIds" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sub-Etapa / Etiquetas</label>
+          <MultiSelectDropdown
+            options={tagOptions}
+            selectedValues={formData.tagIds}
+            onChange={handleTagSelectionChange}
+            placeholder="Seleccionar sub-etapas..."
+          />
+        </div>
+      )}
+
       {isWonStageSelected && (
         <div>
           <label htmlFor="affiliateNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Número de Afiliado <span className="text-red-500">*</span>
           </label>
-          <input 
-            type="text" 
-            name="affiliateNumber" 
-            id="affiliateNumber" 
-            value={formData.affiliateNumber} 
-            onChange={handleChange} 
-            required 
-            className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" 
-          />
+          <input type="text" name="affiliateNumber" id="affiliateNumber" value={formData.affiliateNumber} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
         </div>
       )}
 

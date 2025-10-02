@@ -45,9 +45,9 @@ export type Lead = {
   notificationForManagerId?: string;
   sellerHasViewedNotification?: boolean;
   affiliateNumber?: string;
-  // --- NUEVOS CAMPOS PARA EL MÓDULO DE CONCILIACIÓN ---
-  billingHistory?: { [monthYear: string]: boolean }; // Ej: { "08-2025": true, "07-2025": false }
+  billingHistory?: { [monthYear: string]: boolean };
   clientStatus?: 'Activo' | 'Inactivo';
+  tagIds?: string[]; // <-- CAMBIO: Se añade el nuevo campo para las etiquetas. Es opcional.
 };
 
 // Definición del Producto
@@ -73,8 +73,7 @@ export interface Stage {
   color: string;
 }
 
-// ... tus otras interfaces (Lead, User, Stage, etc.) ...
-
+// Definición de la Etiqueta (Sub-Etapa)
 export interface Tag {
   id: string;
   name: string;
