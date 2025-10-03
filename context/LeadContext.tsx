@@ -71,7 +71,7 @@ interface LeadContextType {
   state: State;
   dispatch: Dispatch<Action>;
   reloadData: () => void;
-  allLeads: Lead[]; // Añadido para la "Tarjeta Inteligente"
+  allLeads: Lead[];
   stagnantLeads: Lead[];
   sellerNotifications: Lead[];
   managerResponseNotifications: Lead[];
@@ -94,6 +94,13 @@ export const LeadContext = createContext<LeadContextType>({
 export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(leadReducer, initialState);
   const { user, loading: authLoading } = useAuth();
+
+  // --- CAMBIO 1: Este es el "reloj despertador" que se actualiza cada minuto ---
+  const [currentTime, setCurrentTime] = useState(new Date());
+  useEffect(() => {
+    const timerId = setInterval(() => setCurrentTime(new Date()), 60000); // 60000ms = 1 minuto
+    return () => clearInterval(timerId);
+  }, []);
   
   const [version, setVersion] = useState(0);
   const reloadData = () => setVersion(v => v + 1);
@@ -131,8 +138,6 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
         
         dispatch({ type: 'SET_STATE', payload: {
-            // --- LA CORRECCIÓN CLAVE ESTÁ AQUÍ ---
-            // Le decimos que incluya el id del documento en el objeto del prospecto
             leads: leadsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }) as Lead),
             stages: stagesSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }) as Stage),
             products: productsSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }) as Product),
@@ -176,7 +181,8 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       sellers,
       tags: state.tags
     };
-  }, [state, user]);
+  // --- CAMBIO 2: Añadimos 'currentTime' aquí para que el cálculo se re-ejecute cada minuto ---
+  }, [state, user, currentTime]);
 
   return (
     <LeadContext.Provider value={contextValue}>
