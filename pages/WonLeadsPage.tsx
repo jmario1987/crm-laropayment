@@ -4,9 +4,8 @@ import { useAuth } from '../hooks/useAuth';
 import { Lead, USER_ROLES } from '../types';
 import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
-import BillingModal from '../components/billing/BillingModal'; // Se importa el nuevo componente
+import BillingModal from '../components/billing/BillingModal';
 
-// --- Helper para obtener el mes actual en formato "MM-YYYY" ---
 const getCurrentMonthYear = () => {
     const date = new Date();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -14,7 +13,6 @@ const getCurrentMonthYear = () => {
     return `${month}-${year}`;
 };
 
-// --- Componente para una fila de la tabla (completamente actualizado) ---
 const WonLeadRow: React.FC<{ lead: Lead; sellerName?: string; onBillingClick: (lead: Lead) => void; }> = ({ lead, sellerName, onBillingClick }) => {
     
     const currentMonthBilled = lead.billingHistory?.[getCurrentMonthYear()] === true;
@@ -25,7 +23,8 @@ const WonLeadRow: React.FC<{ lead: Lead; sellerName?: string; onBillingClick: (l
             <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{lead.name}</td>
             <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{sellerName || 'N/A'}</td>
             <td className="px-6 py-4">
-                <span className={`px-2 py-1 text-xs font-bold rounded-full ${lead.clientStatus === 'Activo' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                {/* --- LA LÍNEA CORREGIDA ESTÁ AQUÍ --- */}
+                <span className={`px-2 py-1 text-xs font-bold rounded-full ${lead.clientStatus === 'Inactivo' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
                     {lead.clientStatus || 'Activo'}
                 </span>
             </td>
@@ -45,7 +44,6 @@ const WonLeadRow: React.FC<{ lead: Lead; sellerName?: string; onBillingClick: (l
     );
 };
 
-// --- Componente principal de la página (completamente actualizado) ---
 const WonLeadsPage: React.FC = () => {
     const { allLeads, stages, getUserById, providers, getProviderById, dispatch } = useLeads();
     const { user } = useAuth();
@@ -100,7 +98,6 @@ const WonLeadsPage: React.FC = () => {
         XLSX.writeFile(workbook, `Reporte_Comisiones_${selectedMonth}.xlsx`);
     };
     
-    // Generar últimos 6 meses para el filtro
     const monthOptions = useMemo(() => {
         const options = [];
         let date = new Date();
