@@ -18,16 +18,16 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
-  // ---- CAMBIO: Se usa la constante para los roles del archivo types.ts ----
-  const isAdmin = user?.role === 'Administrador';
+  // --- LA LÍNEA CLAVE CORREGIDA ---
+  // Ahora usa la constante, igual que el resto de la app.
+  const isAdmin = user?.role === USER_ROLES.Admin;
 
   const handleLinkClick = () => {
-    if (window.innerWidth < 768) { // Cierra el menú solo en pantallas móviles (md)
+    if (window.innerWidth < 768) {
       onClose();
     }
   };
 
-  // ---- CAMBIO 1: Se definen las clases base y de transición para los enlaces ----
   const baseLinkClasses = "flex items-center p-2 rounded-lg transition-colors duration-200";
   const activeLinkClasses = "border-l-4 border-primary-500 bg-primary-50 dark:bg-gray-700 text-primary-600 dark:text-primary-400";
   const inactiveLinkClasses = "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700";
@@ -48,7 +48,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Laro Payment</h2>
           </div>
           <nav className="flex-1 space-y-2">
-            {/* ---- CAMBIO 2: Se aplica la función de clase condicional a cada NavLink ---- */}
             <NavLink to="/dashboard" onClick={handleLinkClick} className={getLinkClassName}>
               <NavIcon path="M3 12l2-2m0 0l7-7 7 7M5 10v10a2 2 0 002 2h10a2 2 0 002-2V10M9 20v-6a2 2 0 012-2h2a2 2 0 012 2v6" />
               <span className="ml-4">Dashboard</span>
@@ -83,6 +82,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 <NavLink to="/stages" onClick={handleLinkClick} className={getLinkClassName}>
                     <NavIcon path="M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z" />
                    <span className="ml-4">Etapas</span>
+                </NavLink>
+                <NavLink to="/tags" onClick={handleLinkClick} className={getLinkClassName}>
+                    <NavIcon path="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707a1 1 0 011.414 0l4.707 4.707H20a1 1 0 011 1v4a1 1 0 01-1 1h-1.586l-4.707 4.707a1 1 0 01-1.414 0l-4.707-4.707zM15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                   <span className="ml-4">Sub-Etapas</span>
                 </NavLink>
               </>
             )}
