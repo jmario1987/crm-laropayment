@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Lead, Stage, Tag } from '../../types'; // Se puede añadir Tag para mayor claridad
+import { Lead, Stage, Tag } from '../../types';
 import LeadDetailsModal from '../leads/LeadDetailsModal';
 import { useLeads } from '../../hooks/useLeads';
 
@@ -11,16 +11,21 @@ interface LeadCardProps {
 
 const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const { tags } = useLeads();
+  // --- Le pedimos al contexto la lista completa de prospectos (allLeads) ---
+  const { allLeads, tags } = useLeads();
+
+  // --- REINTRODUCIMOS LA LÓGICA DE LA "TARJETA INTELIGENTE" ---
+  // Busca la versión más fresca del prospecto en el estado global
+  const freshLead = useMemo(() => allLeads.find(l => l.id === lead.id) || lead, [allLeads, lead]);
 
   const daysInCurrentStage = useMemo(() => {
     try {
-      if (!lead.statusHistory || lead.statusHistory.length === 0) {
-        if (!lead.createdAt) return 0;
-        const timeDiff = new Date().getTime() - new Date(lead.createdAt).getTime();
+      if (!freshLead.statusHistory || freshLead.statusHistory.length === 0) {
+        if (!freshLead.createdAt) return 0;
+        const timeDiff = new Date().getTime() - new Date(freshLead.createdAt).getTime();
         return Math.floor(timeDiff / (1000 * 60 * 60 * 24));
       }
-      const lastStageEntry = lead.statusHistory[lead.statusHistory.length - 1];
+      const lastStageEntry = freshLead.statusHistory[freshLead.statusHistory.length - 1];
       if (!lastStageEntry || !lastStageEntry.date) return 0;
       
       const timeDiff = new Date().getTime() - new Date(lastStageEntry.date).getTime();
@@ -30,27 +35,26 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
       console.error("Error calculating days in stage:", error);
       return 0;
     }
-  }, [lead.statusHistory, lead.createdAt]);
+  }, [freshLead.statusHistory, freshLead.createdAt]);
 
   const lastUpdateDays = useMemo(() => {
-    if (!lead.lastUpdate) return null;
+    if (!freshLead.lastUpdate) return null;
     try {
-      const timeDiff = new Date().getTime() - new Date(lead.lastUpdate).getTime();
+      const timeDiff = new Date().getTime() - new Date(freshLead.lastUpdate).getTime();
       const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
       return days >= 0 ? days : 0;
     } catch (error) {
       console.error("Error calculating last update days:", error);
       return null;
     }
-  }, [lead.lastUpdate]);
+  }, [freshLead.lastUpdate]);
 
   const assignedTags = useMemo(() => {
-    // CORRECCIÓN: Se usa (lead.tagIds || []) para asegurar que siempre sea un array.
-    // Se mapea y filtra para encontrar los objetos Tag completos.
-    return (lead.tagIds || [])
+    // --- LA LÓGICA CLAVE: AHORA DEPENDE DE _version ---
+    return (freshLead.tagIds || [])
       .map(id => tags.find(t => t.id === id))
-      .filter((tag): tag is Tag => tag !== undefined); // Filtra los nulos y asegura el tipo
-  }, [lead.tagIds, tags]);
+      .filter((tag): tag is Tag => tag !== undefined);
+  }, [freshLead.tagIds, tags, freshLead._version]); // <-- DEPENDENCIA ESENCIAL
 
   const getTimeBadge = () => {
     if (lastUpdateDays === null) return null;
@@ -73,16 +77,16 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
         draggable
         onDragEnd={handleDragEnd}
         onDragStart={(e) => {
-          e.dataTransfer.setData('leadId', lead.id);
+          e.dataTransfer.setData('leadId', freshLead.id);
           e.dataTransfer.setData('sourceStageId', stage.id);
         }}
         onClick={() => setIsDetailsModalOpen(true)}
       >
         <div className="cursor-pointer">
             <div className="flex justify-between items-start">
-              <h4 className="font-bold text-gray-900 dark:text-white flex-1 pr-2">{lead.name}</h4>
+              <h4 className="font-bold text-gray-900 dark:text-white flex-1 pr-2">{freshLead.name}</h4>
             </div>
-            <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">{lead.company}</p>
+            <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">{freshLead.company}</p>
             
             {assignedTags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
@@ -107,7 +111,7 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
       </div>
       
       {isDetailsModalOpen && <LeadDetailsModal
-        lead={lead}
+        lead={freshLead}
         isOpen={isDetailsModalOpen}
         onClose={() => setIsDetailsModalOpen(false)}
       />}
