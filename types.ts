@@ -26,7 +26,14 @@ export type StatusHistoryEntry = {
   date: string;
 };
 
-// Definición del Prospecto (Lead)
+// --- NUEVA DEFINICIÓN AÑADIDA ---
+// Definición para una entrada en el historial de sub-etapas
+export type TagHistoryEntry = {
+  tagId: string;
+  date: string;
+};
+
+// Definición del Prospecto (Lead) - ACTUALIZADA
 export type Lead = {
   // --- CAMPOS OBLIGATORIOS ---
   id: string;
@@ -45,13 +52,14 @@ export type Lead = {
   productIds?: string[];
   tagIds?: string[];
   statusHistory?: StatusHistoryEntry[];
+  tagHistory?: TagHistoryEntry[]; // <-- LÍNEA NUEVA AÑADIDA
   notificationForSeller?: boolean;
   notificationForManagerId?: string;
   sellerHasViewedNotification?: boolean;
   affiliateNumber?: string;
   billingHistory?: { [monthYear: string]: boolean };
   clientStatus?: 'Activo' | 'Inactivo';
-  _version?: number; // Campo para forzar el refresco visual
+  _version?: number;
 };
 
 // Definición del Producto
@@ -77,7 +85,7 @@ export interface Stage {
   color: string;
 }
 
-// Definición de la Etiqueta (Sub-Etapa) - ESTA ES LA PARTE QUE FALTABA
+// Definición de la Etiqueta (Sub-Etapa)
 export interface Tag {
   id: string;
   name: string;

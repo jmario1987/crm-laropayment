@@ -1,11 +1,15 @@
+// pages/LeadsListPage.tsx - VERSIÓN FINAL CON RUTAS CORREGIDAS
+
 import React, { useState, useMemo } from 'react';
+// --- RUTAS CORREGIDAS ---
 import { useLeads } from '../../hooks/useLeads';
-import { Lead, LeadStatus, USER_ROLES, StatusHistoryEntry } from '../../types';
+import { Lead, LeadStatus, USER_ROLES, StatusHistoryEntry, TagHistoryEntry } from '../../types';
 import Button from '../ui/Button';
 import { useAuth } from '../../hooks/useAuth';
 import MultiSelectDropdown from '../ui/MultiSelectDropdown';
 import { doc, setDoc, collection } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
+// --- FIN DE CORRECCIÓN DE RUTAS ---
 
 interface LeadFormProps {
   lead?: Lead;
@@ -73,6 +77,12 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       statusHistory = [...statusHistory, { status: formData.status, date: new Date().toISOString() }];
     }
 
+    let tagHistory: TagHistoryEntry[] = lead?.tagHistory || [];
+    const currentTagId = lead?.tagIds?.[0];
+    if (formData.tagId && formData.tagId !== currentTagId) {
+        tagHistory = [...tagHistory, { tagId: formData.tagId, date: new Date().toISOString() }];
+    }
+    
     let notificationForSeller = lead?.notificationForSeller || false;
     let sellerHasViewedNotification = lead?.sellerHasViewedNotification || false;
     let notificationForManagerId = lead?.notificationForManagerId;
@@ -110,12 +120,12 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       ownerId: formData.ownerId,
       observations: updatedObservations,
       createdAt: lead?.createdAt || new Date().toISOString(),
-      // --- LA LÍNEA CORREGIDA ---
       lastUpdate: new Date().toISOString(),
       providerId: formData.providerId,
       productIds: formData.productIds,
       tagIds: formData.tagId ? [formData.tagId] : [],
       statusHistory: statusHistory,
+      tagHistory: tagHistory,
       _version: (lead?._version || 0) + 1,
       affiliateNumber: formData.affiliateNumber,
       notificationForSeller,
