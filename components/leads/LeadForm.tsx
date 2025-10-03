@@ -30,7 +30,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     providerId: lead?.providerId || '',
     newObservation: '',
     tagId: lead?.tagIds?.[0] || '',
-    // --- CAMPO AÑADIDO AL ESTADO DEL FORMULARIO ---
     affiliateNumber: lead?.affiliateNumber || '',
   });
 
@@ -38,7 +37,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     return tags.filter(tag => tag.stageId === formData.status);
   }, [formData.status, tags]);
 
-  // --- LÓGICA PARA ENCONTRAR LA ETAPA SELECCIONADA ---
   const selectedStage = useMemo(() => {
     return stages.find(s => s.id === formData.status);
   }, [formData.status, stages]);
@@ -75,8 +73,28 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       statusHistory = [...statusHistory, { status: formData.status, date: new Date().toISOString() }];
     }
 
+    let notificationForSeller = lead?.notificationForSeller || false;
+    let sellerHasViewedNotification = lead?.sellerHasViewedNotification || false;
+    let notificationForManagerId = lead?.notificationForManagerId;
+
+    const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
+    const newObservationAdded = formData.newObservation.trim() !== '';
+
+    if (isManager) {
+      sellerHasViewedNotification = false;
+      if (newObservationAdded) {
+        notificationForSeller = true;
+        notificationForManagerId = user.id;
+      }
+    } else {
+      notificationForSeller = false;
+      if (newObservationAdded) {
+        sellerHasViewedNotification = true;
+      }
+    }
+
     let updatedObservations = lead?.observations || '';
-    if (formData.newObservation.trim() !== '') {
+    if (newObservationAdded) {
         const observationText = `\n---\n[${new Date().toLocaleString()}] por ${user.name}:\n${formData.newObservation.trim()}`;
         updatedObservations = (updatedObservations + observationText).trim();
     }
@@ -92,14 +110,17 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       ownerId: formData.ownerId,
       observations: updatedObservations,
       createdAt: lead?.createdAt || new Date().toISOString(),
+      // --- LA LÍNEA CORREGIDA ---
       lastUpdate: new Date().toISOString(),
       providerId: formData.providerId,
       productIds: formData.productIds,
       tagIds: formData.tagId ? [formData.tagId] : [],
       statusHistory: statusHistory,
       _version: (lead?._version || 0) + 1,
-      // --- CAMPO AÑADIDO AL OBJETO A GUARDAR ---
       affiliateNumber: formData.affiliateNumber,
+      notificationForSeller,
+      sellerHasViewedNotification,
+      notificationForManagerId,
     };
 
     try {
@@ -127,23 +148,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       <div><label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Correo Electrónico</label><input type="email" name="email" id="email" value={formData.email} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"/></div>
       <div><label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Teléfono</label><input type="tel" name="phone" id="phone" value={formData.phone} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"/></div>
       <div><label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Etapa</label><select name="status" id="status" value={formData.status} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">{sortedStages.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</select></div>
-      
-      {/* --- EL BLOQUE DE CÓDIGO RESTAURADO --- */}
-      {selectedStage && selectedStage.type === 'won' && (
-        <div>
-          <label htmlFor="affiliateNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Número de Afiliado</label>
-          <input
-            type="text"
-            name="affiliateNumber"
-            id="affiliateNumber"
-            value={formData.affiliateNumber}
-            onChange={handleChange}
-            className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-            placeholder="Introduce el número de afiliado"
-          />
-        </div>
-      )}
-
+      {selectedStage && selectedStage.type === 'won' && ( <div> <label htmlFor="affiliateNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Número de Afiliado</label> <input type="text" name="affiliateNumber" id="affiliateNumber" value={formData.affiliateNumber} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" placeholder="Introduce el número de afiliado" /> </div> )}
       {availableTags.length > 0 && <div><label htmlFor="tagId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sub-Etapas / Etiquetas</label><select name="tagId" id="tagId" value={formData.tagId} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"><option value="">Ninguna</option>{availableTags.map(tag => <option key={tag.id} value={tag.id}>{tag.name}</option>)}</select></div>}
       {(user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor) && <div><label htmlFor="ownerId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Asignar a Vendedor</label><select name="ownerId" id="ownerId" value={formData.ownerId} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">{sellers.map(seller => <option key={seller.id} value={seller.id}>{seller.name}</option>)}</select></div>}
       <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Productos de Interés</label><MultiSelectDropdown options={productOptions} selectedValues={formData.productIds || []} onChange={handleProductSelectionChange} placeholder="Seleccionar productos..."/></div>
