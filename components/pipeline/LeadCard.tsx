@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Lead, Stage, Tag } from '../../types';
 import LeadDetailsModal from '../leads/LeadDetailsModal';
 import { useLeads } from '../../hooks/useLeads';
@@ -11,11 +11,34 @@ interface LeadCardProps {
 
 const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  // --- Le pedimos al contexto la lista completa de prospectos (allLeads) ---
   const { allLeads, tags } = useLeads();
 
-  // --- REINTRODUCIMOS LA LÓGICA DE LA "TARJETA INTELIGENTE" ---
-  // Busca la versión más fresca del prospecto en el estado global
+  // --- LÓGICA PARA EL TOQUE PROLONGADO ---
+  const [isDraggable, setIsDraggable] = useState(false);
+  const pressTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const handleTouchStart = () => {
+    pressTimer.current = setTimeout(() => {
+      setIsDraggable(true);
+    }, 300); // 300ms para activar el modo de arrastre
+  };
+
+  const handleTouchEnd = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+    }
+    // Se desactiva el arrastre un poco después para que el evento 'drag' se complete
+    setTimeout(() => setIsDraggable(false), 100);
+  };
+
+  const handleTouchMove = () => {
+    // Si el usuario mueve el dedo (hace scroll), se cancela el temporizador
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+    }
+  };
+  // --- FIN DE LA LÓGICA ---
+
   const freshLead = useMemo(() => allLeads.find(l => l.id === lead.id) || lead, [allLeads, lead]);
 
   const daysInCurrentStage = useMemo(() => {
@@ -50,11 +73,10 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
   }, [freshLead.lastUpdate]);
 
   const assignedTags = useMemo(() => {
-    // --- LA LÓGICA CLAVE: AHORA DEPENDE DE _version ---
     return (freshLead.tagIds || [])
       .map(id => tags.find(t => t.id === id))
       .filter((tag): tag is Tag => tag !== undefined);
-  }, [freshLead.tagIds, tags, freshLead._version]); // <-- DEPENDENCIA ESENCIAL
+  }, [freshLead.tagIds, tags, freshLead._version]);
 
   const getTimeBadge = () => {
     if (lastUpdateDays === null) return null;
@@ -73,16 +95,28 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
     <>
       <div 
         id={lead.id} 
-        className="lead-card bg-white dark:bg-gray-800 rounded-md shadow-sm p-3 mb-3 cursor-grab active:cursor-grabbing border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow duration-200"
-        draggable
+        className={`lead-card bg-white dark:bg-gray-800 rounded-md shadow-sm p-3 mb-3 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow duration-200 ${isDraggable ? 'cursor-grabbing' : 'cursor-grab'}`}
+        // --- ATRIBUTOS ACTUALIZADOS ---
+        draggable={isDraggable}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchMove={handleTouchMove}
+        // Para que también funcione con el ratón en PC
+        onMouseDown={handleTouchStart}
+        onMouseUp={handleTouchEnd}
         onDragEnd={handleDragEnd}
         onDragStart={(e) => {
           e.dataTransfer.setData('leadId', freshLead.id);
           e.dataTransfer.setData('sourceStageId', stage.id);
         }}
-        onClick={() => setIsDetailsModalOpen(true)}
+        onClick={() => {
+            // Previene que se abra el modal si fue un gesto de arrastre
+            if (!isDraggable) {
+                setIsDetailsModalOpen(true);
+            }
+        }}
       >
-        <div className="cursor-pointer">
+        <div className="pointer-events-none"> {/* Evita que los elementos internos interfieran con el drag */}
             <div className="flex justify-between items-start">
               <h4 className="font-bold text-gray-900 dark:text-white flex-1 pr-2">{freshLead.name}</h4>
             </div>
@@ -99,7 +133,7 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
             )}
         </div>
 
-        <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600 flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+        <div className="pointer-events-none mt-3 pt-2 border-t border-gray-200 dark:border-gray-600 flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
           <div title={`Días en esta etapa: ${daysInCurrentStage}`} className="flex items-center space-x-1">
             <span></span>
             <span>{daysInCurrentStage}d en etapa</span>
