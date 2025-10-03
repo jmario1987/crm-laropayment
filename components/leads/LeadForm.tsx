@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'; // <-- CORRECCIÓN: Se quitaron las comillas de useMemo
+import React, { useState, useMemo } from 'react';
 import { useLeads } from '../../hooks/useLeads';
 import { Lead, LeadStatus, USER_ROLES, StatusHistoryEntry } from '../../types';
 import Button from '../ui/Button';
@@ -13,7 +13,8 @@ interface LeadFormProps {
 }
 
 const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
-  const { dispatch, sellers, products, providers, stages, tags } = useLeads();
+  // Asegúrate de que reloadData está siendo extraído del hook
+  const { dispatch, sellers, products, providers, stages, tags, reloadData } = useLeads();
   const { user } = useAuth();
   
   const sortedStages = useMemo(() => [...stages].sort((a,b) => a.order - b.order), [stages]);
@@ -100,6 +101,9 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       } else {
         dispatch({ type: 'UPDATE_LEAD', payload: leadData });
       }
+      
+      // --- LA LÍNEA CLAVE, AÑADIDA DE VUELTA ---
+      reloadData();
       
       onSuccess();
       
