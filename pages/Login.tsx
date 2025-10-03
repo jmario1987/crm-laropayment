@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import Button from '../components/ui/Button';
+// --- RUTA CORREGIDA AQUÍ ---
 import Spinner from '../components/ui/Spinner';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 
 // --- IMPORTACIÓN DEL LOGO ---
-// Asegúrate de que esta ruta y nombre de archivo sean correctos.
 import companyLogo from '../assets/logo-laro.png';
 
 const Login: React.FC = () => {
@@ -56,19 +56,17 @@ const Login: React.FC = () => {
   const inputClasses = "w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   return (
-    <div className="min-h-screen flex">
-      {/* --- COLUMNA IZQUIERDA: SECCIÓN DE MARCA --- */}
+    <div className="min-h-screen flex bg-[#0F2D4A] lg:bg-gray-100">
+      
       <div className="hidden lg:flex w-1/2 bg-[#0F2D4A] items-center justify-center p-12 text-white flex-col">
         <img src={companyLogo} alt="Laro Payments Logo" className="w-2/3 max-w-xs mb-8" />
         <h1 className="text-3xl font-bold text-center">Bienvenido a tu CRM</h1>
         <p className="mt-2 text-center text-gray-300">Gestiona tus prospectos de forma eficiente.</p>
       </div>
 
-      {/* --- COLUMNA DERECHA: SECCIÓN DEL FORMULARIO --- */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-gray-100 p-4">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           
-          {/* Logo visible en pantallas pequeñas */}
           <div className="lg:hidden flex justify-center mb-6">
             <img src={companyLogo} alt="Laro Payments Logo" className="w-40" />
           </div>
@@ -82,7 +80,6 @@ const Login: React.FC = () => {
             </p>
 
             {isResetMode ? (
-              // --- FORMULARIO DE RESETEO ---
               <form onSubmit={handlePasswordReset} className="space-y-4">
                 <div>
                     <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email-reset">Email</label>
@@ -104,7 +101,6 @@ const Login: React.FC = () => {
                 </div>
               </form>
             ) : (
-              // --- FORMULARIO DE LOGIN ---
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email-login">Email</label>
