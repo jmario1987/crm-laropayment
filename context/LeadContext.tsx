@@ -1,11 +1,11 @@
-import React, { createContext, useReducer, useEffect, ReactNode, Dispatch, useRef, useMemo, useState } from 'react';
+import React, { createContext, useReducer, useEffect, ReactNode, Dispatch, useState, useMemo } from 'react';
 import { Lead, User, UserRole, Product, Provider, Stage, USER_ROLES, Tag } from '../types'; 
 import { db } from '../firebaseConfig';
-import { collection, getDocs, doc, getDoc, writeBatch, setDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 
 type Action = 
-  | { type: 'SET_STATE'; payload: State } 
+  | { type: 'SET_STATE'; payload: Partial<State> } 
   | { type: 'ADD_LEAD'; payload: Lead } 
   | { type: 'UPDATE_LEAD'; payload: Lead } 
   | { type: 'DELETE_LEAD'; payload: string } 
@@ -26,19 +26,19 @@ type Action =
   | { type: 'UPDATE_STAGES_ORDER'; payload: Stage[] };
 
 interface State { 
-  leads: Lead[]; 
+  leads: Lead[];
   users: User[]; 
   roles: UserRole[]; 
   products: Product[]; 
   providers: Provider[]; 
   stages: Stage[]; 
-  tags: Tag[]; 
+  tags: Tag[];
 }
 
 const initialState: State = { 
   leads: [], 
   users: [], 
-  roles: [], 
+  roles: Object.values(USER_ROLES), 
   products: [], 
   providers: [], 
   stages: [],
@@ -47,7 +47,7 @@ const initialState: State = {
 
 const leadReducer = (state: State, action: Action): State => {
     switch (action.type) {
-        case 'SET_STATE': return action.payload;
+        case 'SET_STATE': return { ...state, ...action.payload };
         case 'ADD_LEAD': return { ...state, leads: [action.payload, ...state.leads] };
         case 'UPDATE_LEAD': return { ...state, leads: state.leads.map(l => l.id === action.payload.id ? action.payload : l) };
         case 'DELETE_LEAD': return { ...state, leads: state.leads.filter(l => l.id !== action.payload) };
@@ -71,18 +71,24 @@ interface LeadContextType {
   state: State;
   dispatch: Dispatch<Action>;
   reloadData: () => void;
+  allLeads: Lead[]; // Añadido para la "Tarjeta Inteligente"
   stagnantLeads: Lead[];
   sellerNotifications: Lead[];
   managerResponseNotifications: Lead[];
+  sellers: User[];
+  tags: Tag[];
 }
 
 export const LeadContext = createContext<LeadContextType>({
   state: initialState,
   dispatch: () => null,
   reloadData: () => {}, 
+  allLeads: [],
   stagnantLeads: [],
   sellerNotifications: [],
   managerResponseNotifications: [],
+  sellers: [],
+  tags: [],
 });
 
 export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -92,58 +98,47 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [version, setVersion] = useState(0);
   const reloadData = () => setVersion(v => v + 1);
 
-  const stagnantLeads = useMemo(() => {
-    return state.leads.filter(lead => {
-      const stage = state.stages.find(s => s.id === lead.status);
-      if (!stage || stage.type !== 'open' || !lead.lastUpdate) return false;
-      const daysDifference = Math.floor((new Date().getTime() - new Date(lead.lastUpdate).getTime()) / (1000 * 3600 * 24));
-      return daysDifference >= 8;
-    });
-  }, [state.leads, state.stages]);
-
-  const sellerNotifications = useMemo(() => {
-    if (!user || user.role !== USER_ROLES.Vendedor) return [];
-    return state.leads.filter(lead => lead.notificationForSeller && lead.ownerId === user.id);
-  }, [state.leads, user]);
-
-  const managerResponseNotifications = useMemo(() => {
-    if (!user || (user.role !== USER_ROLES.Admin && user.role !== USER_ROLES.Supervisor)) return [];
-    return state.leads.filter(lead => lead.sellerHasViewedNotification && lead.notificationForManagerId === user.id);
-  }, [state.leads, user]);
-
   useEffect(() => {
     const initializeAndLoadData = async () => {
       if (authLoading || !user) return;
       try {
+        const collectionsToFetch = {
+          stages: collection(db, "stages"),
+          products: collection(db, "products"),
+          providers: collection(db, "providers"),
+          tags: collection(db, "tags"),
+        };
+        
+        const [stagesSnap, productsSnap, providersSnap, tagsSnap] = await Promise.all(
+          Object.values(collectionsToFetch).map(getDocs)
+        );
+
         const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
+        const leadsQuery = isManager 
+          ? collection(db, "leads") 
+          : query(collection(db, "leads"), where("ownerId", "==", user.id));
+        const leadsSnapshot = await getDocs(leadsQuery);
         
         let usersData: User[] = [];
         if (isManager) {
           const usersSnapshot = await getDocs(collection(db, "users"));
-          usersData = usersSnapshot.docs.map(doc => doc.data() as User);
-        } else {
+          usersData = usersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }) as User);
+        } else if(user) {
           const userDoc = await getDoc(doc(db, "users", user.id));
-          if (userDoc.exists()) { usersData = [userDoc.data() as User]; }
+          if (userDoc.exists()) {
+            usersData = [({ ...userDoc.data(), id: userDoc.id }) as User];
+          }
         }
-
-        const leadsQuery = isManager ? query(collection(db, "leads")) : query(collection(db, "leads"), where("ownerId", "==", user.id));
         
-        const [leadsSnapshot, stagesSnapshot, productsSnapshot, providersSnapshot, tagsSnapshot] = await Promise.all([
-            getDocs(leadsQuery),
-            getDocs(collection(db, "stages")),
-            getDocs(collection(db, "products")),
-            getDocs(collection(db, "providers")),
-            getDocs(collection(db, "tags")),
-        ]);
-
         dispatch({ type: 'SET_STATE', payload: {
-            leads: leadsSnapshot.docs.map(doc => doc.data() as Lead),
-            stages: stagesSnapshot.docs.map(doc => doc.data() as Stage),
-            products: productsSnapshot.docs.map(doc => doc.data() as Product),
-            providers: providersSnapshot.docs.map(doc => doc.data() as Provider),
-            tags: tagsSnapshot.docs.map(doc => doc.data() as Tag),
+            // --- LA CORRECCIÓN CLAVE ESTÁ AQUÍ ---
+            // Le decimos que incluya el id del documento en el objeto del prospecto
+            leads: leadsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }) as Lead),
+            stages: stagesSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }) as Stage),
+            products: productsSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }) as Product),
+            providers: providersSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }) as Provider),
+            tags: tagsSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }) as Tag),
             users: usersData,
-            roles: [USER_ROLES.Admin, USER_ROLES.Supervisor, USER_ROLES.Vendedor]
         }});
       } catch (error) {
         console.error("Error al inicializar los datos: ", error);
@@ -152,8 +147,39 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     initializeAndLoadData();
   }, [user, authLoading, version]);
 
+  const contextValue = useMemo(() => {
+    const sellers = state.users.filter(u => u.role === USER_ROLES.Vendedor);
+    
+    const stagnantLeads = state.leads.filter(lead => {
+      const stage = state.stages.find(s => s.id === lead.status);
+      if (!stage || stage.type !== 'open' || !lead.lastUpdate) return false;
+      const daysDifference = Math.floor((new Date().getTime() - new Date(lead.lastUpdate).getTime()) / (1000 * 3600 * 24));
+      return daysDifference >= 8;
+    });
+
+    const sellerNotifications = user && user.role === USER_ROLES.Vendedor 
+      ? state.leads.filter(lead => lead.notificationForSeller && lead.ownerId === user.id) 
+      : [];
+    
+    const managerResponseNotifications = user && (user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor)
+      ? state.leads.filter(lead => lead.sellerHasViewedNotification && lead.notificationForManagerId === user.id)
+      : [];
+
+    return { 
+      state, 
+      dispatch, 
+      reloadData, 
+      allLeads: state.leads, 
+      stagnantLeads, 
+      sellerNotifications, 
+      managerResponseNotifications,
+      sellers,
+      tags: state.tags
+    };
+  }, [state, user]);
+
   return (
-    <LeadContext.Provider value={{ state, dispatch, reloadData, stagnantLeads, sellerNotifications, managerResponseNotifications }}>
+    <LeadContext.Provider value={contextValue}>
       {children}
     </LeadContext.Provider>
   );
