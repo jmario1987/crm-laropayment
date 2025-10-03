@@ -13,35 +13,47 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const { allLeads, tags } = useLeads();
 
+  // --- LÓGICA DE GESTOS MEJORADA ---
   const [isDraggable, setIsDraggable] = useState(false);
   const pressTimer = useRef<NodeJS.Timeout | null>(null);
-
-  // Variable para detectar si fue un drag y no un click
-  const wasDragged = useRef(false);
+  const hasMoved = useRef(false); // Ref para detectar si hubo scroll
 
   const handlePressStart = () => {
-    wasDragged.current = false;
+    hasMoved.current = false;
     pressTimer.current = setTimeout(() => {
-      setIsDraggable(true);
-      wasDragged.current = true; // Se considera drag si se mantiene presionado
-    }, 300);
+      // Si el temporizador se completa, entramos en modo arrastre
+      if (!hasMoved.current) {
+        setIsDraggable(true);
+      }
+    }, 300); // 300ms de espera
   };
 
   const handlePressEnd = () => {
+    // Siempre se limpia el temporizador al soltar
     if (pressTimer.current) {
       clearTimeout(pressTimer.current);
     }
-    // Se desactiva el arrastre un poco después para que el evento 'drag' se complete
-    setTimeout(() => setIsDraggable(false), 100);
+    // Si estábamos en modo arrastre, lo desactivamos después de un breve instante
+    if (isDraggable) {
+      setTimeout(() => setIsDraggable(false), 100);
+    }
   };
 
-  const handlePressMove = () => {
-    // Si el usuario mueve el dedo (hace scroll), se cancela el temporizador
+  const handleMove = () => {
+    // Si el dedo se mueve antes de que se complete el temporizador, es un scroll
+    hasMoved.current = true;
     if (pressTimer.current) {
       clearTimeout(pressTimer.current);
     }
-    wasDragged.current = true;
   };
+
+  const handleClick = () => {
+    // Un click solo es válido si no hubo movimiento y no se activó el modo arrastre
+    if (!hasMoved.current && !isDraggable) {
+      setIsDetailsModalOpen(true);
+    }
+  };
+  // --- FIN DE LA LÓGICA DE GESTOS ---
   
   const freshLead = useMemo(() => allLeads.find(l => l.id === lead.id) || lead, [allLeads, lead]);
 
@@ -99,30 +111,33 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
     <>
       <div 
         id={lead.id} 
-        // --- CLASES Y EVENTOS ACTUALIZADOS ---
-        className={`lead-card bg-white dark:bg-gray-800 rounded-md shadow-sm p-3 mb-3 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow duration-200 select-none ${isDraggable ? 'cursor-grabbing' : 'cursor-grab'}`}
+        className={`lead-card bg-white dark:bg-gray-800 rounded-md shadow-sm p-3 mb-3 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow duration-200 select-none ${isDraggable ? 'cursor-grabbing opacity-80' : 'cursor-grab'}`}
+        // --- ATRIBUTOS Y EVENTOS ACTUALIZADOS ---
         draggable={isDraggable}
         // Eventos Táctiles
         onTouchStart={handlePressStart}
         onTouchEnd={handlePressEnd}
-        onTouchMove={handlePressMove}
-        // Eventos de Ratón
+        onTouchMove={handleMove}
+        // Eventos de Ratón (usan la misma lógica)
         onMouseDown={handlePressStart}
         onMouseUp={handlePressEnd}
-        onMouseLeave={handlePressEnd} // Cancela si el ratón sale
-        onMouseMove={handlePressMove}
-        // Bloquea el menú contextual del navegador (descargar, imprimir, etc.)
+        onMouseMove={handleMove}
+        onMouseLeave={handlePressEnd} // Importante para cancelar si el ratón sale
+        // Evento de Click
+        onClick={handleClick}
+        // Bloquea el menú contextual del navegador
         onContextMenu={(e) => e.preventDefault()}
-        onDragEnd={handleDragEnd}
+        // Eventos de Arrastre Nativos
         onDragStart={(e) => {
           e.dataTransfer.setData('leadId', freshLead.id);
           e.dataTransfer.setData('sourceStageId', stage.id);
+          // Opcional: añade una clase mientras se arrastra
+          e.currentTarget.classList.add('dragging');
         }}
-        onClick={() => {
-            // Solo abre el modal si no fue un gesto de arrastre o scroll
-            if (!wasDragged.current) {
-                setIsDetailsModalOpen(true);
-            }
+        onDragEnd={(e) => {
+            e.currentTarget.classList.remove('dragging');
+            handlePressEnd(); // Asegura que todo se reinicie
+            handleDragEnd(e); // Llama a la función del padre
         }}
       >
         <div className="pointer-events-none">
