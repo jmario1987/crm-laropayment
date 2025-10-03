@@ -13,17 +13,21 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const { allLeads, tags } = useLeads();
 
-  // --- LÓGICA PARA EL TOQUE PROLONGADO ---
   const [isDraggable, setIsDraggable] = useState(false);
   const pressTimer = useRef<NodeJS.Timeout | null>(null);
 
-  const handleTouchStart = () => {
+  // Variable para detectar si fue un drag y no un click
+  const wasDragged = useRef(false);
+
+  const handlePressStart = () => {
+    wasDragged.current = false;
     pressTimer.current = setTimeout(() => {
       setIsDraggable(true);
-    }, 300); // 300ms para activar el modo de arrastre
+      wasDragged.current = true; // Se considera drag si se mantiene presionado
+    }, 300);
   };
 
-  const handleTouchEnd = () => {
+  const handlePressEnd = () => {
     if (pressTimer.current) {
       clearTimeout(pressTimer.current);
     }
@@ -31,14 +35,14 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
     setTimeout(() => setIsDraggable(false), 100);
   };
 
-  const handleTouchMove = () => {
+  const handlePressMove = () => {
     // Si el usuario mueve el dedo (hace scroll), se cancela el temporizador
     if (pressTimer.current) {
       clearTimeout(pressTimer.current);
     }
+    wasDragged.current = true;
   };
-  // --- FIN DE LA LÓGICA ---
-
+  
   const freshLead = useMemo(() => allLeads.find(l => l.id === lead.id) || lead, [allLeads, lead]);
 
   const daysInCurrentStage = useMemo(() => {
@@ -95,28 +99,33 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
     <>
       <div 
         id={lead.id} 
-        className={`lead-card bg-white dark:bg-gray-800 rounded-md shadow-sm p-3 mb-3 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow duration-200 ${isDraggable ? 'cursor-grabbing' : 'cursor-grab'}`}
-        // --- ATRIBUTOS ACTUALIZADOS ---
+        // --- CLASES Y EVENTOS ACTUALIZADOS ---
+        className={`lead-card bg-white dark:bg-gray-800 rounded-md shadow-sm p-3 mb-3 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow duration-200 select-none ${isDraggable ? 'cursor-grabbing' : 'cursor-grab'}`}
         draggable={isDraggable}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        onTouchMove={handleTouchMove}
-        // Para que también funcione con el ratón en PC
-        onMouseDown={handleTouchStart}
-        onMouseUp={handleTouchEnd}
+        // Eventos Táctiles
+        onTouchStart={handlePressStart}
+        onTouchEnd={handlePressEnd}
+        onTouchMove={handlePressMove}
+        // Eventos de Ratón
+        onMouseDown={handlePressStart}
+        onMouseUp={handlePressEnd}
+        onMouseLeave={handlePressEnd} // Cancela si el ratón sale
+        onMouseMove={handlePressMove}
+        // Bloquea el menú contextual del navegador (descargar, imprimir, etc.)
+        onContextMenu={(e) => e.preventDefault()}
         onDragEnd={handleDragEnd}
         onDragStart={(e) => {
           e.dataTransfer.setData('leadId', freshLead.id);
           e.dataTransfer.setData('sourceStageId', stage.id);
         }}
         onClick={() => {
-            // Previene que se abra el modal si fue un gesto de arrastre
-            if (!isDraggable) {
+            // Solo abre el modal si no fue un gesto de arrastre o scroll
+            if (!wasDragged.current) {
                 setIsDetailsModalOpen(true);
             }
         }}
       >
-        <div className="pointer-events-none"> {/* Evita que los elementos internos interfieran con el drag */}
+        <div className="pointer-events-none">
             <div className="flex justify-between items-start">
               <h4 className="font-bold text-gray-900 dark:text-white flex-1 pr-2">{freshLead.name}</h4>
             </div>
