@@ -78,7 +78,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     if (formData.tagId && formData.tagId !== currentTagId) {
         tagHistory = [...tagHistory, { tagId: formData.tagId, date: new Date().toISOString() }];
     }
-
+    
     let notificationForSeller = lead?.notificationForSeller || false;
     let sellerHasViewedNotification = lead?.sellerHasViewedNotification || false;
     let notificationForManagerId = lead?.notificationForManagerId;
@@ -116,7 +116,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       ownerId: formData.ownerId,
       observations: updatedObservations,
       createdAt: lead?.createdAt || new Date().toISOString(),
-      // --- LA LÍNEA CORREGIDA ---
+      // --- LA LÍNEA FINALMENTE CORREGIDA ---
       lastUpdate: new Date().toISOString(),
       providerId: formData.providerId,
       productIds: formData.productIds,
