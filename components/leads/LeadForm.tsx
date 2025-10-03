@@ -116,7 +116,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       ownerId: formData.ownerId,
       observations: updatedObservations,
       createdAt: lead?.createdAt || new Date().toISOString(),
-      // --- LA LÍNEA FINALMENTE CORREGIDA ---
       lastUpdate: new Date().toISOString(),
       providerId: formData.providerId,
       productIds: formData.productIds,
@@ -127,7 +126,9 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       affiliateNumber: formData.affiliateNumber,
       notificationForSeller,
       sellerHasViewedNotification,
-      notificationForManagerId,
+      // --- LA CORRECCIÓN DEFINITIVA ESTÁ AQUÍ ---
+      // Si notificationForManagerId es undefined, lo convierte en null.
+      notificationForManagerId: notificationForManagerId ?? null,
     };
 
     try {

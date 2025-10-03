@@ -26,14 +26,13 @@ export type StatusHistoryEntry = {
   date: string;
 };
 
-// --- NUEVA DEFINICIÓN AÑADIDA ---
 // Definición para una entrada en el historial de sub-etapas
 export type TagHistoryEntry = {
   tagId: string;
   date: string;
 };
 
-// Definición del Prospecto (Lead) - ACTUALIZADA
+// Definición del Prospecto (Lead)
 export type Lead = {
   // --- CAMPOS OBLIGATORIOS ---
   id: string;
@@ -52,9 +51,10 @@ export type Lead = {
   productIds?: string[];
   tagIds?: string[];
   statusHistory?: StatusHistoryEntry[];
-  tagHistory?: TagHistoryEntry[]; // <-- LÍNEA NUEVA AÑADIDA
+  tagHistory?: TagHistoryEntry[];
   notificationForSeller?: boolean;
-  notificationForManagerId?: string;
+  // --- LÍNEA CORREGIDA: AHORA PERMITE NULL ---
+  notificationForManagerId?: string | null;
   sellerHasViewedNotification?: boolean;
   affiliateNumber?: string;
   billingHistory?: { [monthYear: string]: boolean };
