@@ -18,10 +18,13 @@ import LeadsListPage from '../../pages/LeadsListPage';
 import ProtectedRoute from '../auth/ProtectedRoute';
 import { USER_ROLES } from '../../types';
 
+// --- NUEVA IMPORTACIÓN ---
+import Tags from '../../pages/Tags';
+
 const MainLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
-  const [isSidebarOpen, setSidebarOpen] = useState(false); // Estado para el menú móvil
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <>
@@ -32,7 +35,7 @@ const MainLayout: React.FC = () => {
             userName={user?.name} 
             onLogout={logout}
             onNewLeadClick={() => setIsNewLeadModalOpen(true)}
-            onMenuClick={() => setSidebarOpen(true)} // Función para abrir el menú
+            onMenuClick={() => setSidebarOpen(true)}
           />
           <main className="flex-grow p-4 md:p-8 overflow-y-auto">
             <Routes>
@@ -45,6 +48,10 @@ const MainLayout: React.FC = () => {
               <Route path="/products" element={<ProtectedRoute roles={[USER_ROLES.Admin]}><Products /></ProtectedRoute>} />
               <Route path="/providers" element={<ProtectedRoute roles={[USER_ROLES.Admin]}><Providers /></ProtectedRoute>} />
               <Route path="/stages" element={<ProtectedRoute roles={[USER_ROLES.Admin]}><Stages /></ProtectedRoute>} />
+              
+              {/* --- NUEVA RUTA AÑADIDA --- */}
+              <Route path="/tags" element={<ProtectedRoute roles={[USER_ROLES.Admin]}><Tags /></ProtectedRoute>} />
+
             </Routes>
           </main>
         </div>
