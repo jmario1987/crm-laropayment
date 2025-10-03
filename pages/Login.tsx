@@ -6,6 +6,10 @@ import Spinner from '../components/ui/Spinner';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 
+// --- IMPORTACIÓN DEL LOGO ---
+// Asegúrate de que esta ruta y nombre de archivo sean correctos.
+import companyLogo from '../assets/logo-laro.png';
+
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -49,99 +53,85 @@ const Login: React.FC = () => {
     }
   };
 
-  return (
-    // Estilos del contenedor principal de LoginPage.tsx
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      {/* Estilos de la tarjeta de LoginPage.tsx */}
-      <div className="p-8 bg-white rounded-lg shadow-md w-full max-w-sm">
-        
-        {/* Título simple de LoginPage.tsx */}
-        <h2 className="text-2xl font-bold text-center mb-6">CRM Laro Payment</h2>
+  const inputClasses = "w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500";
 
-        {isResetMode ? (
-          <form onSubmit={handlePasswordReset}>
-            <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
-                Email
-                </label>
-                <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                placeholder="Escribe tu correo electrónico"
-                required
-                />
-            </div>
-            {error && <p className="text-sm text-red-500 text-center mb-4">{error}</p>}
-            {message && <p className="text-sm text-green-500 text-center mb-4">{message}</p>}
-            <div className="mb-4">
-                <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? <Spinner size="sm"/> : 'Enviar Enlace'}
-                </Button>
-            </div>
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={() => { setIsResetMode(false); setError(''); setMessage(''); }}
-                className="text-sm font-bold text-gray-600 hover:text-gray-800"
-              >
-                Volver a Iniciar Sesión
-              </button>
-            </div>
-          </form>
-        ) : (
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                placeholder="Tu correo electrónico"
-                required
-              />
-            </div>
-            <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
-                Contraseña
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                placeholder="Tu contraseña"
-                required
-              />
-              <div className="text-right mt-2">
-                <button
-                  type="button"
-                  onClick={() => { setIsResetMode(true); setError(''); setMessage(''); }}
-                  className="text-sm font-bold text-gray-600 hover:text-gray-800"
-                >
-                  ¿Olvidaste tu contraseña?
-                </button>
-              </div>
-            </div>
-            {error && <p className="text-sm text-red-500 text-center mb-4">{error}</p>}
-            <div>
-              <Button
-                className="w-full"
-                type="submit"
-                disabled={loading}
-              >
-                {loading ? <Spinner size="sm"/> : 'Iniciar Sesión'}
-              </Button>
-            </div>
-          </form>
-        )}
+  return (
+    <div className="min-h-screen flex">
+      {/* --- COLUMNA IZQUIERDA: SECCIÓN DE MARCA --- */}
+      <div className="hidden lg:flex w-1/2 bg-[#0F2D4A] items-center justify-center p-12 text-white flex-col">
+        <img src={companyLogo} alt="Laro Payments Logo" className="w-2/3 max-w-xs mb-8" />
+        <h1 className="text-3xl font-bold text-center">Bienvenido a tu CRM</h1>
+        <p className="mt-2 text-center text-gray-300">Gestiona tus prospectos de forma eficiente.</p>
+      </div>
+
+      {/* --- COLUMNA DERECHA: SECCIÓN DEL FORMULARIO --- */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-gray-100 p-4">
+        <div className="w-full max-w-md">
+          
+          {/* Logo visible en pantallas pequeñas */}
+          <div className="lg:hidden flex justify-center mb-6">
+            <img src={companyLogo} alt="Laro Payments Logo" className="w-40" />
+          </div>
+
+          <div className="bg-white p-8 rounded-lg shadow-lg w-full">
+            <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">
+              {isResetMode ? 'Restablecer Contraseña' : 'Iniciar Sesión'}
+            </h2>
+            <p className="text-center text-gray-500 mb-8">
+              {isResetMode ? 'Ingresa tu correo para recibir un enlace.' : 'Ingresa tus credenciales para acceder.'}
+            </p>
+
+            {isResetMode ? (
+              // --- FORMULARIO DE RESETEO ---
+              <form onSubmit={handlePasswordReset} className="space-y-4">
+                <div>
+                    <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email-reset">Email</label>
+                    <input id="email-reset" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClasses} placeholder="Escribe tu correo electrónico" required />
+                </div>
+                
+                {error && <p className="text-sm text-red-500 text-center">{error}</p>}
+                {message && <p className="text-sm text-green-500 text-center">{message}</p>}
+
+                <div>
+                    <Button type="submit" className="w-full" disabled={loading}>
+                        {loading ? <Spinner size="sm"/> : 'Enviar Enlace'}
+                    </Button>
+                </div>
+                <div className="text-center">
+                  <button type="button" onClick={() => { setIsResetMode(false); setError(''); setMessage(''); }} className="text-sm font-bold text-blue-600 hover:underline">
+                    Volver a Iniciar Sesión
+                  </button>
+                </div>
+              </form>
+            ) : (
+              // --- FORMULARIO DE LOGIN ---
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email-login">Email</label>
+                  <input id="email-login" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClasses} placeholder="tu.correo@ejemplo.com" required />
+                </div>
+                
+                <div>
+                    <div className="flex justify-between items-center mb-2">
+                        <label className="block text-gray-700 text-sm font-bold" htmlFor="password">Contraseña</label>
+                        <button type="button" onClick={() => { setIsResetMode(true); setError(''); setMessage(''); }} className="text-sm font-bold text-blue-600 hover:underline">
+                            ¿Olvidaste tu contraseña?
+                        </button>
+                    </div>
+                  <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={inputClasses} placeholder="••••••••" required />
+                </div>
+
+                {error && <p className="text-sm text-red-500 text-center">{error}</p>}
+                
+                <div>
+                  <Button className="w-full" type="submit" disabled={loading}>
+                    {loading ? <Spinner size="sm"/> : 'Acceder'}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
