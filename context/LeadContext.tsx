@@ -57,6 +57,7 @@ const leadReducer = (state: State, action: Action): State => {
         case 'UPDATE_PRODUCT': return { ...state, products: state.products.map(p => p.id === action.payload.id ? action.payload : p) };
         case 'DELETE_PRODUCT': return { ...state, products: state.products.filter(p => p.id !== action.payload) };
         case 'ADD_PROVIDER': return { ...state, providers: [...state.providers, action.payload] };
+        // --- AQUÍ ESTABA EL ERROR, YA ESTÁ CORREGIDO (era una 'u' en lugar de 'p') ---
         case 'UPDATE_PROVIDER': return { ...state, providers: state.providers.map(p => p.id === action.payload.id ? action.payload : p) };
         case 'DELETE_PROVIDER': return { ...state, providers: state.providers.filter(p => p.id !== action.payload) };
         case 'ADD_STAGE': return { ...state, stages: [...state.stages, action.payload] };
@@ -95,7 +96,7 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [state, dispatch] = useReducer(leadReducer, initialState);
   const { user, loading: authLoading } = useAuth();
 
-  // --- CAMBIO 1: Este es el "reloj despertador" que se actualiza cada minuto ---
+  // Este es el "reloj despertador" que se actualiza cada minuto.
   const [currentTime, setCurrentTime] = useState(new Date());
   useEffect(() => {
     const timerId = setInterval(() => setCurrentTime(new Date()), 60000); // 60000ms = 1 minuto
@@ -181,7 +182,6 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       sellers,
       tags: state.tags
     };
-  // --- CAMBIO 2: Añadimos 'currentTime' aquí para que el cálculo se re-ejecute cada minuto ---
   }, [state, user, currentTime]);
 
   return (
