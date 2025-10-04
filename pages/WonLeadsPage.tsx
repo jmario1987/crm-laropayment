@@ -6,6 +6,10 @@ import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
 import BillingModal from '../components/billing/BillingModal';
 
+// --- Se importan las funciones para hablar con la base de datos ---
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebaseConfig'; // Revisa que la ruta a tu config de firebase sea correcta
+
 const getCurrentMonthYear = () => {
     const date = new Date();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -23,7 +27,6 @@ const WonLeadRow: React.FC<{ lead: Lead; sellerName?: string; onBillingClick: (l
             <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{lead.name}</td>
             <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{sellerName || 'N/A'}</td>
             <td className="px-6 py-4">
-                {/* --- LA LÍNEA CORREGIDA ESTÁ AQUÍ --- */}
                 <span className={`px-2 py-1 text-xs font-bold rounded-full ${lead.clientStatus === 'Inactivo' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
                     {lead.clientStatus || 'Activo'}
                 </span>
@@ -74,11 +77,24 @@ const WonLeadsPage: React.FC = () => {
         return leads;
     }, [allLeads, stages, user, selectedProviderId, includeInactive]);
     
-    const handleSaveBilling = (updatedData: Partial<Lead>) => {
-        if (billingLead) {
+    // --- ESTA ES LA FUNCIÓN CORREGIDA ---
+    const handleSaveBilling = async (updatedData: Partial<Lead>) => {
+        if (!billingLead) return;
+
+        try {
+            const leadRef = doc(db, 'leads', billingLead.id);
+            // 1. Guardamos el cambio en la base de datos PRIMERO
+            await updateDoc(leadRef, updatedData);
+
+            // 2. Después, actualizamos la pantalla para que veas el cambio al instante
             dispatch({ type: 'UPDATE_LEAD', payload: { ...billingLead, ...updatedData } });
+            
+        } catch (error) {
+            console.error("Error al actualizar la facturación: ", error);
+        } finally {
+            // 3. Finalmente, cerramos la ventana modal
+            setBillingLead(null);
         }
-        setBillingLead(null);
     };
 
     const handleExportExcel = () => {
