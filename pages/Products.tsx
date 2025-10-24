@@ -5,6 +5,9 @@ import Modal from '../components/ui/Modal';
 import Button from '../components/ui/Button';
 import ProductForm from '../components/products/ProductForm';
 import ProductRow from '../components/products/ProductRow';
+// --- 1. IMPORTAMOS LAS FUNCIONES DE FIREBASE ---
+import { db } from '../firebaseConfig';
+import { doc, deleteDoc } from 'firebase/firestore';
 
 const Products: React.FC = () => {
     const { products, dispatch, allLeads } = useLeads();
@@ -25,9 +28,9 @@ const Products: React.FC = () => {
         setSelectedProduct(null);
     };
 
-    const handleDelete = (productId: string) => {
-        // <-- CAMBIO CLAVE: Se añade 'lead.productIds &&' para evitar el error.
-        // Ahora, solo revisa la lista si existe.
+    // --- 2. CONVERTIMOS HANDLEDELETE EN ASÍNCRONO ---
+    const handleDelete = async (productId: string) => {
+        // Verificación para evitar errores si productIds no existe en algún prospecto
         const isProductInUse = allLeads.some(lead => lead.productIds && lead.productIds.includes(productId));
         
         if (isProductInUse) {
@@ -36,7 +39,19 @@ const Products: React.FC = () => {
         }
 
         if (window.confirm('¿Está seguro de que desea eliminar este producto?')) {
-            dispatch({ type: 'DELETE_PRODUCT', payload: productId });
+           try {
+                // --- 3. AÑADIMOS EL BORRADO DE FIREBASE ---
+                // 1. Borramos de Firebase
+                const docRef = doc(db, 'products', productId);
+                await deleteDoc(docRef);
+
+                // 2. Borramos del estado local (memoria)
+                dispatch({ type: 'DELETE_PRODUCT', payload: productId });
+
+            } catch (error) {
+                console.error("Error al eliminar producto de Firebase:", error);
+                alert("Error: No se pudo eliminar el producto.");
+            }
         }
     };
 
@@ -75,7 +90,7 @@ const Products: React.FC = () => {
             </Modal>
 
             {selectedProduct && (
-                 <Modal isOpen={isEditModalOpen} onClose={handleCloseEditModal} title={`Editar: ${selectedProduct.name}`}>
+                <Modal isOpen={isEditModalOpen} onClose={handleCloseEditModal} title={`Editar: ${selectedProduct.name}`}>
                     <ProductForm productToEdit={selectedProduct} onSuccess={handleCloseEditModal} />
                 </Modal>
             )}
