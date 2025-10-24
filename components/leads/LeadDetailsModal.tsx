@@ -22,7 +22,8 @@ const LeadDetailItem: React.FC<{ icon: React.ReactNode, label: string, value: st
 
 const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClose }) => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const { getUserById, products, getProviderById, getStageById, tags } = useLeads();
+    // --- 1. AÑADIMOS 'allLeads' AL HOOK ---
+    const { getUserById, products, getProviderById, getStageById, tags, allLeads } = useLeads();
 
     const handleEditSuccess = () => {
         setIsEditModalOpen(false);
@@ -44,6 +45,18 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
             .map(id => tags.find(t => t.id === id))
             .filter((t): t is NonNullable<typeof t> => t != null);
     }, [lead.tagIds, tags]);
+
+    // --- 2. LÓGICA PARA ENCONTRAR OPORTUNIDADES RELACIONADAS ---
+    const relatedLeads = useMemo(() => {
+        // Si el prospecto actual no tiene email, no podemos buscar
+        if (!lead.email) return [];
+        
+        // Filtramos la lista de TODOS los prospectos para encontrar:
+        return allLeads.filter(l => 
+            l.email === lead.email && // 1. Que tengan el mismo email
+            l.id !== lead.id          // 2. Que NO sean el prospecto que ya estamos viendo
+        );
+    }, [allLeads, lead.email, lead.id]);
 
 
     if (!isOpen) return null;
@@ -125,6 +138,62 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                         <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Historial de Etapas</h4>
                         <LeadTimeline history={lead.statusHistory} />
                     </div>
+
+                    {/* --- 3. INICIO DE LA NUEVA SECCIÓN --- */}
+                    {relatedLeads.length > 0 && (
+                        <div>
+                            <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Otras Oportunidades del Cliente</h4>
+                            <div className="space-y-3">
+                                {relatedLeads.map(relatedLead => {
+                                    // Obtenemos los datos para esta "mini-tarjeta"
+                                    const relatedStage = getStageById(relatedLead.status);
+                                    const relatedProducts = (relatedLead.productIds || [])
+                                        .map(id => products.find(p => p.id === id))
+                                        .filter((p): p is NonNullable<typeof p> => p != null);
+                                    const relatedTags = (relatedLead.tagIds || [])
+                                        .map(id => tags.find(t => t.id === id))
+                                        .filter((t): t is NonNullable<typeof t> => t != null);
+
+                                    return (
+                                        <div key={relatedLead.id} className="p-3 border rounded-lg bg-gray-50 dark:bg-gray-700/50 dark:border-gray-600">
+                                            <h5 className="font-semibold text-gray-800 dark:text-gray-200">{relatedLead.name}</h5>
+                                            
+                                            <div className="text-sm mt-2 space-y-1">
+                                                <p><strong className="text-gray-600 dark:text-gray-400">Etapa:</strong> {relatedStage?.name || 'N/A'}</p>
+                                                
+                                                <div className="flex items-center">
+                                                    <strong className="text-gray-600 dark:text-gray-400 mr-1">Sub-Etapa:</strong>
+                                                    {relatedTags.length > 0 ? (
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {relatedTags.map(t => (
+                                                                <span key={t.id} className="px-2 py-0.5 text-xs font-medium rounded-full text-white" style={{ backgroundColor: t.color }}>
+                                                                    {t.name}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="ml-1">N/A</span>
+                                                    )}
+                                                </div>
+
+                                                <div className="mt-1">
+                                                    <strong className="text-gray-600 dark:text-gray-400">Productos:</strong>
+                                                    {relatedProducts.length > 0 ? (
+                                                        <ul className="list-disc list-inside ml-4">
+                                                            {relatedProducts.map(p => p && <li key={p.id}>{p.name}</li>)}
+                                                        </ul>
+                                                    ) : (
+                                                        <span className="ml-1">N/A</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                    {/* --- FIN DE LA NUEVA SECCIÓN --- */}
 
                 </div>
                 <div className="flex justify-end space-x-2 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-b-lg sticky bottom-0">
