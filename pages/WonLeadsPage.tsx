@@ -6,9 +6,12 @@ import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
 import BillingModal from '../components/billing/BillingModal';
 
-// --- Se importan las funciones para hablar con la base de datos ---
 import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebaseConfig'; // Revisa que la ruta a tu config de firebase sea correcta
+import { db } from '../firebaseConfig'; 
+
+// --- 1. Definimos los tipos para el ordenamiento ---
+type SortColumn = 'affiliateNumber' | 'name' | 'sellerName'; // Añadiremos más si es necesario
+type SortDirection = 'asc' | 'desc';
 
 const getCurrentMonthYear = () => {
     const date = new Date();
@@ -23,7 +26,8 @@ const WonLeadRow: React.FC<{ lead: Lead; sellerName?: string; onBillingClick: (l
 
     return (
         <tr className={`bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 ${lead.clientStatus === 'Inactivo' ? 'opacity-50' : ''}`}>
-            <td className="px-6 py-4 font-bold text-gray-900 dark:text-white">{lead.affiliateNumber || 'N/A'}</td>
+            {/* Usamos font-mono para que los números se alineen mejor */}
+            <td className="px-6 py-4 font-mono font-bold text-gray-900 dark:text-white">{lead.affiliateNumber || 'N/A'}</td>
             <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{lead.name}</td>
             <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{sellerName || 'N/A'}</td>
             <td className="px-6 py-4">
@@ -54,6 +58,10 @@ const WonLeadsPage: React.FC = () => {
     const [includeInactive, setIncludeInactive] = useState(false);
     const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthYear());
     const [billingLead, setBillingLead] = useState<Lead | null>(null);
+    
+    // --- 2. Añadimos los estados para el ordenamiento ---
+    const [sortColumn, setSortColumn] = useState<SortColumn>('affiliateNumber'); // Por defecto ordena por afiliado
+    const [sortDirection, setSortDirection] = useState<SortDirection>('asc'); // Por defecto ascendente
 
     const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
 
@@ -63,6 +71,7 @@ const WonLeadsPage: React.FC = () => {
 
         if (!user) return [];
         
+        // Aplicamos filtros primero
         if (isManager) {
             if (selectedProviderId !== 'all') {
                 leads = leads.filter(lead => lead.providerId === selectedProviderId);
@@ -74,25 +83,50 @@ const WonLeadsPage: React.FC = () => {
             leads = leads.filter(lead => lead.ownerId === user.id && lead.clientStatus !== 'Inactivo');
         }
         
+        // --- 3. Aplicamos el ordenamiento ---
+        leads.sort((a, b) => {
+            let valA: string | number | undefined;
+            let valB: string | number | undefined;
+
+            if (sortColumn === 'affiliateNumber') {
+                // Convertimos a número para ordenar correctamente, tratando N/A como 0 o un valor muy bajo/alto
+                valA = parseInt(a.affiliateNumber || '0', 10);
+                valB = parseInt(b.affiliateNumber || '0', 10);
+            } else if (sortColumn === 'name') {
+                valA = a.name.toLowerCase();
+                valB = b.name.toLowerCase();
+            } else if (sortColumn === 'sellerName') {
+                valA = getUserById(a.ownerId)?.name.toLowerCase() || '';
+                valB = getUserById(b.ownerId)?.name.toLowerCase() || '';
+            }
+
+            if (valA === undefined || valB === undefined) return 0; // No ordenar si falta valor
+
+            let comparison = 0;
+            if (valA < valB) {
+                comparison = -1;
+            } else if (valA > valB) {
+                comparison = 1;
+            }
+
+            return sortDirection === 'desc' ? (comparison * -1) : comparison;
+        });
+        
         return leads;
-    }, [allLeads, stages, user, selectedProviderId, includeInactive]);
+    // --- 4. Añadimos los estados de ordenamiento a las dependencias ---
+    }, [allLeads, stages, user, selectedProviderId, includeInactive, sortColumn, sortDirection, getUserById]); 
     
-    // --- ESTA ES LA FUNCIÓN CORREGIDA ---
     const handleSaveBilling = async (updatedData: Partial<Lead>) => {
         if (!billingLead) return;
 
         try {
             const leadRef = doc(db, 'leads', billingLead.id);
-            // 1. Guardamos el cambio en la base de datos PRIMERO
             await updateDoc(leadRef, updatedData);
-
-            // 2. Después, actualizamos la pantalla para que veas el cambio al instante
             dispatch({ type: 'UPDATE_LEAD', payload: { ...billingLead, ...updatedData } });
             
         } catch (error) {
             console.error("Error al actualizar la facturación: ", error);
         } finally {
-            // 3. Finalmente, cerramos la ventana modal
             setBillingLead(null);
         }
     };
@@ -126,6 +160,24 @@ const WonLeadsPage: React.FC = () => {
         return options;
     }, []);
 
+    // --- 5. Creamos la función para manejar el clic en el encabezado ---
+    const handleSort = (column: SortColumn) => {
+        // Si hacemos clic en la misma columna, invertimos la dirección
+        if (column === sortColumn) {
+            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            // Si hacemos clic en una columna nueva, la ponemos ascendente
+            setSortColumn(column);
+            setSortDirection('asc');
+        }
+    };
+
+    // --- 6. Función para mostrar el icono de ordenamiento ---
+    const renderSortArrow = (column: SortColumn) => {
+        if (column !== sortColumn) return null; // No mostrar flecha si no es la columna activa
+        return sortDirection === 'asc' ? ' ↑' : ' ↓';
+    };
+
     return (
         <div className="space-y-8">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
@@ -141,7 +193,7 @@ const WonLeadsPage: React.FC = () => {
                                 </div>
                                 <div className="w-full sm:w-auto">
                                     <select value={selectedProviderId} onChange={(e) => setSelectedProviderId(e.target.value)} className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                                        <option value="all">Todos los Proveedores</option>
+                                        <option value="all">Todos los Desarrolladores</option> {/* Cambiado Proveedores */}
                                         {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                     </select>
                                 </div>
@@ -158,7 +210,16 @@ const WonLeadsPage: React.FC = () => {
                     <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                             <tr>
-                                <th scope="col" className="px-6 py-3">Nº Afiliado</th>
+                                {/* --- 7. Encabezado "Nº Afiliado" ahora es un botón --- */}
+                                <th scope="col" className="px-6 py-3">
+                                    <button 
+                                        onClick={() => handleSort('affiliateNumber')} 
+                                        className="font-bold hover:text-primary-600 dark:hover:text-primary-400"
+                                    >
+                                        Nº Afiliado{renderSortArrow('affiliateNumber')}
+                                    </button>
+                                </th>
+                                {/* Podríamos hacer lo mismo para Nombre y Vendedor si quisiéramos */}
                                 <th scope="col" className="px-6 py-3">Nombre</th>
                                 <th scope="col" className="px-6 py-3">Vendedor</th>
                                 <th scope="col" className="px-6 py-3">Estado Cliente</th>
