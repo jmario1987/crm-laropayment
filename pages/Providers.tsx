@@ -6,7 +6,8 @@ import Button from '../components/ui/Button';
 import ProviderForm from '../components/providers/ProviderForm';
 import ProviderRow from '../components/providers/ProviderRow';
 
-const Providers: React.FC = () => {
+// 1. Cambiamos el nombre del componente para que coincida
+const Desarrolladores: React.FC = () => {
     const { providers, dispatch, allLeads } = useLeads();
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -28,11 +29,13 @@ const Providers: React.FC = () => {
     const handleDelete = (providerId: string) => {
         const isProviderInUse = allLeads.some(lead => lead.providerId === providerId);
         if (isProviderInUse) {
-            alert('No se puede eliminar un proveedor que está referenciado en uno o más prospectos.');
+            // 2. Cambiamos el texto de la alerta
+            alert('No se puede eliminar un desarrollador que está referenciado en uno o más prospectos.');
             return;
         }
 
-        if (window.confirm('¿Está seguro de que desea eliminar este proveedor?')) {
+        // 3. Cambiamos el texto de la confirmación
+        if (window.confirm('¿Está seguro de que desea eliminar este desarrollador?')) {
             dispatch({ type: 'DELETE_PROVIDER', payload: providerId });
         }
     };
@@ -41,15 +44,23 @@ const Providers: React.FC = () => {
         <div className="space-y-8">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Catálogo de Proveedores</h3>
-                    <Button onClick={handleOpenCreateModal}>Crear Proveedor</Button>
+                    {/* 4. Cambiamos el título de la página */}
+                    <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Catálogo de Desarrolladores</h3>
+                    {/* 5. Cambiamos el texto del botón */}
+                    <Button onClick={handleOpenCreateModal}>Crear Desarrollador</Button>
                 </div>
                 <div className="relative overflow-x-auto shadow-md sm:rounded-lg">
                     <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                             <tr>
-                                <th scope="col" className="px-6 py-3">Nombre del Proveedor</th>
+                                {/* 6. Cambiamos el título de la columna */}
+                                <th scope="col" className="px-6 py-3">Nombre del Desarrollador</th>
                                 <th scope="col" className="px-6 py-3">Persona de Contacto</th>
+                                
+                                {/* --- ESTAS SON LAS NUEVAS COLUMNAS --- */}
+                                <th scope="col" className="px-6 py-3">Email</th>
+                                <th scope="col" className="px-6 py-3">Teléfono</th>
+                                
                                 <th scope="col" className="px-6 py-3"><span className="sr-only">Acciones</span></th>
                             </tr>
                         </thead>
@@ -67,12 +78,13 @@ const Providers: React.FC = () => {
                 </div>
             </div>
 
-            <Modal isOpen={isCreateModalOpen} onClose={handleCloseCreateModal} title="Crear Nuevo Proveedor">
+            {/* 7. Cambiamos el título del modal de creación */}
+            <Modal isOpen={isCreateModalOpen} onClose={handleCloseCreateModal} title="Crear Nuevo Desarrollador">
                 <ProviderForm onSuccess={handleCloseCreateModal} />
             </Modal>
 
             {selectedProvider && (
-                 <Modal isOpen={isEditModalOpen} onClose={handleCloseEditModal} title={`Editar: ${selectedProvider.name}`}>
+                <Modal isOpen={isEditModalOpen} onClose={handleCloseEditModal} title={`Editar: ${selectedProvider.name}`}>
                     <ProviderForm providerToEdit={selectedProvider} onSuccess={handleCloseEditModal} />
                 </Modal>
             )}
@@ -80,4 +92,5 @@ const Providers: React.FC = () => {
     );
 };
 
-export default Providers;
+// 8. Cambiamos el nombre de la exportación
+export default Desarrolladores;

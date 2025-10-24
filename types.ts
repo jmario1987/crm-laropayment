@@ -53,7 +53,6 @@ export type Lead = {
   statusHistory?: StatusHistoryEntry[];
   tagHistory?: TagHistoryEntry[];
   notificationForSeller?: boolean;
-  // --- LÍNEA CORREGIDA: AHORA PERMITE NULL ---
   notificationForManagerId?: string | null;
   sellerHasViewedNotification?: boolean;
   affiliateNumber?: string;
@@ -69,12 +68,19 @@ export interface Product {
   description: string;
 }
 
-// Definición del Proveedor
+// --- ESTA ES LA SECCIÓN MODIFICADA ---
+// Definición del Proveedor (Desarrollador)
 export interface Provider {
   id: string;
   name: string;
   contactPerson: string;
+  // --- CAMPOS NUEVOS AÑADIDOS ---
+  // Los hacemos opcionales (con ?) para que no den error
+  // en los registros que ya existen en la base de datos.
+  email?: string;
+  phone?: string;
 }
+// --- FIN DE LA SECCIÓN MODIFICADA ---
 
 // Definición de la Etapa del Pipeline
 export interface Stage {
