@@ -12,7 +12,6 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ providerToEdit, onSuccess }
   const { dispatch } = useLeads();
   const isEditMode = !!providerToEdit;
 
-  // 1. Añadimos los campos nuevos al estado
   const [formData, setFormData] = useState({
     name: '',
     contactPerson: '',
@@ -20,17 +19,18 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ providerToEdit, onSuccess }
     phone: '',
   });
 
-  // 2. Cargamos los datos nuevos si estamos en modo edición
+  // --- ESTE ES EL BLOQUE CORREGIDO ---
   useEffect(() => {
     if (providerToEdit) {
+      // Si estamos en modo EDICIÓN, llena el formulario
       setFormData({
         name: providerToEdit.name,
         contactPerson: providerToEdit.contactPerson,
-        email: providerToEdit.email || '', // Usamos || '' por si el dato no existe
-        phone: providerToEdit.phone || '', // Usamos || '' por si el dato no existe
+        email: providerToEdit.email || '', 
+        phone: providerToEdit.phone || '', 
       });
     } else {
-      // Limpiamos el formulario si cerramos el modal de edición y abrimos el de crear
+      // Si estamos en modo CREACIÓN, limpia el formulario
       setFormData({
         name: '',
         contactPerson: '',
@@ -38,7 +38,7 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ providerToEdit, onSuccess }
         phone: '',
       });
     }
-  }, [providerToEdit]);
+  }, [providerToEdit]); // Esta lógica se ejecuta CADA VEZ que el modal se abre
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -48,7 +48,6 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ providerToEdit, onSuccess }
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 3. Añadimos los campos nuevos al objeto que se va a guardar
     const providerData: Provider = {
       id: providerToEdit?.id || new Date().toISOString(),
       name: formData.name,
@@ -69,16 +68,14 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ providerToEdit, onSuccess }
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        {/* 4. Cambiamos el texto de la etiqueta */}
         <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre del Desarrollador</label>
         <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
       </div>
       <div>
         <label htmlFor="contactPerson" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Persona de Contacto</label>
-        <input type="text" name="contactPerson" id="contactPerson" value={formData.contactPerson} required className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
+        <input type="text" name="contactPerson" id="contactPerson" value={formData.contactPerson} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
       </div>
 
-      {/* --- INICIO DE CAMPOS AÑADIDOS --- */}
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
         <input type="email" name="email" id="email" value={formData.email} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
@@ -87,10 +84,8 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ providerToEdit, onSuccess }
         <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Teléfono</label>
         <input type="tel" name="phone" id="phone" value={formData.phone} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
       </div>
-      {/* --- FIN DE CAMPOS AÑADIDOS --- */}
 
       <div className="flex justify-end pt-4">
-        {/* 5. Cambiamos el texto de los botones */}
         <Button type="submit">{isEditMode ? 'Actualizar Desarrollador' : 'Crear Desarrollador'}</Button>
       </div>
     </form>
