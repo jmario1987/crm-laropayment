@@ -54,7 +54,7 @@ const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout, onM
     switch (location.pathname) {
       case '/dashboard': return 'Dashboard';
       case '/pipeline': return 'Pipeline de Ventas';
-      case '/won-leads': return 'Prospectos Ganados';
+      case '/won-leads': return 'Clientes en Producción';
       case '/leads': return 'Reportes de Clientes';
       case '/users': return 'Administrar Usuarios';
       case '/products': return 'Catálogo de Productos';

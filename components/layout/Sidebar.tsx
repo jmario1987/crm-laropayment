@@ -62,7 +62,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             </NavLink>
             <NavLink to="/won-leads" onClick={handleLinkClick} className={getLinkClassName}>
                <NavIcon path="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              <span className="ml-4">Ganados</span>
+              <span className="ml-4">En Producción</span>
             </NavLink>
             <NavLink to="/leads" onClick={handleLinkClick} className={getLinkClassName}>
                <NavIcon path="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
