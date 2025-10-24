@@ -66,7 +66,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             </NavLink>
             <NavLink to="/leads" onClick={handleLinkClick} className={getLinkClassName}>
                <NavIcon path="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-              <span className="ml-4">Prospectos</span>
+              <span className="ml-4">Reportes</span>
             </NavLink>
             
             {isAdmin && (
@@ -86,7 +86,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 </NavLink>
                 <NavLink to="/providers" onClick={handleLinkClick} className={getLinkClassName}>
                    <NavIcon path="M20 6h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zM10 4h4v2h-4V4z" />
-                   <span className="ml-4">Proveedores</span>
+                   <span className="ml-4">Desarrolladores</span>
                 </NavLink>
                 <NavLink to="/stages" onClick={handleLinkClick} className={getLinkClassName}>
                     <NavIcon path="M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z" />
