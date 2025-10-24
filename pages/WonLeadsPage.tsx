@@ -130,7 +130,7 @@ const WonLeadsPage: React.FC = () => {
         <div className="space-y-8">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
                 <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-                    <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Clientes Ganados</h3>
+                    <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Clientes en Producción</h3>
                     <div className="flex flex-wrap sm:flex-nowrap gap-4 items-center">
                         {isManager && (
                             <>
