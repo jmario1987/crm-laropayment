@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useLeads } from '../../hooks/useLeads';
 import { Provider } from '../../types';
 import Button from '../ui/Button';
+// --- 1. IMPORTAMOS LAS FUNCIONES DE FIREBASE ---
+import { db } from '../../firebaseConfig';
+import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 
 interface ProviderFormProps {
   providerToEdit?: Provider;
@@ -12,6 +15,9 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ providerToEdit, onSuccess }
   const { dispatch } = useLeads();
   const isEditMode = !!providerToEdit;
 
+  // --- 2. AÑADIMOS UN ESTADO DE "GUARDANDO" ---
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [formData, setFormData] = useState({
     name: '',
     contactPerson: '',
@@ -19,10 +25,8 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ providerToEdit, onSuccess }
     phone: '',
   });
 
-  // --- ESTE ES EL BLOQUE CORREGIDO ---
   useEffect(() => {
     if (providerToEdit) {
-      // Si estamos en modo EDICIÓN, llena el formulario
       setFormData({
         name: providerToEdit.name,
         contactPerson: providerToEdit.contactPerson,
@@ -30,7 +34,6 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ providerToEdit, onSuccess }
         phone: providerToEdit.phone || '', 
       });
     } else {
-      // Si estamos en modo CREACIÓN, limpia el formulario
       setFormData({
         name: '',
         contactPerson: '',
@@ -38,31 +41,66 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ providerToEdit, onSuccess }
         phone: '',
       });
     }
-  }, [providerToEdit]); // Esta lógica se ejecuta CADA VEZ que el modal se abre
+  }, [providerToEdit]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // --- 3. CONVERTIMOS EL SUBMIT EN UNA FUNCIÓN ASÍNCRONA ---
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return; // Evitar doble click
 
-    const providerData: Provider = {
-      id: providerToEdit?.id || new Date().toISOString(),
-      name: formData.name,
-      contactPerson: formData.contactPerson,
-      email: formData.email,
-      phone: formData.phone,
-    };
+    setIsSubmitting(true);
 
-    if (isEditMode) {
-      dispatch({ type: 'UPDATE_PROVIDER', payload: providerData });
-    } else {
-      dispatch({ type: 'ADD_PROVIDER', payload: providerData });
+    try {
+      if (isEditMode) {
+        // --- LÓGICA DE ACTUALIZAR (UPDATE) ---
+        const providerId = providerToEdit.id;
+        const docRef = doc(db, 'providers', providerId);
+        
+        // Creamos el objeto solo con los campos a actualizar
+        const dataToUpdate = {
+          name: formData.name,
+          contactPerson: formData.contactPerson,
+          email: formData.email,
+          phone: formData.phone,
+        };
+
+        // 1. Guardamos en Firebase
+        await updateDoc(docRef, dataToUpdate);
+        
+        // 2. Actualizamos el estado local (memoria)
+        dispatch({ type: 'UPDATE_PROVIDER', payload: { ...dataToUpdate, id: providerId } as Provider });
+
+      } else {
+        // --- LÓGICA DE CREAR (ADD) ---
+        
+        // Creamos el objeto a guardar (sin ID, Firebase lo genera)
+        const dataToSave = {
+          name: formData.name,
+          contactPerson: formData.contactPerson,
+          email: formData.email,
+          phone: formData.phone,
+        };
+
+        // 1. Guardamos en Firebase y obtenemos la referencia
+        const docRef = await addDoc(collection(db, 'providers'), dataToSave);
+
+        // 2. Actualizamos el estado local (memoria) CON EL NUEVO ID
+        dispatch({ type: 'ADD_PROVIDER', payload: { ...dataToSave, id: docRef.id } as Provider });
+      }
+      
+      onSuccess(); // Cerramos el modal
+
+    } catch (error) {
+      console.error("Error guardando en Firebase:", error);
+      alert("Error: No se pudo guardar el desarrollador.");
+    } finally {
+      setIsSubmitting(false); // Reactivamos el botón
     }
-    
-    onSuccess();
   };
 
   return (
@@ -86,7 +124,10 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ providerToEdit, onSuccess }
       </div>
 
       <div className="flex justify-end pt-4">
-        <Button type="submit">{isEditMode ? 'Actualizar Desarrollador' : 'Crear Desarrollador'}</Button>
+        {/* 4. DESHABILITAMOS EL BOTÓN MIENTRAS GUARDA */}
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Guardando...' : (isEditMode ? 'Actualizar Desarrollador' : 'Crear Desarrollador')}
+        </Button>
       </div>
     </form>
   );
