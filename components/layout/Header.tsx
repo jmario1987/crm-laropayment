@@ -55,10 +55,10 @@ const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout, onM
       case '/dashboard': return 'Dashboard';
       case '/pipeline': return 'Pipeline de Ventas';
       case '/won-leads': return 'Prospectos Ganados';
-      case '/leads': return 'Listado de Prospectos';
+      case '/leads': return 'Reportes de Clientes';
       case '/users': return 'Administrar Usuarios';
       case '/products': return 'Catálogo de Productos';
-      case '/providers': return 'Catálogo de Proveedores';
+      case '/providers': return 'Catálogo de Desarrolladores';
       case '/stages': return 'Gestionar Etapas';
       default: return 'CRM';
     }
