@@ -57,13 +57,17 @@ const leadReducer = (state: State, action: Action): State => {
         case 'UPDATE_PRODUCT': return { ...state, products: state.products.map(p => p.id === action.payload.id ? action.payload : p) };
         case 'DELETE_PRODUCT': return { ...state, products: state.products.filter(p => p.id !== action.payload) };
         case 'ADD_PROVIDER': return { ...state, providers: [...state.providers, action.payload] };
-        // --- AQUÍ ESTABA EL ERROR, YA ESTÁ CORREGIDO (era una 'u' en lugar de 'p') ---
         case 'UPDATE_PROVIDER': return { ...state, providers: state.providers.map(p => p.id === action.payload.id ? action.payload : p) };
         case 'DELETE_PROVIDER': return { ...state, providers: state.providers.filter(p => p.id !== action.payload) };
         case 'ADD_STAGE': return { ...state, stages: [...state.stages, action.payload] };
         case 'UPDATE_STAGE': return { ...state, stages: state.stages.map(s => s.id === action.payload.id ? action.payload : s) };
         case 'DELETE_STAGE': return { ...state, stages: state.stages.filter(s => s.id !== action.payload) };
         case 'UPDATE_STAGES_ORDER': return { ...state, stages: action.payload };
+
+        // --- ESTA ES LA LÍNEA QUE FALTABA ---
+        case 'ADD_BULK_LEADS':
+            return { ...state, leads: [...action.payload, ...state.leads] };
+
         default: return state;
     }
 };

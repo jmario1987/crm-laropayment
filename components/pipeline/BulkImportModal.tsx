@@ -5,6 +5,9 @@ import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
 import { generateTemplate, parseAndValidateLeads } from '../../services/bulkImportService';
 import { Lead } from '../../types';
+// --- AÑADIR ESTAS IMPORTACIONES ---
+import { addDoc, collection } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
 
 interface BulkImportModalProps {
     isOpen: boolean;
@@ -19,6 +22,8 @@ const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClose }) =>
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [validLeads, setValidLeads] = useState<Lead[]>([]);
     const [erroredRows, setErroredRows] = useState<{ rowData: any, error: string }[]>([]);
+    // --- AÑADIR ESTE ESTADO ---
+    const [isImporting, setIsImporting] = useState(false);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -31,6 +36,7 @@ const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClose }) =>
         setSelectedFile(null);
         setValidLeads([]);
         setErroredRows([]);
+        setIsImporting(false); // Asegúrate de resetear esto también
     }
 
     const handleClose = () => {
@@ -53,10 +59,41 @@ const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClose }) =>
         }
     };
     
-    const handleConfirmImport = () => {
-        if (validLeads.length > 0) {
-            dispatch({ type: 'ADD_BULK_LEADS', payload: validLeads });
+    // --- REEMPLAZAR ESTA FUNCIÓN ENTERA ---
+    const handleConfirmImport = async () => {
+        if (validLeads.length === 0 || isImporting) return;
+        
+        setIsImporting(true);
+        try {
+            // 1. Preparamos la colección de 'leads' en Firebase
+            const leadsCollection = collection(db, 'leads');
+            const newLeadsWithIds: Lead[] = [];
+
+            // 2. Guardamos cada prospecto uno por uno y recolectamos sus nuevos IDs
+            // (Usamos Promise.all para que se ejecuten en paralelo)
+            await Promise.all(validLeads.map(async (lead) => {
+                // El 'id' temporal que generó el servicio de importación no lo necesitamos
+                const { id, ...leadData } = lead; 
+                
+                // 3. Guardamos en Firestore y obtenemos la referencia del nuevo documento
+                const docRef = await addDoc(leadsCollection, leadData);
+                
+                // 4. Guardamos el prospecto con su ID real de Firebase
+                newLeadsWithIds.push({ ...leadData, id: docRef.id } as Lead);
+            }));
+
+            // 5. ¡Éxito! Ahora SÍ actualizamos el estado local de React
+            dispatch({ type: 'ADD_BULK_LEADS', payload: newLeadsWithIds });
+            
+            // 6. Y mostramos el mensaje de "hecho"
             setStep('done');
+
+        } catch (error) {
+            console.error("Error al guardar prospectos en Firebase: ", error);
+            // Aquí deberías añadir un mensaje de error para el usuario
+            alert("Error: No se pudieron guardar los prospectos. Revise la consola.");
+        } finally {
+            setIsImporting(false);
         }
     }
 
@@ -68,7 +105,7 @@ const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClose }) =>
                 {/* --- LÍNEA CORREGIDA --- */}
                 <Button onClick={() => generateTemplate(stages, products, providers)} variant="secondary" className="mt-3">
                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Descargar Plantilla
+                     Descargar Plantilla
                 </Button>
             </div>
              <div>
@@ -101,12 +138,12 @@ const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClose }) =>
             <div className="p-4 rounded-md bg-blue-50 dark:bg-gray-700 border border-blue-200 dark:border-blue-600">
                  <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-200">Resultados del Análisis</h3>
                  <p className="text-sm text-blue-700 dark:text-blue-300">
-                    Se encontraron <span className="font-bold">{validLeads.length}</span> prospectos válidos para importar.
+                     Se encontraron <span className="font-bold">{validLeads.length}</span> prospectos válidos para importar.
                  </p>
                  {erroredRows.length > 0 && (
-                    <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                        Se encontraron <span className="font-bold">{erroredRows.length}</span> filas con errores que serán ignoradas.
-                    </p>
+                     <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                         Se encontraron <span className="font-bold">{erroredRows.length}</span> filas con errores que serán ignoradas.
+                     </p>
                  )}
             </div>
             
@@ -136,8 +173,10 @@ const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClose }) =>
 
             <div className="flex justify-between items-center pt-4 border-t dark:border-gray-700">
                 <Button variant="secondary" onClick={resetState}>Empezar de Nuevo</Button>
-                <Button onClick={handleConfirmImport} disabled={validLeads.length === 0}>
-                    {`Importar ${validLeads.length} Prospecto(s)`}
+                
+                {/* --- ESTE ES EL BOTÓN MODIFICADO --- */}
+                <Button onClick={handleConfirmImport} disabled={validLeads.length === 0 || isImporting}>
+                    {isImporting ? <Spinner /> : `Importar ${validLeads.length} Prospecto(s)`}
                 </Button>
             </div>
         </div>
