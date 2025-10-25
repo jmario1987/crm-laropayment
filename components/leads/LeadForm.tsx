@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react'; // Añadido useEffect
 import { useLeads } from '../../hooks/useLeads';
 import { Lead, LeadStatus, USER_ROLES, StatusHistoryEntry, TagHistoryEntry } from '../../types';
 import Button from '../ui/Button';
@@ -19,6 +19,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
   const sortedStages = useMemo(() => [...stages].sort((a,b) => a.order - b.order), [stages]);
   const defaultStatus = sortedStages.find(s => s.type === 'open')?.id || sortedStages[0]?.id || '';
 
+  // --- 1. AÑADIMOS assignedOffice AL ESTADO ---
   const [formData, setFormData] = useState({
     name: lead?.name || '',
     company: lead?.company || '',
@@ -31,6 +32,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     newObservation: '',
     tagId: lead?.tagIds?.[0] || '',
     affiliateNumber: lead?.affiliateNumber || '',
+    assignedOffice: lead?.assignedOffice || '', // <-- NUEVO CAMPO
   });
 
   const availableTags = useMemo(() => {
@@ -45,10 +47,37 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     return products.map(p => ({ value: p.id, label: p.name }));
   }, [products]);
 
+  // --- 2. ACTUALIZAMOS useEffect PARA CARGAR EL DATO ---
+  useEffect(() => {
+    if (lead) {
+      setFormData({
+        name: lead.name || '',
+        company: lead.company || '',
+        email: lead.email || '',
+        phone: lead.phone || '',
+        status: lead.status || defaultStatus,
+        ownerId: lead.ownerId || (user?.role === USER_ROLES.Vendedor ? user.id : (sellers[0]?.id || '')),
+        productIds: lead.productIds || [],
+        providerId: lead.providerId || '',
+        newObservation: '',
+        tagId: lead.tagIds?.[0] || '',
+        affiliateNumber: lead.affiliateNumber || '',
+        assignedOffice: lead.assignedOffice || '', // <-- CARGAR DATO EXISTENTE
+      });
+    } else {
+        // Asegurarse de limpiar el form al crear uno nuevo
+         setFormData({
+            name: '', company: '', email: '', phone: '', status: defaultStatus,
+            ownerId: (user?.role === USER_ROLES.Vendedor ? user.id : (sellers[0]?.id || '')),
+            productIds: [], providerId: '', newObservation: '', tagId: '', affiliateNumber: '', assignedOffice: ''
+        });
+    }
+  }, [lead, stages, user, sellers]); // Añadidas dependencias faltantes
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     if (name === 'status') {
-      setFormData(prev => ({ ...prev, status: value, tagId: '' }));
+      setFormData(prev => ({ ...prev, status: value, tagId: '' })); // Resetea tagId al cambiar status
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -66,7 +95,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     }
 
     const isNewLead = !lead;
-    const leadId = lead?.id || doc(collection(db, 'leads')).id;
+    const leadId = lead?.id || doc(collection(db, 'leads')).id; // Genera ID si es nuevo
 
     let statusHistory: StatusHistoryEntry[] = lead?.statusHistory || [];
     if (isNewLead || lead.status !== formData.status) {
@@ -74,15 +103,19 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     }
 
     let tagHistory: TagHistoryEntry[] = lead?.tagHistory || [];
-    const currentTagId = lead?.tagIds?.[0];
-    if (formData.tagId && formData.tagId !== currentTagId) {
+    const currentTagIdInDb = lead?.tagIds?.[0]; // El tag que estaba guardado
+    if (formData.tagId && formData.tagId !== currentTagIdInDb) {
+        // Solo añade al historial si el tag es nuevo o diferente al guardado
         tagHistory = [...tagHistory, { tagId: formData.tagId, date: new Date().toISOString() }];
+    } else if (!formData.tagId && currentTagIdInDb) {
+         // Si se quitó el tag, podríamos añadir una entrada "vacía" o manejarlo diferente
+         // Por ahora, no añadimos nada si se quita
     }
     
+    // Lógica de notificaciones y observaciones (sin cambios)
     let notificationForSeller = lead?.notificationForSeller || false;
     let sellerHasViewedNotification = lead?.sellerHasViewedNotification || false;
     let notificationForManagerId = lead?.notificationForManagerId;
-
     const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
     const newObservationAdded = formData.newObservation.trim() !== '';
 
@@ -98,15 +131,15 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
         sellerHasViewedNotification = true;
       }
     }
-
     let updatedObservations = lead?.observations || '';
     if (newObservationAdded) {
         const observationText = `\n---\n[${new Date().toLocaleString()}] por ${user.name}:\n${formData.newObservation.trim()}`;
         updatedObservations = (updatedObservations + observationText).trim();
     }
 
+    // --- 3. AÑADIMOS assignedOffice AL OBJETO A GUARDAR ---
     const leadData: Lead = {
-      ...lead,
+      ...lead, // Mantiene campos existentes no editados (como billingHistory)
       id: leadId,
       name: formData.name,
       company: formData.company,
@@ -117,31 +150,35 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       observations: updatedObservations,
       createdAt: lead?.createdAt || new Date().toISOString(),
       lastUpdate: new Date().toISOString(),
-      providerId: formData.providerId,
+      providerId: formData.providerId || undefined, // Guardar undefined si está vacío
       productIds: formData.productIds,
-      tagIds: formData.tagId ? [formData.tagId] : [],
+      tagIds: formData.tagId ? [formData.tagId] : [], // Siempre un array
       statusHistory: statusHistory,
       tagHistory: tagHistory,
       _version: (lead?._version || 0) + 1,
-      affiliateNumber: formData.affiliateNumber,
+      affiliateNumber: formData.affiliateNumber || undefined,
       notificationForSeller,
       sellerHasViewedNotification,
-      // --- LA CORRECCIÓN DEFINITIVA ESTÁ AQUÍ ---
-      // Si notificationForManagerId es undefined, lo convierte en null.
       notificationForManagerId: notificationForManagerId ?? null,
+      assignedOffice: formData.assignedOffice || undefined, // <-- GUARDAR NUEVO CAMPO (undefined si está vacío)
+      // Asegúrate de incluir aquí cualquier otro campo opcional que manejes
+       clientStatus: lead?.clientStatus, // Mantener estado si existe
+       billingHistory: lead?.billingHistory // Mantener historial si existe
     };
 
     try {
-      await setDoc(doc(db, 'leads', leadId), leadData, { merge: true });
+      // Usamos setDoc con merge:true para crear o actualizar
+      await setDoc(doc(db, 'leads', leadId), leadData, { merge: true }); 
       
+      // Actualizamos el estado local
       if (isNewLead) {
         dispatch({ type: 'ADD_LEAD', payload: leadData });
       } else {
         dispatch({ type: 'UPDATE_LEAD', payload: leadData });
       }
       
-      reloadData();
-      onSuccess();
+      // reloadData(); // Opcional: Forzar recarga si dispatch no actualiza bien
+      onSuccess(); // Cerrar modal
       
     } catch (error) {
       console.error("Error al guardar el prospecto: ", error);
@@ -155,13 +192,31 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
       <div><label htmlFor="company" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Empresa</label><input type="text" name="company" id="company" value={formData.company} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"/></div>
       <div><label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Correo Electrónico</label><input type="email" name="email" id="email" value={formData.email} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"/></div>
       <div><label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Teléfono</label><input type="tel" name="phone" id="phone" value={formData.phone} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"/></div>
+      
+      {/* --- 4. AÑADIMOS EL CAMPO DE TEXTO AL FORMULARIO --- */}
+      <div>
+        <label htmlFor="assignedOffice" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Oficina Asignada</label>
+        <input 
+          type="text" 
+          name="assignedOffice" 
+          id="assignedOffice" 
+          value={formData.assignedOffice} 
+          onChange={handleChange} 
+          className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" 
+          placeholder="Ej: Sucursal Central" 
+        />
+      </div>
+      {/* --- FIN DEL CAMPO AÑADIDO --- */}
+
       <div><label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Etapa</label><select name="status" id="status" value={formData.status} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">{sortedStages.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</select></div>
+      {/* ... (resto del formulario sin cambios: Afiliado, Sub-Etapas, Vendedor, Productos, etc.) ... */}
       {selectedStage && selectedStage.type === 'won' && ( <div> <label htmlFor="affiliateNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Número de Afiliado</label> <input type="text" name="affiliateNumber" id="affiliateNumber" value={formData.affiliateNumber} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" placeholder="Introduce el número de afiliado" /> </div> )}
       {availableTags.length > 0 && <div><label htmlFor="tagId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sub-Etapas / Etiquetas</label><select name="tagId" id="tagId" value={formData.tagId} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"><option value="">Ninguna</option>{availableTags.map(tag => <option key={tag.id} value={tag.id}>{tag.name}</option>)}</select></div>}
       {(user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor) && <div><label htmlFor="ownerId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Asignar a Vendedor</label><select name="ownerId" id="ownerId" value={formData.ownerId} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">{sellers.map(seller => <option key={seller.id} value={seller.id}>{seller.name}</option>)}</select></div>}
       <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Productos de Interés</label><MultiSelectDropdown options={productOptions} selectedValues={formData.productIds || []} onChange={handleProductSelectionChange} placeholder="Seleccionar productos..."/></div>
-      <div><label htmlFor="providerId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Referido por:</label><select name="providerId" id="providerId" value={formData.providerId} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"><option value="">Ninguno</option>{providers.map(provider => <option key={provider.id} value={provider.id}>{provider.name}</option>)}</select></div>
+      <div><label htmlFor="providerId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Referido por:</label><select name="providerId" id="providerId" value={formData.providerId} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"><option value="">Ninguno</option>{providers.map(provider => <option key={provider.id} value={provider.id}>{provider.name}</option>)}</select></div>{/* O Desarrollador */}
       <div><label htmlFor="newObservation" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Añadir Observación</label><textarea name="newObservation" id="newObservation" value={formData.newObservation} onChange={handleChange} rows={3} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" placeholder="Escribe aquí la nueva nota..."/></div>
+      
       <div className="flex justify-end pt-2">
         <Button type="submit" className="bg-primary-600 hover:bg-primary-700 text-white">
           {lead ? 'Actualizar Prospecto' : 'Crear Prospecto'}

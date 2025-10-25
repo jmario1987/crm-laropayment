@@ -47,7 +47,7 @@ export type Lead = {
   lastUpdate: string;
 
   // --- CAMPOS OPCIONALES ---
-  providerId?: string;
+  providerId?: string; // O Developer ID
   productIds?: string[];
   tagIds?: string[];
   statusHistory?: StatusHistoryEntry[];
@@ -59,6 +59,8 @@ export type Lead = {
   billingHistory?: { [monthYear: string]: boolean };
   clientStatus?: 'Activo' | 'Inactivo';
   _version?: number;
+  // --- CAMPO NUEVO AÑADIDO ---
+  assignedOffice?: string; 
 };
 
 // Definición del Producto
@@ -68,19 +70,14 @@ export interface Product {
   description: string;
 }
 
-// --- ESTA ES LA SECCIÓN MODIFICADA ---
 // Definición del Proveedor (Desarrollador)
 export interface Provider {
   id: string;
   name: string;
   contactPerson: string;
-  // --- CAMPOS NUEVOS AÑADIDOS ---
-  // Los hacemos opcionales (con ?) para que no den error
-  // en los registros que ya existen en la base de datos.
   email?: string;
   phone?: string;
 }
-// --- FIN DE LA SECCIÓN MODIFICADA ---
 
 // Definición de la Etapa del Pipeline
 export interface Stage {
