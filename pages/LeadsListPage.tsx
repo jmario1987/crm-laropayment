@@ -3,12 +3,14 @@
 import React, { useMemo, useState } from 'react';
 import { useLeads } from '../hooks/useLeads';
 import { useAuth } from '../hooks/useAuth';
-import { Lead, USER_ROLES } from '../types'; // Se importa USER_ROLES
+import { Lead, USER_ROLES } from '../types';
 import Select from 'react-select';
 import { OptionWithCheckbox, CustomValueContainer } from '../components/ui/CustomMultiSelect';
 import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
 import { useClickOutside } from '../hooks/useClickOutside';
+// --- 1. IMPORTAMOS EL MODAL DE IMPORTACIÓN ---
+import BulkImportModal from '../components/pipeline/BulkImportModal'; 
 
 const LeadsListPage: React.FC = () => {
     const { allLeads = [], stages = [], users = [], providers = [], tags = [], getStageById = () => undefined } = useLeads() || {};
@@ -23,12 +25,18 @@ const LeadsListPage: React.FC = () => {
     const [selectedProviders, setSelectedProviders] = useState<{ value: string; label: string; }[]>([]);
     const [openMenu, setOpenMenu] = useState<string | null>(null);
 
+    // --- 2. AÑADIMOS EL ESTADO PARA EL MODAL DE IMPORTACIÓN ---
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+
     const filtersRef = useClickOutside<HTMLDivElement>(() => {
         setOpenMenu(null);
     });
 
-    // Se usan las constantes para mayor seguridad
     const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
+
+    // --- 3. FUNCIONES PARA ABRIR/CERRAR EL MODAL ---
+    const handleOpenImportModal = () => setIsImportModalOpen(true);
+    const handleCloseImportModal = () => setIsImportModalOpen(false);
 
     const stageOptions = useMemo(() => stages.map(s => ({ value: s.id, label: s.name })), [stages]);
     
@@ -46,17 +54,13 @@ const LeadsListPage: React.FC = () => {
     const filteredLeads = useMemo(() => {
         let baseLeads = leadsCopy;
 
-        // --- CAMBIO CLAVE: Lógica condicional basada en el rol ---
         if (user?.role === USER_ROLES.Vendedor) {
-            // Si es Vendedor, ve solo sus prospectos activos
             const closedStageIds = stages.filter(s => s.type === 'won' || s.type === 'lost').map(s => s.id);
             baseLeads = leadsCopy.filter(lead => lead.ownerId === user.id && !closedStageIds.includes(lead.status));
         }
-        // Para Managers, la lista base (baseLeads) contiene TODO.
-
-        // Aplicar filtros de la UI solo para Managers
+        
         if (isManager) {
-            let leads = baseLeads; // Empezamos con todos los leads
+            let leads = baseLeads; 
             if (selectedStages.length > 0) {
                 const stageIds = selectedStages.map(s => s.value);
                 leads = leads.filter(lead => stageIds.includes(lead.status));
@@ -76,7 +80,7 @@ const LeadsListPage: React.FC = () => {
             return leads;
         }
 
-        return baseLeads; // Para Vendedores, devuelve la lista ya filtrada
+        return baseLeads; 
     }, [leadsCopy, user, isManager, stages, selectedStages, selectedTags, selectedSellers, selectedProviders]);
 
     const getTagInfo = (tagId?: string) => tags.find(t => t.id === tagId);
@@ -131,7 +135,7 @@ const LeadsListPage: React.FC = () => {
                 'Etapa': getStageById(lead.status)?.name || 'N/A',
                 'Sub-Etapa': currentTag?.name || 'N/A',
                 'Vendedor': users.find(u => u.id === lead.ownerId)?.name || 'N/A',
-                'Proveedor': providers.find(p => p.id === lead.providerId)?.name || 'N/A',
+                'Proveedor': providers.find(p => p.id === lead.providerId)?.name || 'N/A', // O Desarrollador
                 'Fecha de Ingreso': new Date(lead.createdAt).toLocaleDateString(),
                 'Días en Proceso': Math.floor((new Date().getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24)),
                 'Días en Sub-Etapa': getDaysInTag(lead) ?? 'N/A',
@@ -150,16 +154,27 @@ const LeadsListPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
+            {/* --- BLOQUE DE FILTROS Y EXPORTAR (SOLO MANAGERS) --- */}
             {isManager && (
                 <div ref={filtersRef} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg items-center">
                     <Select isMulti options={stageOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => { setSelectedStages(selected as any); setSelectedTags([]); }} placeholder="Filtrar por Etapa..." onMenuOpen={() => setOpenMenu('stage')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'stage'} />
                     <Select isMulti options={tagOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedTags(selected as any)} placeholder="Filtrar por Sub-Etapa..." onMenuOpen={() => setOpenMenu('tag')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'tag'} isDisabled={selectedStages.length === 0} value={selectedTags} />
                     <Select isMulti options={sellerOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedSellers(selected as any)} placeholder="Filtrar por Vendedor..." onMenuOpen={() => setOpenMenu('seller')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'seller'} />
-                    <Select isMulti options={providerOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedProviders(selected as any)} placeholder="Filtrar por Proveedor..." onMenuOpen={() => setOpenMenu('provider')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'provider'} />
+                    <Select isMulti options={providerOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedProviders(selected as any)} placeholder="Filtrar por Proveedor..." onMenuOpen={() => setOpenMenu('provider')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'provider'} /> {/* O Desarrollador */}
                     <Button onClick={handleExportExcel}>Exportar a Excel</Button>
                 </div>
             )}
 
+            {/* --- 4. BOTÓN DE IMPORTACIÓN MASIVA (TODOS LOS USUARIOS) --- */}
+            {user && (
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg flex justify-end">
+                <Button onClick={handleOpenImportModal}> 
+                  Importación Masiva
+                </Button>
+              </div>
+            )}
+
+            {/* --- TABLA DE PROSPECTOS --- */}
             <div className="relative overflow-x-auto shadow-md sm:rounded-lg">
                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
@@ -196,7 +211,14 @@ const LeadsListPage: React.FC = () => {
                     </tbody>
                 </table>
             </div>
-        </div>
+
+            {/* --- 5. RENDERIZAMOS EL MODAL DE IMPORTACIÓN --- */}
+            <BulkImportModal 
+              isOpen={isImportModalOpen} 
+              onClose={handleCloseImportModal} 
+            />
+            
+        </div> // Cierre del div principal
     );
 };
 
