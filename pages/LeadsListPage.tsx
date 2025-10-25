@@ -3,17 +3,17 @@
 import React, { useMemo, useState } from 'react';
 import { useLeads } from '../hooks/useLeads';
 import { useAuth } from '../hooks/useAuth';
-import { Lead, USER_ROLES } from '../types';
+import { Lead, USER_ROLES, Product } from '../types'; // Importamos Product
 import Select from 'react-select';
 import { OptionWithCheckbox, CustomValueContainer } from '../components/ui/CustomMultiSelect';
 import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
 import { useClickOutside } from '../hooks/useClickOutside';
-// --- 1. IMPORTAMOS EL MODAL DE IMPORTACIÓN ---
 import BulkImportModal from '../components/pipeline/BulkImportModal'; 
 
 const LeadsListPage: React.FC = () => {
-    const { allLeads = [], stages = [], users = [], providers = [], tags = [], getStageById = () => undefined } = useLeads() || {};
+    // --- Añadimos 'products' a la desestructuración ---
+    const { allLeads = [], stages = [], users = [], providers = [], tags = [], getStageById = () => undefined, products = [] } = useLeads() || {};
     const { user } = useAuth();
 
     const leadsCopy = useMemo(() => [...allLeads], [allLeads]);
@@ -24,8 +24,6 @@ const LeadsListPage: React.FC = () => {
     const [selectedSellers, setSelectedSellers] = useState<{ value: string; label: string; }[]>([]);
     const [selectedProviders, setSelectedProviders] = useState<{ value: string; label: string; }[]>([]);
     const [openMenu, setOpenMenu] = useState<string | null>(null);
-
-    // --- 2. AÑADIMOS EL ESTADO PARA EL MODAL DE IMPORTACIÓN ---
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
     const filtersRef = useClickOutside<HTMLDivElement>(() => {
@@ -34,7 +32,6 @@ const LeadsListPage: React.FC = () => {
 
     const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
 
-    // --- 3. FUNCIONES PARA ABRIR/CERRAR EL MODAL ---
     const handleOpenImportModal = () => setIsImportModalOpen(true);
     const handleCloseImportModal = () => setIsImportModalOpen(false);
 
@@ -95,12 +92,22 @@ const LeadsListPage: React.FC = () => {
         return Math.floor((new Date().getTime() - new Date(lastEntry.date).getTime()) / (1000 * 3600 * 24));
     };
     
+    // --- Función auxiliar para obtener nombres de productos ---
+    const getProductNames = (productIds?: string[]): string => {
+        if (!productIds || productIds.length === 0) return 'N/A';
+        return productIds
+            .map(id => products.find(p => p.id === id)?.name)
+            .filter((name): name is string => name !== undefined)
+            .join(', ');
+    };
+
     const sortedLeads = useMemo(() => {
         const sortableLeads = [...filteredLeads];
         if (!sortConfig) return sortableLeads;
         
         sortableLeads.sort((a, b) => {
             const direction = sortConfig.direction === 'ascending' ? 1 : -1;
+            // Simplificamos: solo ordenamos por las columnas existentes
             switch (sortConfig.key) {
                 case 'name': return a.name.localeCompare(b.name) * direction;
                 case 'createdAt': return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * direction;
@@ -126,6 +133,7 @@ const LeadsListPage: React.FC = () => {
         setSortConfig({ key, direction });
     };
 
+    // --- ACTUALIZAMOS LA EXPORTACIÓN A EXCEL ---
     const handleExportExcel = () => {
         const dataToExport = sortedLeads.map((lead: Lead) => {
             const currentTag = getTagInfo(lead.tagIds?.[0]);
@@ -134,6 +142,7 @@ const LeadsListPage: React.FC = () => {
                 'Empresa': lead.company,
                 'Etapa': getStageById(lead.status)?.name || 'N/A',
                 'Sub-Etapa': currentTag?.name || 'N/A',
+                'Productos': getProductNames(lead.productIds), // <-- Columna añadida
                 'Vendedor': users.find(u => u.id === lead.ownerId)?.name || 'N/A',
                 'Proveedor': providers.find(p => p.id === lead.providerId)?.name || 'N/A', // O Desarrollador
                 'Fecha de Ingreso': new Date(lead.createdAt).toLocaleDateString(),
@@ -141,7 +150,14 @@ const LeadsListPage: React.FC = () => {
                 'Días en Sub-Etapa': getDaysInTag(lead) ?? 'N/A',
             };
         });
-        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        // Definir el orden de las columnas (opcional pero recomendado)
+        const headers = [
+            'Prospecto', 'Empresa', 'Etapa', 'Sub-Etapa', 'Productos', 
+            'Vendedor', 'Proveedor', 'Fecha de Ingreso', 
+            'Días en Proceso', 'Días en Sub-Etapa'
+        ];
+        // Crear la hoja especificando el orden de las columnas
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport, { header: headers });
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Prospectos');
         XLSX.writeFile(workbook, 'Reporte_Prospectos.xlsx');
@@ -154,7 +170,6 @@ const LeadsListPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            {/* --- BLOQUE DE FILTROS Y EXPORTAR (SOLO MANAGERS) --- */}
             {isManager && (
                 <div ref={filtersRef} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg items-center">
                     <Select isMulti options={stageOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => { setSelectedStages(selected as any); setSelectedTags([]); }} placeholder="Filtrar por Etapa..." onMenuOpen={() => setOpenMenu('stage')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'stage'} />
@@ -165,7 +180,6 @@ const LeadsListPage: React.FC = () => {
                 </div>
             )}
 
-            {/* --- 4. BOTÓN DE IMPORTACIÓN MASIVA (TODOS LOS USUARIOS) --- */}
             {user && (
               <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg flex justify-end">
                 <Button onClick={handleOpenImportModal}> 
@@ -174,7 +188,6 @@ const LeadsListPage: React.FC = () => {
               </div>
             )}
 
-            {/* --- TABLA DE PROSPECTOS --- */}
             <div className="relative overflow-x-auto shadow-md sm:rounded-lg">
                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
@@ -182,6 +195,8 @@ const LeadsListPage: React.FC = () => {
                             <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => requestSort('name')}>Prospecto {getSortIndicator('name')}</th>
                             <th scope="col" className="px-6 py-3">Etapa</th>
                             <th scope="col" className="px-6 py-3">Sub-Etapa</th>
+                            {/* --- AÑADIMOS ENCABEZADO DE PRODUCTOS --- */}
+                            <th scope="col" className="px-6 py-3">Productos</th>
                             <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => requestSort('createdAt')}>Fecha de Ingreso {getSortIndicator('createdAt')}</th>
                             <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => requestSort('daysInProcess')}>Días en Proceso {getSortIndicator('daysInProcess')}</th>
                             <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => requestSort('daysInTag')}>Días en Sub-Etapa {getSortIndicator('daysInTag')}</th>
@@ -191,6 +206,8 @@ const LeadsListPage: React.FC = () => {
                         {sortedLeads.map(lead => {
                             const currentTag = getTagInfo(lead.tagIds?.[0]);
                             const daysInTag = getDaysInTag(lead);
+                            // --- OBTENEMOS NOMBRES DE PRODUCTOS ---
+                            const productNames = getProductNames(lead.productIds);
                             return (
                                 <tr key={lead.id} className="bg-white border-b dark:bg-gray-900 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                                     <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{lead.name}</td>
@@ -202,6 +219,8 @@ const LeadsListPage: React.FC = () => {
                                             </span>
                                         ) : 'N/A'}
                                     </td>
+                                    {/* --- AÑADIMOS CELDA DE PRODUCTOS --- */}
+                                    <td className="px-6 py-4">{productNames}</td>
                                     <td className="px-6 py-4">{new Date(lead.createdAt).toLocaleDateString()}</td>
                                     <td className="px-6 py-4">{Math.floor((new Date().getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24))}</td>
                                     <td className="px-6 py-4">{daysInTag !== null ? daysInTag : 'N/A'}</td>
@@ -212,13 +231,12 @@ const LeadsListPage: React.FC = () => {
                 </table>
             </div>
 
-            {/* --- 5. RENDERIZAMOS EL MODAL DE IMPORTACIÓN --- */}
             <BulkImportModal 
               isOpen={isImportModalOpen} 
               onClose={handleCloseImportModal} 
             />
             
-        </div> // Cierre del div principal
+        </div>
     );
 };
 
