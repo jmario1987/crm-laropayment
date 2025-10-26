@@ -39,7 +39,7 @@ export type Lead = {
   name: string;
   company: string;
   email: string;
-  phone: string;
+  phone: string; // Es string, no puede ser null/undefined
   status: LeadStatus;
   ownerId: string;
   observations: string;
@@ -47,18 +47,21 @@ export type Lead = {
   lastUpdate: string;
 
   // --- CAMPOS OPCIONALES ---
-  providerId?: string;
-  productIds?: string[];
-  tagIds?: string[];
+  // Cambiamos los opcionales de texto a string | null para claridad con Firestore
+  providerId: string | null; 
+  productIds?: string[]; // Arrays pueden ser undefined o []
+  tagIds?: string[];     // Arrays pueden ser undefined o []
   statusHistory?: StatusHistoryEntry[];
   tagHistory?: TagHistoryEntry[];
-  notificationForSeller?: boolean;
-  notificationForManagerId?: string | null;
-  sellerHasViewedNotification?: boolean;
-  affiliateNumber?: string;
+  notificationForSeller?: boolean; // Booleanos pueden ser undefined
+  notificationForManagerId: string | null; // Ya estaba bien
+  sellerHasViewedNotification?: boolean; // Booleanos pueden ser undefined
+  affiliateNumber: string | null; 
   billingHistory?: { [monthYear: string]: boolean };
-  clientStatus?: 'Activo' | 'Inactivo';
+  clientStatus: 'Activo' | 'Inactivo' | null; // Permitir null
   _version?: number;
+  // --- NUEVO CAMPO AÑADIDO CORRECTAMENTE ---
+  assignedOffice: string | null; 
 };
 
 // Definición del Producto
@@ -68,19 +71,15 @@ export interface Product {
   description: string;
 }
 
-// --- ESTA ES LA SECCIÓN MODIFICADA ---
 // Definición del Proveedor (Desarrollador)
 export interface Provider {
   id: string;
   name: string;
   contactPerson: string;
-  // --- CAMPOS NUEVOS AÑADIDOS ---
-  // Los hacemos opcionales (con ?) para que no den error
-  // en los registros que ya existen en la base de datos.
-  email?: string;
-  phone?: string;
+  // Cambiamos opcionales de texto a string | null
+  email: string | null; 
+  phone: string | null; 
 }
-// --- FIN DE LA SECCIÓN MODIFICADA ---
 
 // Definición de la Etapa del Pipeline
 export interface Stage {
