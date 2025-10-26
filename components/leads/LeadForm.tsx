@@ -4,7 +4,8 @@ import { Lead, LeadStatus, USER_ROLES, StatusHistoryEntry, TagHistoryEntry } fro
 import Button from '../ui/Button';
 import { useAuth } from '../../hooks/useAuth';
 import MultiSelectDropdown from '../ui/MultiSelectDropdown';
-import { doc, setDoc, collection } from 'firebase/firestore';
+// Import necessary Firestore functions, including updateDoc and writeBatch
+import { doc, setDoc, collection, updateDoc, writeBatch } from 'firebase/firestore'; 
 import { db } from '../../firebaseConfig';
 
 interface LeadFormProps {
@@ -13,7 +14,8 @@ interface LeadFormProps {
 }
 
 const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
-  const { dispatch, sellers, products, providers, stages, tags, reloadData } = useLeads();
+  // Make sure to get allLeads for synchronization
+  const { dispatch, sellers, products, providers, stages, tags, reloadData, allLeads } = useLeads(); 
   const { user } = useAuth();
   
   const sortedStages = useMemo(() => [...stages].sort((a,b) => a.order - b.order), [stages]);
@@ -55,7 +57,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
         email: lead.email || '',
         phone: lead.phone || '',
         status: lead.status || defaultStatus,
-        ownerId: lead.ownerId || initialOwnerId || '', // Ensure initialOwnerId exists
+        ownerId: lead.ownerId || initialOwnerId || '', 
         productIds: lead.productIds || [],
         providerId: lead.providerId || '', 
         newObservation: '', 
@@ -70,7 +72,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
         email: '', 
         phone: '', 
         status: defaultStatus,
-        ownerId: initialOwnerId || '', // Ensure initialOwnerId exists
+        ownerId: initialOwnerId || '', 
         productIds: [], 
         providerId: '', 
         newObservation: '', 
@@ -94,7 +96,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     setFormData(prev => ({ ...prev, productIds: selectedValues }));
   };
 
-  // --- FUNCIÓN handleSubmit REVISADA CON LA ESTRATEGIA DE OMITIR UNDEFINED ---
+  // --- handleSubmit CON LÓGICA DE SINCRONIZACIÓN ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
@@ -120,87 +122,109 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     let notificationForManagerIdCalc = lead?.notificationForManagerId ?? null; 
     const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
     const newObservationAdded = formData.newObservation.trim() !== '';
-    // (Lógica compleja de notificaciones omitida por brevedad, asumimos que está correcta)
-    if (isManager) { /* ... */ } else { /* ... */ }
+    if (isManager) { /* ... lógica notificaciones ... */ } else { /* ... lógica notificaciones ... */ }
     let updatedObservations = lead?.observations || '';
-    if (newObservationAdded) { /* ... */ }
+    if (newObservationAdded) { /* ... añadir observación ... */ }
 
     // --- CONSTRUCCIÓN SEGURA DEL OBJETO leadDataToSave ---
-    const leadDataToSave: any = { // Usamos 'any' para construir dinámicamente
+    const leadDataToSave: any = { 
         id: leadId,
         name: formData.name,
         company: formData.company,
         email: formData.email,
-        phone: formData.phone || '', // Obligatorio
+        phone: formData.phone || '', 
         status: formData.status as LeadStatus,
         ownerId: formData.ownerId,
         observations: updatedObservations,
         createdAt: lead?.createdAt || new Date().toISOString(),
         lastUpdate: new Date().toISOString(),
         _version: (lead?._version || 0) + 1,
-        notificationForManagerId: notificationForManagerIdCalc, // Siempre string | null
+        notificationForManagerId: notificationForManagerIdCalc, 
         notificationForSeller: notificationForSellerCalc, 
         sellerHasViewedNotification: sellerHasViewedNotificationCalc, 
     };
 
-    // --- Añadir campos opcionales SOLO si tienen valor válido ---
-    // String | Null
-    leadDataToSave.providerId = formData.providerId || null;
-    leadDataToSave.assignedOffice = formData.assignedOffice || null;
+    // --- Añadir campos opcionales SOLO si tienen valor válido (o null si aplica) ---
+    const newAssignedOffice = formData.assignedOffice || null; 
+    const originalAssignedOffice = lead?.assignedOffice || null; 
+    const officeChanged = newAssignedOffice !== originalAssignedOffice; 
+
+    leadDataToSave.assignedOffice = newAssignedOffice; 
+    leadDataToSave.providerId = formData.providerId || null; 
     const currentSelectedStage = stages.find(s => s.id === formData.status);
-    leadDataToSave.affiliateNumber = currentSelectedStage?.type === 'won' ? (formData.affiliateNumber || null) : (lead?.affiliateNumber || null);
-    
-    // Arrays (enviar array vacío si no hay selección)
+    leadDataToSave.affiliateNumber = currentSelectedStage?.type === 'won' ? (formData.affiliateNumber || null) : (lead?.affiliateNumber || null); 
     leadDataToSave.productIds = formData.productIds || [];
     leadDataToSave.tagIds = formData.tagId ? [formData.tagId] : [];
-    
-    // Arrays de Historial (omitir si están vacíos al guardar)
-    if (statusHistory.length > 0) {
-        leadDataToSave.statusHistory = statusHistory;
-    }
-    if (tagHistory.length > 0) {
-        leadDataToSave.tagHistory = tagHistory;
-    }
-    
-    // Otros opcionales (omitir si son null/undefined originalmente y no se cambian)
-    // clientStatus y billingHistory no se editan en este form, así que los omitimos
-    // para que merge:true los preserve si existen. Si necesitaras editarlos aquí,
-    // aplicarías lógica similar (añadir solo si tienen valor).
-    // Ejemplo: leadDataToSave.clientStatus = formData.clientStatus || null; (si tuvieras ese campo en formData)
-
+    if (statusHistory.length > 0) leadDataToSave.statusHistory = statusHistory;
+    if (tagHistory.length > 0) leadDataToSave.tagHistory = tagHistory;
+    // clientStatus y billingHistory no se editan aquí
 
     try {
-      // Usamos 'as Lead' porque confiamos en la construcción
+      // 1. Guardar el prospecto actual
       await setDoc(doc(db, 'leads', leadId), leadDataToSave as Lead, { merge: true }); 
       
-      // Para el dispatch, asegurar estructura completa para el estado local
-      const finalLeadDataForState = { 
-          ...lead, // Empezar con el lead original (si existe)
-          ...leadDataToSave, // Sobrescribir con los datos guardados
-          // Rellenar campos opcionales que pudieron omitirse al guardar, para el estado local
+      // Construir objeto completo para dispatch
+       const finalLeadDataForState = { 
+          ...lead, 
+          ...leadDataToSave, 
           providerId: leadDataToSave.providerId ?? null,
           productIds: leadDataToSave.productIds ?? [],
           tagIds: leadDataToSave.tagIds ?? [],
-          statusHistory: leadDataToSave.statusHistory ?? lead?.statusHistory ?? [], // Mantener si no se envió
-          tagHistory: leadDataToSave.tagHistory ?? lead?.tagHistory ?? [], // Mantener si no se envió
+          statusHistory: leadDataToSave.statusHistory ?? lead?.statusHistory ?? [], 
+          tagHistory: leadDataToSave.tagHistory ?? lead?.tagHistory ?? [], 
           affiliateNumber: leadDataToSave.affiliateNumber ?? null,
           assignedOffice: leadDataToSave.assignedOffice ?? null,
-          clientStatus: lead?.clientStatus ?? null, // Mantener si no se edita aquí
-          billingHistory: lead?.billingHistory, // Mantener si no se edita aquí
+          clientStatus: lead?.clientStatus ?? null, 
+          billingHistory: lead?.billingHistory, 
           notificationForSeller: leadDataToSave.notificationForSeller ?? false, 
           sellerHasViewedNotification: leadDataToSave.sellerHasViewedNotification ?? false, 
       } as Lead;
 
+      // 2. Actualizar estado local del prospecto actual
       if (isNewLead) {
         dispatch({ type: 'ADD_LEAD', payload: finalLeadDataForState });
       } else {
         dispatch({ type: 'UPDATE_LEAD', payload: finalLeadDataForState });
       }
+
+      // --- INICIO DE LA LÓGICA DE SINCRONIZACIÓN ---
+      if (!isNewLead && officeChanged && leadDataToSave.email) {
+          const relatedLeadsToUpdate = allLeads.filter(l => 
+              l.email === leadDataToSave.email && 
+              l.id !== leadId &&                  
+              (l.assignedOffice || null) !== newAssignedOffice 
+          );
+
+          if (relatedLeadsToUpdate.length > 0) {
+              const batch = writeBatch(db);
+              relatedLeadsToUpdate.forEach(relatedLead => {
+                  const leadRef = doc(db, 'leads', relatedLead.id);
+                  batch.update(leadRef, { assignedOffice: newAssignedOffice });
+              });
+
+              try {
+                  // 3. Ejecutar actualizaciones en Firebase
+                  await batch.commit();
+                  
+                  // 4. Actualizar estado local para los relacionados
+                  relatedLeadsToUpdate.forEach(relatedLead => {
+                      dispatch({ 
+                          type: 'UPDATE_LEAD', 
+                          payload: { ...relatedLead, assignedOffice: newAssignedOffice } 
+                      });
+                  });
+
+              } catch (batchError) {
+                  console.error("Error al actualizar prospectos relacionados en batch:", batchError);
+              }
+          } 
+      }
+      // --- FIN DE LA LÓGICA DE SINCRONIZACIÓN ---
       
-      onSuccess(); 
+      onSuccess(); // Cerrar modal
       
     } catch (error) {
-      console.error("Error al guardar el prospecto: ", error);
+      console.error("Error al guardar el prospecto principal: ", error);
       alert('Hubo un error al guardar el prospecto.');
     }
   };
