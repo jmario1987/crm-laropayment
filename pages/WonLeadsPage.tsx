@@ -9,8 +9,7 @@ import BillingModal from '../components/billing/BillingModal';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig'; 
 
-// --- 1. Definimos los tipos para el ordenamiento ---
-type SortColumn = 'affiliateNumber' | 'name' | 'sellerName'; // Añadiremos más si es necesario
+type SortColumn = 'affiliateNumber' | 'name' | 'sellerName';
 type SortDirection = 'asc' | 'desc';
 
 const getCurrentMonthYear = () => {
@@ -20,13 +19,18 @@ const getCurrentMonthYear = () => {
     return `${month}-${year}`;
 };
 
-const WonLeadRow: React.FC<{ lead: Lead; sellerName?: string; onBillingClick: (lead: Lead) => void; }> = ({ lead, sellerName, onBillingClick }) => {
+// --- 1. AÑADIMOS 'isManager' A LAS PROPS DE LA FILA ---
+const WonLeadRow: React.FC<{ 
+    lead: Lead; 
+    sellerName?: string; 
+    onBillingClick: (lead: Lead) => void;
+    isManager: boolean; // <-- NUEVA PROP
+}> = ({ lead, sellerName, onBillingClick, isManager }) => { // <-- Se recibe la prop
     
     const currentMonthBilled = lead.billingHistory?.[getCurrentMonthYear()] === true;
 
     return (
         <tr className={`bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 ${lead.clientStatus === 'Inactivo' ? 'opacity-50' : ''}`}>
-            {/* Usamos font-mono para que los números se alineen mejor */}
             <td className="px-6 py-4 font-mono font-bold text-gray-900 dark:text-white">{lead.affiliateNumber || 'N/A'}</td>
             <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{lead.name}</td>
             <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{sellerName || 'N/A'}</td>
@@ -43,9 +47,14 @@ const WonLeadRow: React.FC<{ lead: Lead; sellerName?: string; onBillingClick: (l
                 )}
             </td>
             <td className="px-6 py-4 text-center">
-                <Button variant="icon" onClick={() => onBillingClick(lead)}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                </Button>
+                {/* --- 2. EL BOTÓN AHORA ES CONDICIONAL --- */}
+                {/* Solo se muestra si 'isManager' es true */}
+                {isManager && (
+                    <Button variant="icon" onClick={() => onBillingClick(lead)}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    </Button>
+                )}
+                {/* Si no es manager (es vendedor), la celda se renderiza vacía */}
             </td>
         </tr>
     );
@@ -59,10 +68,10 @@ const WonLeadsPage: React.FC = () => {
     const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthYear());
     const [billingLead, setBillingLead] = useState<Lead | null>(null);
     
-    // --- 2. Añadimos los estados para el ordenamiento ---
-    const [sortColumn, setSortColumn] = useState<SortColumn>('affiliateNumber'); // Por defecto ordena por afiliado
-    const [sortDirection, setSortDirection] = useState<SortDirection>('asc'); // Por defecto ascendente
+    const [sortColumn, setSortColumn] = useState<SortColumn>('affiliateNumber'); 
+    const [sortDirection, setSortDirection] = useState<SortDirection>('asc'); 
 
+    // La variable 'isManager' ya existe aquí y la usaremos
     const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
 
     const wonLeads = useMemo(() => {
@@ -71,7 +80,7 @@ const WonLeadsPage: React.FC = () => {
 
         if (!user) return [];
         
-        // Aplicamos filtros primero
+        // (Lógica de filtrado y ordenamiento sin cambios)
         if (isManager) {
             if (selectedProviderId !== 'all') {
                 leads = leads.filter(lead => lead.providerId === selectedProviderId);
@@ -83,13 +92,11 @@ const WonLeadsPage: React.FC = () => {
             leads = leads.filter(lead => lead.ownerId === user.id && lead.clientStatus !== 'Inactivo');
         }
         
-        // --- 3. Aplicamos el ordenamiento ---
         leads.sort((a, b) => {
             let valA: string | number | undefined;
             let valB: string | number | undefined;
 
             if (sortColumn === 'affiliateNumber') {
-                // Convertimos a número para ordenar correctamente, tratando N/A como 0 o un valor muy bajo/alto
                 valA = parseInt(a.affiliateNumber || '0', 10);
                 valB = parseInt(b.affiliateNumber || '0', 10);
             } else if (sortColumn === 'name') {
@@ -100,7 +107,7 @@ const WonLeadsPage: React.FC = () => {
                 valB = getUserById(b.ownerId)?.name.toLowerCase() || '';
             }
 
-            if (valA === undefined || valB === undefined) return 0; // No ordenar si falta valor
+            if (valA === undefined || valB === undefined) return 0;
 
             let comparison = 0;
             if (valA < valB) {
@@ -113,10 +120,10 @@ const WonLeadsPage: React.FC = () => {
         });
         
         return leads;
-    // --- 4. Añadimos los estados de ordenamiento a las dependencias ---
     }, [allLeads, stages, user, selectedProviderId, includeInactive, sortColumn, sortDirection, getUserById]); 
     
     const handleSaveBilling = async (updatedData: Partial<Lead>) => {
+        // ... (código sin cambios) ...
         if (!billingLead) return;
 
         try {
@@ -132,6 +139,7 @@ const WonLeadsPage: React.FC = () => {
     };
 
     const handleExportExcel = () => {
+        // ... (código sin cambios) ...
         const leadsForReport = wonLeads.filter(lead => lead.billingHistory?.[selectedMonth] === true);
 
         const dataToExport = leadsForReport.map(lead => ({
@@ -149,6 +157,7 @@ const WonLeadsPage: React.FC = () => {
     };
     
     const monthOptions = useMemo(() => {
+        // ... (código sin cambios) ...
         const options = [];
         let date = new Date();
         for (let i = 0; i < 6; i++) {
@@ -160,21 +169,19 @@ const WonLeadsPage: React.FC = () => {
         return options;
     }, []);
 
-    // --- 5. Creamos la función para manejar el clic en el encabezado ---
     const handleSort = (column: SortColumn) => {
-        // Si hacemos clic en la misma columna, invertimos la dirección
+        // ... (código sin cambios) ...
         if (column === sortColumn) {
             setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
         } else {
-            // Si hacemos clic en una columna nueva, la ponemos ascendente
             setSortColumn(column);
             setSortDirection('asc');
         }
     };
 
-    // --- 6. Función para mostrar el icono de ordenamiento ---
     const renderSortArrow = (column: SortColumn) => {
-        if (column !== sortColumn) return null; // No mostrar flecha si no es la columna activa
+        // ... (código sin cambios) ...
+        if (column !== sortColumn) return null; 
         return sortDirection === 'asc' ? ' ↑' : ' ↓';
     };
 
@@ -186,6 +193,7 @@ const WonLeadsPage: React.FC = () => {
                     <div className="flex flex-wrap sm:flex-nowrap gap-4 items-center">
                         {isManager && (
                             <>
+                                {/* ... (código de filtros sin cambios) ... */}
                                 <div className="w-full sm:w-auto">
                                     <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                         {monthOptions.map(m => <option key={m} value={m}>Facturación de {m}</option>)}
@@ -193,7 +201,7 @@ const WonLeadsPage: React.FC = () => {
                                 </div>
                                 <div className="w-full sm:w-auto">
                                     <select value={selectedProviderId} onChange={(e) => setSelectedProviderId(e.target.value)} className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                                        <option value="all">Todos los Desarrolladores</option> {/* Cambiado Proveedores */}
+                                        <option value="all">Todos los Desarrolladores</option> 
                                         {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                     </select>
                                 </div>
@@ -210,7 +218,6 @@ const WonLeadsPage: React.FC = () => {
                     <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                             <tr>
-                                {/* --- 7. Encabezado "Nº Afiliado" ahora es un botón --- */}
                                 <th scope="col" className="px-6 py-3">
                                     <button 
                                         onClick={() => handleSort('affiliateNumber')} 
@@ -219,7 +226,6 @@ const WonLeadsPage: React.FC = () => {
                                         Nº Afiliado{renderSortArrow('affiliateNumber')}
                                     </button>
                                 </th>
-                                {/* Podríamos hacer lo mismo para Nombre y Vendedor si quisiéramos */}
                                 <th scope="col" className="px-6 py-3">Nombre</th>
                                 <th scope="col" className="px-6 py-3">Vendedor</th>
                                 <th scope="col" className="px-6 py-3">Estado Cliente</th>
@@ -230,7 +236,14 @@ const WonLeadsPage: React.FC = () => {
                         <tbody>
                             {wonLeads.map(lead => {
                                 const seller = getUserById(lead.ownerId);
-                                return <WonLeadRow key={lead.id} lead={lead} sellerName={seller?.name} onBillingClick={setBillingLead} />;
+                                // --- 3. PASAMOS 'isManager' A CADA FILA ---
+                                return <WonLeadRow 
+                                            key={lead.id} 
+                                            lead={lead} 
+                                            sellerName={seller?.name} 
+                                            onBillingClick={setBillingLead} 
+                                            isManager={isManager} // <-- PASAMOS LA PROP
+                                        />;
                             })}
                         </tbody>
                     </table>
