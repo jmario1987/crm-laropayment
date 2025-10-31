@@ -1,6 +1,5 @@
 import * as XLSX from 'xlsx';
-// Asegúrate que los tipos importados coincidan con tu archivo types.ts
-import { Lead, Stage, User, Product, Provider, USER_ROLES } from '../types'; 
+import { Lead, Stage, User, Product, Provider, USER_ROLES } from '../types';
 
 // Encabezados para la primera hoja.
 const HEADERS = [
@@ -26,14 +25,14 @@ export const generateTemplate = (
     const wsEtapas = XLSX.utils.aoa_to_sheet(stagesData);
     const productsData = [["Productos Válidos"], ...products.map(p => [p.name])];
     const wsProductos = XLSX.utils.aoa_to_sheet(productsData);
-    const providersData = [["Proveedores Válidos"], ...providers.map(p => [p.name])]; // O Desarrolladores
+    const providersData = [["Proveedores Válidos"], ...providers.map(p => [p.name])]; 
     const wsProveedores = XLSX.utils.aoa_to_sheet(providersData);
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, wsProspectos, 'Prospectos');
     XLSX.utils.book_append_sheet(wb, wsEtapas, 'Etapas');
     XLSX.utils.book_append_sheet(wb, wsProductos, 'Productos');
-    XLSX.utils.book_append_sheet(wb, wsProveedores, 'Proveedores'); // O Desarrolladores
+    XLSX.utils.book_append_sheet(wb, wsProveedores, 'Proveedores'); 
 
     XLSX.writeFile(wb, 'plantilla_prospectos_con_guias.xlsx');
 };
@@ -44,13 +43,13 @@ interface ValidationResult {
     erroredRows: { rowData: any, error: string }[];
 }
 
-// Parsear y Validar Leads (con corrección en providerId)
+// Parsear y Validar Leads (con corrección final de 'undefined')
 export const parseAndValidateLeads = async (
     file: File,
     stages: Stage[],
     users: User[],
     products: Product[],
-    providers: Provider[] // O Desarrolladores
+    providers: Provider[] 
 ): Promise<ValidationResult> => {
 
     const fileBuffer = await file.arrayBuffer();
@@ -65,74 +64,76 @@ export const parseAndValidateLeads = async (
 
     data.forEach((row: any, index: number) => {
         const rowNumber = index + 2;
-        // Leer datos del Excel (usar String() para asegurar que sean texto o vacío)
-        const name = String(row["Nombre Completo"] || '');
-        const company = String(row["Empresa"] || '');
-        const email = String(row["Email"] || '');
-        const phone = String(row["Teléfono"] || ''); // phone es string obligatorio, "" si está vacío
-        const stageName = String(row["Etapa"] || '');
-        const ownerEmail = String(row["Vendedor (Email)"] || '');
-        const productNames = String(row["Productos de Interés (nombres separados por coma)"] || '');
-        const providerName = String(row["Referido por (nombre del proveedor)"] || ''); // O Desarrollador
-        const observations = String(row["Observaciones"] || '');
+        const {
+            "Nombre Completo": name,
+            "Empresa": company,
+            "Email": email,
+            "Teléfono": phone,
+            "Etapa": stageName,
+            "Vendedor (Email)": ownerEmail,
+            "Productos de Interés (nombres separados por coma)": productNames,
+            "Referido por (nombre del proveedor)": providerName, 
+            "Observaciones": observations,
+        } = row;
 
-        // Validaciones básicas
         if (!name || !company || !email || !stageName || !ownerEmail) {
             erroredRows.push({ rowData: row, error: `Fila ${rowNumber}: Faltan datos obligatorios (Nombre, Empresa, Email, Etapa o Vendedor).` });
             return;
         }
 
-        const stage = stages.find(s => s.name.toLowerCase() === stageName.toLowerCase());
+        const stage = stages.find(s => s.name.toLowerCase() === String(stageName).toLowerCase());
         if (!stage) {
             erroredRows.push({ rowData: row, error: `Fila ${rowNumber}: La etapa "${stageName}" no es válida.` });
             return;
         }
 
-        const owner = sellers.find(s => s.email.toLowerCase() === ownerEmail.toLowerCase());
+        const owner = sellers.find(s => s.email.toLowerCase() === String(ownerEmail).toLowerCase());
         if (!owner) {
             erroredRows.push({ rowData: row, error: `Fila ${rowNumber}: El vendedor con email "${ownerEmail}" no fue encontrado o no tiene rol de vendedor.` });
             return;
         }
 
-        const productIds = productNames ? productNames.split(',')
-            .map(pn => pn.trim())
-            .map(pn => products.find(p => p.name.toLowerCase() === pn.toLowerCase())?.id)
+        const productIds = productNames ? String(productNames).split(',')
+            .map((pn: string) => pn.trim())
+            .map((pn: string) => products.find(p => p.name.toLowerCase() === pn.toLowerCase())?.id)
             .filter((id): id is string => !!id) : []; 
 
-        const providerFound = providerName ? providers.find(p => p.name.toLowerCase() === providerName.toLowerCase()) : undefined;
+        const providerFound = providerName ? providers.find(p => p.name.toLowerCase() === String(providerName).toLowerCase()) : undefined;
 
-        // --- CORRECCIÓN FINAL AL CREAR newLead ---
+        // --- CORRECCIÓN DEFINITIVA AL CREAR newLead ---
+        // Asignamos valores por defecto válidos (null, [], false) en lugar de undefined
         const newLead: Lead = {
             id: `${new Date().toISOString()}-${index}`, 
-            name: name,
-            company: company,
-            email: email,
-            phone: phone, // Ya es string o ""
+            name: String(name),
+            company: String(company),
+            email: String(email),
+            phone: String(phone) || '', // phone es string obligatorio
             status: stage.id,
             createdAt: new Date().toISOString(),
             ownerId: owner.id,
-            observations: observations, 
+            observations: String(observations) || '', 
             lastUpdate: new Date().toISOString(),
             
-            // --- CORRECCIÓN AQUÍ: Usar || null ---
-            providerId: providerFound?.id || null, // Guarda null si no se encuentra o no viene
-            productIds: productIds.length > 0 ? productIds : undefined, 
-            tagIds: undefined, 
-            
-            statusHistory: [{ status: stage.id, date: new Date().toISOString() }],
-            tagHistory: undefined, 
-
-            // Asegurar que los campos string | null tengan valor null por defecto
+            // Campos que ahora son string | null
+            providerId: providerFound?.id || null, 
             affiliateNumber: null, 
             assignedOffice: null,
             notificationForManagerId: null, 
-            clientStatus: null, // Asignar null por defecto
-
-            // Booleanos opcionales pueden ser undefined
-            notificationForSeller: undefined,
-            sellerHasViewedNotification: undefined,
-            billingHistory: undefined, // Objeto opcional
+            clientStatus: null, 
+            
+            // Campos que son arrays opcionales (usar [])
+            productIds: productIds, // ya es [] si está vacío
+            tagIds: [], // <-- Error de la captura
+            tagHistory: [], // <-- Error futuro
+            
+            statusHistory: [{ status: stage.id, date: new Date().toISOString() }], // Siempre debe tener 1
+            
+            // Campos booleanos opcionales (usar false)
+            notificationForSeller: false, 
+            sellerHasViewedNotification: false, 
+            
             _version: 1 
+            // Omitimos billingHistory (opcional) para que no se envíe como undefined
         };
 
         validLeads.push(newLead);
