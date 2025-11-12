@@ -12,7 +12,6 @@ import { useClickOutside } from '../hooks/useClickOutside';
 import BulkImportModal from '../components/pipeline/BulkImportModal'; 
 
 const LeadsListPage: React.FC = () => {
-    // --- Añadimos 'products' a la desestructuración ---
     const { allLeads = [], stages = [], users = [], providers = [], tags = [], getStageById = () => undefined, products = [] } = useLeads() || {};
     const { user } = useAuth();
 
@@ -38,12 +37,17 @@ const LeadsListPage: React.FC = () => {
     const stageOptions = useMemo(() => stages.map(s => ({ value: s.id, label: s.name })), [stages]);
     
     const tagOptions = useMemo(() => {
-        if (selectedStages.length === 0) return [];
+        if (selectedStages.length === 0 && !isManager) {
+            return tags.map(t => ({ value: t.id, label: t.name }));
+        }
+        if (selectedStages.length === 0 && isManager) {
+            return [];
+        }
         const stageIds = selectedStages.map(s => s.value);
         return tags
             .filter(tag => stageIds.includes(tag.stageId))
             .map(t => ({ value: t.id, label: t.name }));
-    }, [tags, selectedStages]);
+    }, [tags, selectedStages, isManager]); 
 
     const sellerOptions = useMemo(() => users.filter(u => u.role === USER_ROLES.Vendedor).map(u => ({ value: u.id, label: u.name })), [users]);
     const providerOptions = useMemo(() => providers.map(p => ({ value: p.id, label: p.name })), [providers]);
@@ -55,29 +59,30 @@ const LeadsListPage: React.FC = () => {
             const closedStageIds = stages.filter(s => s.type === 'won' || s.type === 'lost').map(s => s.id);
             baseLeads = leadsCopy.filter(lead => lead.ownerId === user.id && !closedStageIds.includes(lead.status));
         }
-        
+       
+        let filteredList = baseLeads;
+
+        if (selectedStages.length > 0) {
+            const stageIds = selectedStages.map(s => s.value);
+            filteredList = filteredList.filter(lead => stageIds.includes(lead.status));
+        }
+        if (selectedTags.length > 0) {
+            const tagIds = selectedTags.map(t => t.value);
+            filteredList = filteredList.filter(lead => lead.tagIds && lead.tagIds.some(tagId => tagIds.includes(tagId)));
+        }
+
         if (isManager) {
-            let leads = baseLeads; 
-            if (selectedStages.length > 0) {
-                const stageIds = selectedStages.map(s => s.value);
-                leads = leads.filter(lead => stageIds.includes(lead.status));
-            }
-            if (selectedTags.length > 0) {
-                const tagIds = selectedTags.map(t => t.value);
-                leads = leads.filter(lead => lead.tagIds && lead.tagIds.some(tagId => tagIds.includes(tagId)));
-            }
             if (selectedSellers.length > 0) {
                 const sellerIds = selectedSellers.map(s => s.value);
-                leads = leads.filter(lead => sellerIds.includes(lead.ownerId));
+                filteredList = filteredList.filter(lead => sellerIds.includes(lead.ownerId));
             }
             if (selectedProviders.length > 0) {
                 const providerIds = selectedProviders.map(p => p.value);
-                leads = leads.filter(lead => lead.providerId && providerIds.includes(lead.providerId));
+                filteredList = filteredList.filter(lead => lead.providerId && providerIds.includes(lead.providerId));
             }
-            return leads;
         }
 
-        return baseLeads; 
+        return filteredList; 
     }, [leadsCopy, user, isManager, stages, selectedStages, selectedTags, selectedSellers, selectedProviders]);
 
     const getTagInfo = (tagId?: string) => tags.find(t => t.id === tagId);
@@ -92,7 +97,6 @@ const LeadsListPage: React.FC = () => {
         return Math.floor((new Date().getTime() - new Date(lastEntry.date).getTime()) / (1000 * 3600 * 24));
     };
     
-    // --- Función auxiliar para obtener nombres de productos ---
     const getProductNames = (productIds?: string[]): string => {
         if (!productIds || productIds.length === 0) return 'N/A';
         return productIds
@@ -107,7 +111,6 @@ const LeadsListPage: React.FC = () => {
         
         sortableLeads.sort((a, b) => {
             const direction = sortConfig.direction === 'ascending' ? 1 : -1;
-            // Simplificamos: solo ordenamos por las columnas existentes
             switch (sortConfig.key) {
                 case 'name': return a.name.localeCompare(b.name) * direction;
                 case 'createdAt': return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * direction;
@@ -133,7 +136,6 @@ const LeadsListPage: React.FC = () => {
         setSortConfig({ key, direction });
     };
 
-    // --- ACTUALIZAMOS LA EXPORTACIÓN A EXCEL ---
     const handleExportExcel = () => {
         const dataToExport = sortedLeads.map((lead: Lead) => {
             const currentTag = getTagInfo(lead.tagIds?.[0]);
@@ -142,21 +144,19 @@ const LeadsListPage: React.FC = () => {
                 'Empresa': lead.company,
                 'Etapa': getStageById(lead.status)?.name || 'N/A',
                 'Sub-Etapa': currentTag?.name || 'N/A',
-                'Productos': getProductNames(lead.productIds), // <-- Columna añadida
+                'Productos': getProductNames(lead.productIds), 
                 'Vendedor': users.find(u => u.id === lead.ownerId)?.name || 'N/A',
-                'Proveedor': providers.find(p => p.id === lead.providerId)?.name || 'N/A', // O Desarrollador
+                'Proveedor': providers.find(p => p.id === lead.providerId)?.name || 'N/A', 
                 'Fecha de Ingreso': new Date(lead.createdAt).toLocaleDateString(),
                 'Días en Proceso': Math.floor((new Date().getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24)),
                 'Días en Sub-Etapa': getDaysInTag(lead) ?? 'N/A',
             };
         });
-        // Definir el orden de las columnas (opcional pero recomendado)
         const headers = [
             'Prospecto', 'Empresa', 'Etapa', 'Sub-Etapa', 'Productos', 
             'Vendedor', 'Proveedor', 'Fecha de Ingreso', 
             'Días en Proceso', 'Días en Sub-Etapa'
         ];
-        // Crear la hoja especificando el orden de las columnas
         const worksheet = XLSX.utils.json_to_sheet(dataToExport, { header: headers });
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Prospectos');
@@ -170,13 +170,19 @@ const LeadsListPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            {isManager && (
-                <div ref={filtersRef} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg items-center">
+            {user && (
+                <div ref={filtersRef} className={`grid grid-cols-1 ${isManager ? 'md:grid-cols-5' : 'md:grid-cols-2'} gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg items-center`}>
+                    
                     <Select isMulti options={stageOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => { setSelectedStages(selected as any); setSelectedTags([]); }} placeholder="Filtrar por Etapa..." onMenuOpen={() => setOpenMenu('stage')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'stage'} />
-                    <Select isMulti options={tagOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedTags(selected as any)} placeholder="Filtrar por Sub-Etapa..." onMenuOpen={() => setOpenMenu('tag')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'tag'} isDisabled={selectedStages.length === 0} value={selectedTags} />
-                    <Select isMulti options={sellerOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedSellers(selected as any)} placeholder="Filtrar por Vendedor..." onMenuOpen={() => setOpenMenu('seller')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'seller'} />
-                    <Select isMulti options={providerOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedProviders(selected as any)} placeholder="Filtrar por Proveedor..." onMenuOpen={() => setOpenMenu('provider')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'provider'} /> {/* O Desarrollador */}
-                    <Button onClick={handleExportExcel}>Exportar a Excel</Button>
+                    <Select isMulti options={tagOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedTags(selected as any)} placeholder="Filtrar por Sub-Etapa..." onMenuOpen={() => setOpenMenu('tag')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'tag'} isDisabled={!isManager && selectedStages.length === 0} value={selectedTags} />
+                    
+                    {isManager && (
+                        <>
+                            <Select isMulti options={sellerOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedSellers(selected as any)} placeholder="Filtrar por Vendedor..." onMenuOpen={() => setOpenMenu('seller')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'seller'} />
+                            <Select isMulti options={providerOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedProviders(selected as any)} placeholder="Filtrar por Proveedor..." onMenuOpen={() => setOpenMenu('provider')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'provider'} /> 
+                            <Button onClick={handleExportExcel}>Exportar a Excel</Button>
+                        </>
+                    )}
                 </div>
             )}
 
@@ -195,7 +201,6 @@ const LeadsListPage: React.FC = () => {
                             <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => requestSort('name')}>Prospecto {getSortIndicator('name')}</th>
                             <th scope="col" className="px-6 py-3">Etapa</th>
                             <th scope="col" className="px-6 py-3">Sub-Etapa</th>
-                            {/* --- AÑADIMOS ENCABEZADO DE PRODUCTOS --- */}
                             <th scope="col" className="px-6 py-3">Productos</th>
                             <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => requestSort('createdAt')}>Fecha de Ingreso {getSortIndicator('createdAt')}</th>
                             <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => requestSort('daysInProcess')}>Días en Proceso {getSortIndicator('daysInProcess')}</th>
@@ -206,7 +211,6 @@ const LeadsListPage: React.FC = () => {
                         {sortedLeads.map(lead => {
                             const currentTag = getTagInfo(lead.tagIds?.[0]);
                             const daysInTag = getDaysInTag(lead);
-                            // --- OBTENEMOS NOMBRES DE PRODUCTOS ---
                             const productNames = getProductNames(lead.productIds);
                             return (
                                 <tr key={lead.id} className="bg-white border-b dark:bg-gray-900 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
@@ -219,7 +223,6 @@ const LeadsListPage: React.FC = () => {
                                             </span>
                                         ) : 'N/A'}
                                     </td>
-                                    {/* --- AÑADIMOS CELDA DE PRODUCTOS --- */}
                                     <td className="px-6 py-4">{productNames}</td>
                                     <td className="px-6 py-4">{new Date(lead.createdAt).toLocaleDateString()}</td>
                                     <td className="px-6 py-4">{Math.floor((new Date().getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24))}</td>
