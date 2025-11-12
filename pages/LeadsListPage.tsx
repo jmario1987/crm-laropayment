@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { useLeads } from '../hooks/useLeads';
 import { useAuth } from '../hooks/useAuth';
-import { Lead, USER_ROLES, Product } from '../types'; // Importamos Product
+import { Lead, USER_ROLES, Product } from '../types';
 import Select from 'react-select';
 import { OptionWithCheckbox, CustomValueContainer } from '../components/ui/CustomMultiSelect';
 import * as XLSX from 'xlsx';
@@ -37,11 +37,10 @@ const LeadsListPage: React.FC = () => {
     const stageOptions = useMemo(() => stages.map(s => ({ value: s.id, label: s.name })), [stages]);
     
     const tagOptions = useMemo(() => {
-        if (selectedStages.length === 0 && !isManager) {
-            return tags.map(t => ({ value: t.id, label: t.name }));
-        }
-        if (selectedStages.length === 0 && isManager) {
-            return [];
+        // Lógica de tags sin cambios, depende de las etapas seleccionadas
+        if (selectedStages.length === 0) {
+            // Si no hay etapa, Vendedor ve todas las tags, Manager ve 0 (hasta seleccionar etapa)
+            return isManager ? [] : tags.map(t => ({ value: t.id, label: t.name }));
         }
         const stageIds = selectedStages.map(s => s.value);
         return tags
@@ -52,14 +51,19 @@ const LeadsListPage: React.FC = () => {
     const sellerOptions = useMemo(() => users.filter(u => u.role === USER_ROLES.Vendedor).map(u => ({ value: u.id, label: u.name })), [users]);
     const providerOptions = useMemo(() => providers.map(p => ({ value: p.id, label: p.name })), [providers]);
 
+
+    // --- LÓGICA DE FILTROS TOTALMENTE REESCRITA ---
     const filteredLeads = useMemo(() => {
         let baseLeads = leadsCopy;
 
+        // 1. Filtro de Rol: Vendedor solo ve sus prospectos. Manager ve todos.
         if (user?.role === USER_ROLES.Vendedor) {
-            const closedStageIds = stages.filter(s => s.type === 'won' || s.type === 'lost').map(s => s.id);
-            baseLeads = leadsCopy.filter(lead => lead.ownerId === user.id && !closedStageIds.includes(lead.status));
+            // Vendedor ve TODOS sus prospectos (activos, ganados, perdidos) en esta página
+            baseLeads = leadsCopy.filter(lead => lead.ownerId === user.id);
         }
-       
+        // Si es Manager, baseLeads se queda con todos (leadsCopy)
+
+        // 2. Aplicar filtros comunes (Etapa, Sub-Etapa, Proveedor) a la lista base
         let filteredList = baseLeads;
 
         if (selectedStages.length > 0) {
@@ -70,30 +74,31 @@ const LeadsListPage: React.FC = () => {
             const tagIds = selectedTags.map(t => t.value);
             filteredList = filteredList.filter(lead => lead.tagIds && lead.tagIds.some(tagId => tagIds.includes(tagId)));
         }
+        if (selectedProviders.length > 0) {
+            const providerIds = selectedProviders.map(p => p.value);
+            filteredList = filteredList.filter(lead => lead.providerId && providerIds.includes(lead.providerId));
+        }
 
+        // 3. Aplicar filtros solo para Managers (Vendedor)
         if (isManager) {
             if (selectedSellers.length > 0) {
                 const sellerIds = selectedSellers.map(s => s.value);
                 filteredList = filteredList.filter(lead => sellerIds.includes(lead.ownerId));
             }
-            if (selectedProviders.length > 0) {
-                const providerIds = selectedProviders.map(p => p.value);
-                filteredList = filteredList.filter(lead => lead.providerId && providerIds.includes(lead.providerId));
-            }
         }
 
-        return filteredList; 
-    }, [leadsCopy, user, isManager, stages, selectedStages, selectedTags, selectedSellers, selectedProviders]);
+        return filteredList; // Devolvemos la lista final
+    }, [leadsCopy, user, isManager, stages, selectedStages, selectedTags, selectedSellers, selectedProviders, providers]); // Añadido 'providers'
+    // --- FIN LÓGICA DE FILTROS ---
+
 
     const getTagInfo = (tagId?: string) => tags.find(t => t.id === tagId);
 
     const getDaysInTag = (lead: Lead): number | null => {
         const currentTagId = lead.tagIds?.[0];
         if (!currentTagId || !lead.tagHistory) return null;
-        
         const lastEntry = lead.tagHistory.filter(h => h.tagId === currentTagId).pop();
         if (!lastEntry) return null;
-
         return Math.floor((new Date().getTime() - new Date(lastEntry.date).getTime()) / (1000 * 3600 * 24));
     };
     
@@ -168,24 +173,29 @@ const LeadsListPage: React.FC = () => {
         return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
     };
 
+    // --- CORRECCIÓN VISUAL EN LA BARRA DE FILTROS ---
     return (
         <div className="space-y-6">
             {user && (
-                <div ref={filtersRef} className={`grid grid-cols-1 ${isManager ? 'md:grid-cols-5' : 'md:grid-cols-2'} gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg items-center`}>
+                // 1. La grilla ahora es de 5 para Manager, 3 para Vendedor
+                <div ref={filtersRef} className={`grid grid-cols-1 ${isManager ? 'md:grid-cols-5' : 'md:grid-cols-3'} gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg items-center`}>
                     
+                    {/* 2. Filtros Comunes (Etapa, Sub-Etapa, Proveedor) - Visibles para TODOS */}
                     <Select isMulti options={stageOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => { setSelectedStages(selected as any); setSelectedTags([]); }} placeholder="Filtrar por Etapa..." onMenuOpen={() => setOpenMenu('stage')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'stage'} />
                     <Select isMulti options={tagOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedTags(selected as any)} placeholder="Filtrar por Sub-Etapa..." onMenuOpen={() => setOpenMenu('tag')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'tag'} isDisabled={!isManager && selectedStages.length === 0} value={selectedTags} />
+                    <Select isMulti options={providerOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedProviders(selected as any)} placeholder="Filtrar por Proveedor..." onMenuOpen={() => setOpenMenu('provider')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'provider'} /> 
                     
+                    {/* 3. Filtros y Botones Solo para Managers */}
                     {isManager && (
                         <>
                             <Select isMulti options={sellerOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedSellers(selected as any)} placeholder="Filtrar por Vendedor..." onMenuOpen={() => setOpenMenu('seller')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'seller'} />
-                            <Select isMulti options={providerOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedProviders(selected as any)} placeholder="Filtrar por Proveedor..." onMenuOpen={() => setOpenMenu('provider')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'provider'} /> 
                             <Button onClick={handleExportExcel}>Exportar a Excel</Button>
                         </>
                     )}
                 </div>
             )}
 
+            {/* Botón de Importación Masiva (Visible para todos) */}
             {user && (
               <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg flex justify-end">
                 <Button onClick={handleOpenImportModal}> 
@@ -194,6 +204,7 @@ const LeadsListPage: React.FC = () => {
               </div>
             )}
 
+            {/* Tabla (sin cambios) */}
             <div className="relative overflow-x-auto shadow-md sm:rounded-lg">
                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
