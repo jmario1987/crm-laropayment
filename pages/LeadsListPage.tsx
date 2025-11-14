@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { useLeads } from '../hooks/useLeads';
 import { useAuth } from '../hooks/useAuth';
-import { Lead, USER_ROLES, Product } from '../types';
+import { Lead, USER_ROLES, Product } from '../types'; 
 import Select from 'react-select';
 import { OptionWithCheckbox, CustomValueContainer } from '../components/ui/CustomMultiSelect';
 import * as XLSX from 'xlsx';
@@ -22,6 +22,7 @@ const LeadsListPage: React.FC = () => {
     const [selectedTags, setSelectedTags] = useState<{ value: string; label: string; }[]>([]);
     const [selectedSellers, setSelectedSellers] = useState<{ value: string; label: string; }[]>([]);
     const [selectedProviders, setSelectedProviders] = useState<{ value: string; label: string; }[]>([]);
+    const [selectedProducts, setSelectedProducts] = useState<{ value: string; label: string; }[]>([]); 
     const [openMenu, setOpenMenu] = useState<string | null>(null);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
@@ -37,10 +38,11 @@ const LeadsListPage: React.FC = () => {
     const stageOptions = useMemo(() => stages.map(s => ({ value: s.id, label: s.name })), [stages]);
     
     const tagOptions = useMemo(() => {
-        // Lógica de tags sin cambios, depende de las etapas seleccionadas
-        if (selectedStages.length === 0) {
-            // Si no hay etapa, Vendedor ve todas las tags, Manager ve 0 (hasta seleccionar etapa)
-            return isManager ? [] : tags.map(t => ({ value: t.id, label: t.name }));
+        if (selectedStages.length === 0 && !isManager) {
+            return tags.map(t => ({ value: t.id, label: t.name }));
+        }
+        if (selectedStages.length === 0 && isManager) {
+            return [];
         }
         const stageIds = selectedStages.map(s => s.value);
         return tags
@@ -50,20 +52,15 @@ const LeadsListPage: React.FC = () => {
 
     const sellerOptions = useMemo(() => users.filter(u => u.role === USER_ROLES.Vendedor).map(u => ({ value: u.id, label: u.name })), [users]);
     const providerOptions = useMemo(() => providers.map(p => ({ value: p.id, label: p.name })), [providers]);
+    const productOptions = useMemo(() => products.map(p => ({ value: p.id, label: p.name })), [products]);
 
-
-    // --- LÓGICA DE FILTROS TOTALMENTE REESCRITA ---
     const filteredLeads = useMemo(() => {
         let baseLeads = leadsCopy;
 
-        // 1. Filtro de Rol: Vendedor solo ve sus prospectos. Manager ve todos.
         if (user?.role === USER_ROLES.Vendedor) {
-            // Vendedor ve TODOS sus prospectos (activos, ganados, perdidos) en esta página
             baseLeads = leadsCopy.filter(lead => lead.ownerId === user.id);
         }
-        // Si es Manager, baseLeads se queda con todos (leadsCopy)
-
-        // 2. Aplicar filtros comunes (Etapa, Sub-Etapa, Proveedor) a la lista base
+       
         let filteredList = baseLeads;
 
         if (selectedStages.length > 0) {
@@ -78,8 +75,13 @@ const LeadsListPage: React.FC = () => {
             const providerIds = selectedProviders.map(p => p.value);
             filteredList = filteredList.filter(lead => lead.providerId && providerIds.includes(lead.providerId));
         }
+        if (selectedProducts.length > 0) {
+            const productIds = selectedProducts.map(p => p.value);
+            filteredList = filteredList.filter(lead => 
+                lead.productIds && lead.productIds.some(prodId => productIds.includes(prodId))
+            );
+        }
 
-        // 3. Aplicar filtros solo para Managers (Vendedor)
         if (isManager) {
             if (selectedSellers.length > 0) {
                 const sellerIds = selectedSellers.map(s => s.value);
@@ -87,9 +89,8 @@ const LeadsListPage: React.FC = () => {
             }
         }
 
-        return filteredList; // Devolvemos la lista final
-    }, [leadsCopy, user, isManager, stages, selectedStages, selectedTags, selectedSellers, selectedProviders, providers]); // Añadido 'providers'
-    // --- FIN LÓGICA DE FILTROS ---
+        return filteredList; 
+    }, [leadsCopy, user, isManager, stages, selectedStages, selectedTags, selectedSellers, selectedProviders, providers, selectedProducts]);
 
 
     const getTagInfo = (tagId?: string) => tags.find(t => t.id === tagId);
@@ -110,15 +111,18 @@ const LeadsListPage: React.FC = () => {
             .join(', ');
     };
 
+    // --- CORRECCIÓN 1: LÓGICA DE ORDENAMIENTO RESTAURADA ---
     const sortedLeads = useMemo(() => {
-        const sortableLeads = [...filteredLeads];
+        const sortableLeads = [...filteredLeads]; // Usamos una copia para no mutar el original
         if (!sortConfig) return sortableLeads;
         
-        sortableLeads.sort((a, b) => {
+        sortableLeads.sort((a, b) => { // La función sort SÍ devuelve un número
             const direction = sortConfig.direction === 'ascending' ? 1 : -1;
             switch (sortConfig.key) {
-                case 'name': return a.name.localeCompare(b.name) * direction;
-                case 'createdAt': return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * direction;
+                case 'name': 
+                    return a.name.localeCompare(b.name) * direction;
+                case 'createdAt': 
+                    return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * direction;
                 case 'daysInProcess':
                     const aDays = new Date().getTime() - new Date(a.createdAt).getTime();
                     const bDays = new Date().getTime() - new Date(b.createdAt).getTime();
@@ -127,7 +131,8 @@ const LeadsListPage: React.FC = () => {
                     const aDaysTag = getDaysInTag(a) ?? -1;
                     const bDaysTag = getDaysInTag(b) ?? -1;
                     return (aDaysTag - bDaysTag) * direction;
-                default: return 0;
+                default: 
+                    return 0;
             }
         });
         return sortableLeads;
@@ -157,11 +162,14 @@ const LeadsListPage: React.FC = () => {
                 'Días en Sub-Etapa': getDaysInTag(lead) ?? 'N/A',
             };
         });
-        const headers = [
+        
+        // --- CORRECCIÓN 2: AÑADIR TIPO EXPLÍCITO A 'headers' ---
+        const headers: string[] = [
             'Prospecto', 'Empresa', 'Etapa', 'Sub-Etapa', 'Productos', 
             'Vendedor', 'Proveedor', 'Fecha de Ingreso', 
             'Días en Proceso', 'Días en Sub-Etapa'
         ];
+        
         const worksheet = XLSX.utils.json_to_sheet(dataToExport, { header: headers });
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Prospectos');
@@ -173,19 +181,16 @@ const LeadsListPage: React.FC = () => {
         return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
     };
 
-    // --- CORRECCIÓN VISUAL EN LA BARRA DE FILTROS ---
     return (
         <div className="space-y-6">
             {user && (
-                // 1. La grilla ahora es de 5 para Manager, 3 para Vendedor
-                <div ref={filtersRef} className={`grid grid-cols-1 ${isManager ? 'md:grid-cols-5' : 'md:grid-cols-3'} gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg items-center`}>
+                <div ref={filtersRef} className={`grid grid-cols-1 ${isManager ? 'md:grid-cols-6' : 'md:grid-cols-4'} gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg items-center`}>
                     
-                    {/* 2. Filtros Comunes (Etapa, Sub-Etapa, Proveedor) - Visibles para TODOS */}
                     <Select isMulti options={stageOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => { setSelectedStages(selected as any); setSelectedTags([]); }} placeholder="Filtrar por Etapa..." onMenuOpen={() => setOpenMenu('stage')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'stage'} />
                     <Select isMulti options={tagOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedTags(selected as any)} placeholder="Filtrar por Sub-Etapa..." onMenuOpen={() => setOpenMenu('tag')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'tag'} isDisabled={!isManager && selectedStages.length === 0} value={selectedTags} />
                     <Select isMulti options={providerOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedProviders(selected as any)} placeholder="Filtrar por Proveedor..." onMenuOpen={() => setOpenMenu('provider')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'provider'} /> 
-                    
-                    {/* 3. Filtros y Botones Solo para Managers */}
+                    <Select isMulti options={productOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedProducts(selected as any)} placeholder="Filtrar por Producto..." onMenuOpen={() => setOpenMenu('product')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'product'} />
+
                     {isManager && (
                         <>
                             <Select isMulti options={sellerOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedSellers(selected as any)} placeholder="Filtrar por Vendedor..." onMenuOpen={() => setOpenMenu('seller')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'seller'} />
@@ -195,7 +200,6 @@ const LeadsListPage: React.FC = () => {
                 </div>
             )}
 
-            {/* Botón de Importación Masiva (Visible para todos) */}
             {user && (
               <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg flex justify-end">
                 <Button onClick={handleOpenImportModal}> 
@@ -204,7 +208,6 @@ const LeadsListPage: React.FC = () => {
               </div>
             )}
 
-            {/* Tabla (sin cambios) */}
             <div className="relative overflow-x-auto shadow-md sm:rounded-lg">
                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
