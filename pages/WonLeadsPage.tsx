@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { useLeads } from '../hooks/useLeads';
 import { useAuth } from '../hooks/useAuth';
-import { Lead, USER_ROLES } from '../types';
+// --- 1. Importar Product ---
+import { Lead, USER_ROLES, Product } from '../types'; 
 import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
 import BillingModal from '../components/billing/BillingModal';
@@ -19,16 +20,16 @@ const getCurrentMonthYear = () => {
     return `${month}-${year}`;
 };
 
-// --- 1. AÑADIMOS 'selectedMonth' A LAS PROPS DE LA FILA ---
+// --- 2. 'WonLeadRow' AHORA ACEPTA 'selectedMonth' ---
 const WonLeadRow: React.FC<{ 
     lead: Lead; 
     sellerName?: string; 
     onBillingClick: (lead: Lead) => void;
     isManager: boolean; 
-    selectedMonth: string; // <-- NUEVA PROP
-}> = ({ lead, sellerName, onBillingClick, isManager, selectedMonth }) => { // <-- Se recibe la prop
+    selectedMonth: string; // <-- PROP PARA EL MES
+}> = ({ lead, sellerName, onBillingClick, isManager, selectedMonth }) => { 
     
-    // --- 2. USAMOS 'selectedMonth' EN LUGAR DE 'getCurrentMonthYear()' ---
+    // --- 3. USA 'selectedMonth' PARA EL CHECK ---
     const currentMonthBilled = lead.billingHistory?.[selectedMonth] === true;
 
     return (
@@ -60,11 +61,14 @@ const WonLeadRow: React.FC<{
 };
 
 const WonLeadsPage: React.FC = () => {
-    const { allLeads, stages, getUserById, providers, getProviderById, dispatch } = useLeads();
+    // --- 4. OBTENER 'products' DEL HOOK ---
+    const { allLeads, stages, getUserById, providers, getProviderById, dispatch, products } = useLeads();
     const { user } = useAuth();
     const [selectedProviderId, setSelectedProviderId] = useState('all');
+    // --- 5. AÑADIR ESTADO PARA FILTRO DE PRODUCTOS ---
+    const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
     const [includeInactive, setIncludeInactive] = useState(false);
-    const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthYear()); // <-- Este estado ya lo tenías
+    const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthYear());
     const [billingLead, setBillingLead] = useState<Lead | null>(null);
     
     const [sortColumn, setSortColumn] = useState<SortColumn>('affiliateNumber'); 
@@ -72,8 +76,11 @@ const WonLeadsPage: React.FC = () => {
 
     const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
 
+    // --- 6. AÑADIR OPCIONES PARA FILTRO DE PRODUCTOS ---
+    const productOptions = useMemo(() => products.map(p => ({ value: p.id, label: p.name })), [products]);
+
+    // --- 7. ACTUALIZAR LÓGICA DE 'wonLeads' ---
     const wonLeads = useMemo(() => {
-        // ... (lógica de filtrado y ordenamiento sin cambios) ...
         const wonStageIds = stages.filter(s => s.type === 'won').map(s => s.id);
         let leads = allLeads.filter(lead => wonStageIds.includes(lead.status));
 
@@ -86,14 +93,20 @@ const WonLeadsPage: React.FC = () => {
             if (!includeInactive) {
                 leads = leads.filter(lead => lead.clientStatus !== 'Inactivo');
             }
+            // --- Añadir filtro de productos ---
+            if (selectedProducts.length > 0) {
+                 leads = leads.filter(lead => 
+                    lead.productIds && lead.productIds.some(prodId => selectedProducts.includes(prodId))
+                );
+            }
         } else {
             leads = leads.filter(lead => lead.ownerId === user.id && lead.clientStatus !== 'Inactivo');
         }
         
         leads.sort((a, b) => {
+            // ... (lógica de ordenamiento sin cambios) ...
             let valA: string | number | undefined;
             let valB: string | number | undefined;
-
             if (sortColumn === 'affiliateNumber') {
                 valA = parseInt(a.affiliateNumber || '0', 10);
                 valB = parseInt(b.affiliateNumber || '0', 10);
@@ -104,21 +117,15 @@ const WonLeadsPage: React.FC = () => {
                 valA = getUserById(a.ownerId)?.name.toLowerCase() || '';
                 valB = getUserById(b.ownerId)?.name.toLowerCase() || '';
             }
-
             if (valA === undefined || valB === undefined) return 0;
-
             let comparison = 0;
-            if (valA < valB) {
-                comparison = -1;
-            } else if (valA > valB) {
-                comparison = 1;
-            }
-
+            if (valA < valB) comparison = -1;
+            else if (valA > valB) comparison = 1;
             return sortDirection === 'desc' ? (comparison * -1) : comparison;
         });
         
         return leads;
-    }, [allLeads, stages, user, selectedProviderId, includeInactive, sortColumn, sortDirection, getUserById]); 
+    }, [allLeads, stages, user, selectedProviderId, includeInactive, sortColumn, sortDirection, getUserById, selectedProducts]); // <-- Añadida dependencia
     
     const handleSaveBilling = async (updatedData: Partial<Lead>) => {
         // ... (código sin cambios) ...
@@ -134,17 +141,33 @@ const WonLeadsPage: React.FC = () => {
         }
     };
 
+    // --- 8. AÑADIR 'getProductNames' Y ACTUALIZAR EXPORTACIÓN ---
+    const getProductNames = (productIds?: string[]): string => {
+        if (!productIds || productIds.length === 0) return 'N/A';
+        return productIds
+            .map(id => products.find(p => p.id === id)?.name)
+            .filter((name): name is string => name !== undefined)
+            .join(', ');
+    };
+
     const handleExportExcel = () => {
-        // ... (código sin cambios) ...
         const leadsForReport = wonLeads.filter(lead => lead.billingHistory?.[selectedMonth] === true);
+
         const dataToExport = leadsForReport.map(lead => ({
             'Nº Afiliado': lead.affiliateNumber || 'N/A',
             'Nombre Cliente': lead.name,
             'Empresa': lead.company,
             'Vendedor Asignado': getUserById(lead.ownerId)?.name || 'N/A',
+            'Productos': getProductNames(lead.productIds), // <-- Columna añadida
             'Referido por': getProviderById(lead.providerId || '')?.name || 'N/A',
         }));
-        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        
+        const headers: string[] = [ 
+            'Nº Afiliado', 'Nombre Cliente', 'Empresa', 
+            'Vendedor Asignado', 'Productos', 'Referido por'
+        ];
+
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport, { header: headers });
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, `Comisiones ${selectedMonth}`);
         XLSX.writeFile(workbook, `Reporte_Comisiones_${selectedMonth}.xlsx`);
@@ -184,11 +207,10 @@ const WonLeadsPage: React.FC = () => {
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
                 <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
                     <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Clientes en Producción</h3>
-                    <div className="flex flex-wrap sm:flex-nowrap gap-4 items-center">
+                    <div className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
                         {isManager && (
                             <>
                                 <div className="w-full sm:w-auto">
-                                    {/* Este select USA 'selectedMonth' */}
                                     <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                         {monthOptions.map(m => <option key={m} value={m}>Facturación de {m}</option>)}
                                     </select>
@@ -199,6 +221,20 @@ const WonLeadsPage: React.FC = () => {
                                         {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                     </select>
                                 </div>
+                                
+                                {/* --- 9. AÑADIMOS EL NUEVO FILTRO DE PRODUCTO --- */}
+                                <div className="w-full sm:w-auto">
+                                    {/* Usamos un select simple por ahora para mantener la estética */}
+                                    <select 
+                                        value={selectedProducts[0] || 'all'} // Asume selección simple
+                                        onChange={(e) => setSelectedProducts(e.target.value === 'all' ? [] : [e.target.value])} 
+                                        className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    >
+                                        <option value="all">Todos los Productos</option>
+                                        {productOptions.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                                    </select>
+                                </div>
+                                
                                 <div className="flex items-center">
                                     <input type="checkbox" id="include-inactive" checked={includeInactive} onChange={(e) => setIncludeInactive(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"/>
                                     <label htmlFor="include-inactive" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">Incluir Inactivos</label>
@@ -223,7 +259,7 @@ const WonLeadsPage: React.FC = () => {
                                 <th scope="col" className="px-6 py-3">Nombre</th>
                                 <th scope="col" className="px-6 py-3">Vendedor</th>
                                 <th scope="col" className="px-6 py-3">Estado Cliente</th>
-                                {/* --- 3. TÍTULO DE COLUMNA AHORA ES DINÁMICO --- */}
+                                {/* --- 10. TÍTULO DE COLUMNA DINÁMICO (CORREGIDO) --- */}
                                 <th scope="col" className="px-6 py-3 text-center">Facturación ({selectedMonth})</th>
                                 <th scope="col" className="px-6 py-3 text-center">Acciones</th>
                             </tr>
@@ -231,14 +267,14 @@ const WonLeadsPage: React.FC = () => {
                         <tbody>
                             {wonLeads.map(lead => {
                                 const seller = getUserById(lead.ownerId);
-                                // --- 4. PASAMOS 'selectedMonth' A CADA FILA ---
+                                // --- 11. PASAMOS 'selectedMonth' A CADA FILA ---
                                 return <WonLeadRow 
                                             key={lead.id} 
                                             lead={lead} 
                                             sellerName={seller?.name} 
                                             onBillingClick={setBillingLead} 
                                             isManager={isManager} 
-                                            selectedMonth={selectedMonth} // <-- PASAMOS LA PROP
+                                            selectedMonth={selectedMonth} // <-- PROP AÑADIDA
                                         />;
                             })}
                         </tbody>
