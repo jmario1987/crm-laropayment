@@ -17,7 +17,6 @@
     "mobile-drag-drop": "^3.0.0-rc.0",
     "next": "^16.0.8",
     "react": "^19.2.1",
-    "react-beautiful-dnd": "^13.1.1",
     "react-dom": "^19.2.1",
     "react-router-dom": "^6.23.1",
     "react-select": "^5.10.2",
