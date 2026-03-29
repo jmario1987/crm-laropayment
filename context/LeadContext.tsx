@@ -1,7 +1,8 @@
 import React, { createContext, useReducer, useEffect, ReactNode, Dispatch, useState, useMemo } from 'react';
 import { Lead, User, UserRole, Product, Provider, Stage, USER_ROLES, Tag } from '../types'; 
 import { db } from '../firebaseConfig';
-import { collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
+// --- AÑADIMOS EL OPERADOR 'or' DE FIREBASE ---
+import { collection, getDocs, doc, query, where, or } from 'firebase/firestore'; 
 import { useAuth } from '../hooks/useAuth';
 
 type Action = 
@@ -63,11 +64,7 @@ const leadReducer = (state: State, action: Action): State => {
         case 'UPDATE_STAGE': return { ...state, stages: state.stages.map(s => s.id === action.payload.id ? action.payload : s) };
         case 'DELETE_STAGE': return { ...state, stages: state.stages.filter(s => s.id !== action.payload) };
         case 'UPDATE_STAGES_ORDER': return { ...state, stages: action.payload };
-
-        // --- ESTA ES LA LÍNEA QUE FALTABA ---
-        case 'ADD_BULK_LEADS':
-            return { ...state, leads: [...action.payload, ...state.leads] };
-
+        case 'ADD_BULK_LEADS': return { ...state, leads: [...action.payload, ...state.leads] };
         default: return state;
     }
 };
@@ -100,13 +97,12 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [state, dispatch] = useReducer(leadReducer, initialState);
   const { user, loading: authLoading } = useAuth();
 
-  // Este es el "reloj despertador" que se actualiza cada minuto.
   const [currentTime, setCurrentTime] = useState(new Date());
   useEffect(() => {
-    const timerId = setInterval(() => setCurrentTime(new Date()), 60000); // 60000ms = 1 minuto
+    const timerId = setInterval(() => setCurrentTime(new Date()), 60000); 
     return () => clearInterval(timerId);
   }, []);
-  
+
   const [version, setVersion] = useState(0);
   const reloadData = () => setVersion(v => v + 1);
 
@@ -126,21 +122,23 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         );
 
         const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
+        
+        // --- LA NUEVA REGLA MÁGICA DE DESCARGA ---
+        // Si no es jefe, descargamos donde sea el DUEÑO actual *O* donde sea el CREADOR original.
         const leadsQuery = isManager 
           ? collection(db, "leads") 
-          : query(collection(db, "leads"), where("ownerId", "==", user.id));
+          : query(
+              collection(db, "leads"), 
+              or(
+                where("ownerId", "==", user.id),
+                where("creatorId", "==", user.id)
+              )
+            );
+      
         const leadsSnapshot = await getDocs(leadsQuery);
         
-        let usersData: User[] = [];
-        if (isManager) {
-          const usersSnapshot = await getDocs(collection(db, "users"));
-          usersData = usersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }) as User);
-        } else if(user) {
-          const userDoc = await getDoc(doc(db, "users", user.id));
-          if (userDoc.exists()) {
-            usersData = [({ ...userDoc.data(), id: userDoc.id }) as User];
-          }
-        }
+        const usersSnapshot = await getDocs(collection(db, "users"));
+        const usersData = usersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }) as User);
         
         dispatch({ type: 'SET_STATE', payload: {
             leads: leadsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }) as Lead),

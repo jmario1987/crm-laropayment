@@ -12,32 +12,41 @@ interface UserRowProps {
     onResetPassword: (user: User) => void;
 }
 
-const UserRow: React.FC<UserRowProps> = ({ user, onEdit, onResetPassword }) => (
-    <tr className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
-        <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{user.name}</td>
-        <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{user.email}</td>
-        <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{user.role}</td>
-        <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
-            {user.lastLogin 
-                ? new Date(user.lastLogin).toLocaleString('es-ES', { 
-                    year: 'numeric', month: 'short', day: 'numeric', 
-                    hour: '2-digit', minute: '2-digit' 
-                  }) 
-                : 'Nunca'}
-        </td>
-        <td className="px-6 py-4 text-right space-x-4">
-            <button onClick={() => onEdit(user)} className="font-medium text-primary-600 dark:text-primary-500 hover:underline">Editar</button>
-            <button onClick={() => onResetPassword(user)} className="font-medium text-yellow-600 dark:text-yellow-500 hover:underline">
-                Resetear Contraseña
-            </button>
-        </td>
-    </tr>
-);
+const UserRow: React.FC<UserRowProps> = ({ user, onEdit, onResetPassword }) => {
+    // Si isActive es undefined, asumimos que es true (para cuentas viejas). Solo si es explícitamente false es Inactivo.
+    const isActive = user.isActive !== false; 
+
+    return (
+        <tr className={`bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 ${!isActive ? 'opacity-60' : ''}`}>
+            <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{user.name}</td>
+            <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{user.email}</td>
+            <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{user.role}</td>
+            {/* --- NUEVA COLUMNA DE ESTADO VISUAL --- */}
+            <td className="px-6 py-4 text-center">
+                <span className={`px-2 py-1 text-xs font-bold rounded-full ${isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    {isActive ? 'Activo' : 'Inactivo'}
+                </span>
+            </td>
+            <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
+                {user.lastLogin 
+                    ? new Date(user.lastLogin).toLocaleString('es-ES', { 
+                        year: 'numeric', month: 'short', day: 'numeric', 
+                        hour: '2-digit', minute: '2-digit' 
+                      }) 
+                    : 'Nunca'}
+            </td>
+            <td className="px-6 py-4 text-right space-x-4">
+                <button onClick={() => onEdit(user)} className="font-medium text-primary-600 dark:text-primary-500 hover:underline">Editar</button>
+                <button onClick={() => onResetPassword(user)} className="font-medium text-yellow-600 dark:text-yellow-500 hover:underline">
+                    Resetear Contraseña
+                </button>
+            </td>
+        </tr>
+    );
+};
 
 
 const Users: React.FC = () => {
-    // --- CORRECCIÓN PRINCIPAL ---
-    // Se vuelve a la forma original de obtener los datos del hook.
     const { users, roles, dispatch } = useLeads();
     
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -90,7 +99,7 @@ const Users: React.FC = () => {
             alert('No se pueden eliminar los roles por defecto.');
             return;
         }
-        if (users.some((user: User) => user.role === roleToDelete)) { // Se añade el tipo a 'user'
+        if (users.some((user: User) => user.role === roleToDelete)) {
             alert('No se puede eliminar un rol que está asignado a uno o más usuarios.');
             return;
         }
@@ -111,6 +120,8 @@ const Users: React.FC = () => {
                                 <th scope="col" className="px-6 py-3">Nombre</th>
                                 <th scope="col" className="px-6 py-3">Email</th>
                                 <th scope="col" className="px-6 py-3">Rol</th>
+                                {/* --- TÍTULO DE LA NUEVA COLUMNA --- */}
+                                <th scope="col" className="px-6 py-3 text-center">Estado</th>
                                 <th scope="col" className="px-6 py-3">Último Login</th>
                                 <th scope="col" className="px-6 py-3"><span className="sr-only">Acciones</span></th>
                             </tr>
@@ -135,7 +146,7 @@ const Users: React.FC = () => {
                     <Button type="submit">Agregar Rol</Button>
                  </form>
                  <ul className="space-y-2">
-                    {roles.map((role: UserRole) => ( // Se añade el tipo a 'role'
+                    {roles.map((role: UserRole) => (
                         <li key={role} className="flex justify-between items-center p-2 rounded-md bg-gray-50 dark:bg-gray-700">
                             <span className="text-gray-800 dark:text-gray-200">{role}</span>
                             {!defaultRoles.includes(role) && (
@@ -184,5 +195,5 @@ const Users: React.FC = () => {
         </div>
     );
 };
-// prueba
+
 export default Users;

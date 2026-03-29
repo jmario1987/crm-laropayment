@@ -1,5 +1,3 @@
-// Tu código original de Pipeline.tsx, con TODAS las correcciones
-
 import React, { useState, useMemo } from 'react';
 import { useLeads } from '../../hooks/useLeads';
 import { USER_ROLES } from '../../types';
@@ -17,18 +15,21 @@ const Pipeline: React.FC = () => {
   const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
   const isAdmin = user?.role === USER_ROLES.Admin;
   
-  // CORRECCIÓN: Se vuelve a añadir s.type === 'lost' para que la columna aparezca.
   const pipelineStages = useMemo(() => stages.filter(s => s.type === 'open' || s.type === 'lost').sort((a,b) => a.order - b.order), [stages]);
 
+  // --- CORRECCIÓN MAGISTRAL: LAS GAFAS DE LA CO-PROPIEDAD ---
   const visibleLeads = useMemo(() => {
     if (isManager) return allLeads;
-    return allLeads.filter(lead => lead.ownerId === user?.id);
+    
+    // Si eres vendedor, ves el prospecto si eres el dueño actual O si fuiste quien lo creó (SDR)
+    return allLeads.filter(lead => lead.ownerId === user?.id || lead.creatorId === user?.id);
   }, [allLeads, user, isManager]);
 
   const filteredLeadsForPipeline = useMemo(() => {
     if (!isManager || selectedSellerId === 'all') {
         return visibleLeads;
     }
+    // Si el manager usa el filtro, filtramos por quién lo está trabajando actualmente
     return visibleLeads.filter(lead => lead.ownerId === selectedSellerId);
   }, [visibleLeads, selectedSellerId, isManager]);
 
@@ -44,7 +45,6 @@ const Pipeline: React.FC = () => {
     e.preventDefault();
   };
   
-  // CORRECCIÓN: Lógica para guardar el historial de etapas.
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, newStatusId: string) => {
     e.preventDefault();
     const leadId = e.dataTransfer.getData('leadId');

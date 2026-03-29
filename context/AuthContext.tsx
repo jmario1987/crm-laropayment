@@ -2,14 +2,15 @@ import React, { createContext, useState, useEffect, ReactNode, useCallback } fro
 import { User } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { db, auth } from '../firebaseConfig';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+// IMPORTANTE: Agregamos doc y updateDoc aquí
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   updateCurrentUser: (updatedUser: Omit<User, 'password'>) => void;
 }
@@ -18,7 +19,7 @@ export const AuthContext = createContext<AuthContextType>({
   user: null,
   isAuthenticated: false,
   loading: true,
-  login: async () => false,
+  login: async () => ({ success: false }),
   logout: () => {},
   updateCurrentUser: () => {},
 });
@@ -34,7 +35,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const userDocSnap = await getDocs(query(collection(db, "users"), where("id", "==", firebaseUser.uid)));
         if (!userDocSnap.empty) {
             const userData = userDocSnap.docs[0].data() as User;
-            setUser(userData);
+            
+            if (userData.isActive === false) {
+                await signOut(auth);
+                setUser(null);
+            } else {
+                setUser(userData);
+            }
         } else {
             setUser(null);
         }
@@ -47,34 +54,62 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => unsubscribe();
   }, []);
 
-  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
-    setLoading(true); // Ponemos en estado de carga
+  const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; message?: string }> => {
+    setLoading(true);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
 
-      // Inmediatamente después del login, buscamos el perfil del usuario
       const userDocSnap = await getDocs(query(collection(db, "users"), where("id", "==", firebaseUser.uid)));
+      
       if (!userDocSnap.empty) {
-          const userData = userDocSnap.docs[0].data() as User;
-          setUser(userData); // Actualizamos el estado del usuario ANTES de redirigir
-          return true;
+          const userDoc = userDocSnap.docs[0];
+          const userData = userDoc.data() as User;
+          
+          if (userData.isActive === false) {
+              await signOut(auth); 
+              return { success: false, message: "Tu cuenta ha sido desactivada. Contacta al administrador." };
+          }
+
+          // --- AQUÍ ESTÁ LA MAGIA DEL ÚLTIMO LOGIN ---
+          // 1. Capturamos la fecha y hora actual en formato ISO
+          const currentLoginTime = new Date().toISOString();
+          
+          // 2. Apuntamos al documento de este usuario en Firestore
+          const userRef = doc(db, "users", userDoc.id); 
+          
+          // 3. Guardamos silenciosamente la fecha en la base de datos
+          await updateDoc(userRef, { lastLogin: currentLoginTime });
+
+          // 4. Actualizamos nuestro estado local para que la app sepa la fecha de inmediato
+          const updatedUserData = { ...userData, lastLogin: currentLoginTime };
+
+          setUser(updatedUserData);
+          return { success: true };
       }
-      // Si no se encuentra el perfil, el login falla
+      
       await signOut(auth);
-      return false;
-    } catch (error) {
+      return { success: false, message: "No se encontró el perfil de usuario." };
+    } catch (error: any) {
       console.error("Error en el inicio de sesión de Firebase:", error);
-      return false;
+      
+      let errorMessage = "Credenciales incorrectas.";
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+          errorMessage = "Correo o contraseña incorrectos.";
+      } else if (error.code === 'auth/too-many-requests') {
+          errorMessage = "Demasiados intentos fallidos. Intenta más tarde.";
+      }
+
+      return { success: false, message: errorMessage };
     } finally {
-        setLoading(false); // Quitamos el estado de carga
+        setLoading(false);
     }
   }, []);
 
   const logout = useCallback(async () => {
     try {
         await signOut(auth);
-        setUser(null); // Limpiamos el usuario localmente
+        setUser(null);
         navigate('/login');
     } catch (error) {
         console.error("Error al cerrar sesión:", error);

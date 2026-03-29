@@ -16,22 +16,28 @@ const LeadDetailItem: React.FC<{ icon: React.ReactNode, label: string, value: st
     <div className="flex items-start text-sm text-gray-700 dark:text-gray-300">
         <div className="w-5 mr-3 text-gray-400 dark:text-gray-500 flex-shrink-0 mt-0.5">{icon}</div>
         <span className="font-semibold mr-2">{label}:</span>
-        {/* Usamos ?? 'N/A' para mostrar N/A si value es null o undefined */}
         <div className={noTruncate ? 'whitespace-pre-wrap' : 'truncate'}>{value ?? 'N/A'}</div> 
     </div>
 );
-
 
 const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClose }) => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const { getUserById, products, getProviderById, getStageById, tags, allLeads } = useLeads();
 
     const handleEditSuccess = () => {
-        setIsEditModalOpen(false); // Solo cierra el modal de edición
+        setIsEditModalOpen(false);
     };
     
-    const ownerName = getUserById(lead.ownerId)?.name; 
-    const providerName = getProviderById(lead.providerId ?? '')?.name; // Usa ?? '' si providerId es null
+    // --- MAGIA DE LA CO-PROPIEDAD ---
+    // Extraemos el nombre del dueño actual...
+    const ownerName = getUserById(lead.ownerId)?.name;
+    // ...y también extraemos el nombre del SDR que lo cazó originalmente
+    const creatorName = lead.creatorId ? getUserById(lead.creatorId)?.name : null;
+    
+    // Validamos si este cliente "cambió de manos" para mostrar al SDR
+    const isCoOwned = lead.creatorId && lead.creatorId !== lead.ownerId;
+
+    const providerName = getProviderById(lead.providerId ?? '')?.name; 
     const stage = getStageById(lead.status);
 
     const interestedProducts = useMemo(() => {
@@ -53,7 +59,6 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
             l.id !== lead.id          
         );
     }, [allLeads, lead.email, lead.id]);
-
 
     if (!isOpen) return null;
 
@@ -88,7 +93,7 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                             <LeadDetailItem
                                 icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3v-1a1 1 0 00-1-1H9a1 1 0 00-1 1v1H5a1 1 0 110-2V4zm3 1a1 1 0 011-1h2a1 1 0 011 1v1a1 1 0 01-1 1H8a1 1 0 01-1-1V5zm1 5a1 1 0 00-1 1v1a1 1 0 102 0v-1a1 1 0 00-1-1zm5-1a1 1 0 100 2h.01a1 1 0 100-2H13zM9 9a1 1 0 100 2h.01a1 1 0 100-2H9zm5 1a1 1 0 00-1 1v1a1 1 0 102 0v-1a1 1 0 00-1-1z" clipRule="evenodd" /></svg>}
                                 label="Oficina Asignada"
-                                value={lead.assignedOffice} // Mostrará N/A si es null
+                                value={lead.assignedOffice} 
                             />
                             <LeadDetailItem
                                 icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>}
@@ -106,16 +111,27 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                                             </span>
                                         ))}
                                     </div>
-                                ) : undefined /* Usar undefined para N/A */} 
+                                ) : undefined} 
                             />
+                            
+                            {/* --- AQUÍ IMPRIMIMOS AL SDR SI EXISTE --- */}
+                            {isCoOwned && (
+                                <LeadDetailItem
+                                    icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>}
+                                    label="Creador (SDR)"
+                                    value={creatorName}
+                                />
+                            )}
+
                             <LeadDetailItem
-                                icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
-                                label="Vendedor"
+                                icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={isCoOwned ? "#3b82f6" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
+                                label={isCoOwned ? "Responsable Actual" : "Vendedor"}
                                 value={ownerName}
                             />
+                            
                             <LeadDetailItem
                                 icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zM10 4h4v2h-4V4z"/></svg>}
-                                label="Referido por" // O Desarrollador
+                                label="Referido por" 
                                 value={providerName}
                             />
                              <LeadDetailItem
@@ -125,7 +141,7 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                                     <ul className="list-disc list-inside">
                                         {interestedProducts.map(p => <li key={p.id}>{p.name}</li>)}
                                     </ul>
-                                ) : undefined /* Usar undefined para N/A */}
+                                ) : undefined}
                             />
                             <LeadDetailItem
                                 icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>}
@@ -155,7 +171,7 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                                     const relatedTags = (relatedLead.tagIds || [])
                                         .map(id => tags.find(t => t.id === id))
                                         .filter((t): t is NonNullable<typeof t> => t != null);
-
+                                    
                                     return (
                                         <div key={relatedLead.id} className="p-3 border rounded-lg bg-gray-50 dark:bg-gray-700/50 dark:border-gray-600">
                                             <h5 className="font-semibold text-gray-800 dark:text-gray-200">{relatedLead.name}</h5>
@@ -164,7 +180,7 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                                                 <div className="flex items-center">
                                                     <strong className="text-gray-600 dark:text-gray-400 mr-1">Sub-Etapa:</strong>
                                                     {relatedTags.length > 0 ? ( 
-                                                         <div className="flex flex-wrap gap-1">
+                                                        <div className="flex flex-wrap gap-1">
                                                             {relatedTags.map(t => (
                                                                 <span key={t.id} className="px-2 py-0.5 text-xs font-medium rounded-full text-white" style={{ backgroundColor: t.color }}>
                                                                     {t.name}
@@ -175,7 +191,8 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                                                 </div>
                                                 <div className="mt-1">
                                                     <strong className="text-gray-600 dark:text-gray-400">Productos:</strong>
-                                                    {relatedProducts.length > 0 ? ( <ul className="list-disc list-inside ml-4"> {relatedProducts.map(p => p && <li key={p.id}>{p.name}</li>)} </ul> ) : ( <span className="ml-1">N/A</span> )}
+                                                    {relatedProducts.length > 0 ?
+                                                    ( <ul className="list-disc list-inside ml-4"> {relatedProducts.map(p => p && <li key={p.id}>{p.name}</li>)} </ul> ) : ( <span className="ml-1">N/A</span> )}
                                                 </div>
                                             </div>
                                         </div>
@@ -184,7 +201,7 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                             </div>
                         </div>
                     )}
-                </div> {/* Cierre del div principal del contenido scrollable */}
+                </div> 
 
                 {/* --- BOTONES FIJOS ABAJO --- */}
                 <div className="flex justify-end space-x-2 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-b-lg sticky bottom-0">
@@ -201,12 +218,12 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                     title={`Editar ${lead.name}`}
                 >
                     <LeadForm 
-                        lead={lead} // Pasamos el lead actual para editar
+                        lead={lead} 
                         onSuccess={handleEditSuccess} 
                     /> 
                 </Modal>
             )}
-        </> // Cierre del Fragmento <>
+        </>
     );
 };
 

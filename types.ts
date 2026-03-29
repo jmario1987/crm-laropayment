@@ -15,6 +15,8 @@ export interface User {
   role: UserRole;
   password?: string;
   lastLogin?: string;
+  // --- NUEVO CAMPO: Para la inactivación lógica ("Soft Delete") ---
+  isActive?: boolean; 
 }
 
 // Definición del Estado del Prospecto (Etapa)
@@ -46,22 +48,34 @@ export type Lead = {
   createdAt: string;
   lastUpdate: string;
 
+  // --- NUEVOS CAMPOS: CO-PROPIEDAD Y REASIGNACIÓN ---
+  creatorId?: string; // El vendedor original que trajo al cliente (SDR)
+  reassignedAt?: string; // Fecha en que se pasó la batuta al Ejecutivo
+
   // --- CAMPOS OPCIONALES ---
-  // Cambiamos los opcionales de texto a string | null para claridad con Firestore
   providerId: string | null; 
-  productIds?: string[]; // Arrays pueden ser undefined o []
-  tagIds?: string[];     // Arrays pueden ser undefined o []
+  productIds?: string[]; 
+  tagIds?: string[];     
   statusHistory?: StatusHistoryEntry[];
   tagHistory?: TagHistoryEntry[];
-  notificationForSeller?: boolean; // Booleanos pueden ser undefined
-  notificationForManagerId: string | null; // Ya estaba bien
-  sellerHasViewedNotification?: boolean; // Booleanos pueden ser undefined
+  notificationForSeller?: boolean; 
+  notificationForManagerId: string | null; 
+  sellerHasViewedNotification?: boolean; 
   affiliateNumber: string | null; 
   billingHistory?: { [monthYear: string]: boolean };
-  clientStatus: 'Activo' | 'Inactivo' | null; // Permitir null
+  clientStatus: 'Activo' | 'Inactivo' | null; 
   _version?: number;
-  // --- NUEVO CAMPO AÑADIDO CORRECTAMENTE ---
   assignedOffice: string | null; 
+  
+  // --- NUEVO: MONTOS DE FACTURACIÓN MULTIMONEDA ---
+  billingAmounts?: { 
+    [month: string]: { 
+      montoCRC: number; 
+      comisionCRC: number; 
+      montoUSD: number; 
+      comisionUSD: number; 
+    } 
+  };
 };
 
 // Definición del Producto
@@ -76,7 +90,6 @@ export interface Provider {
   id: string;
   name: string;
   contactPerson: string;
-  // Cambiamos opcionales de texto a string | null
   email: string | null; 
   phone: string | null; 
 }

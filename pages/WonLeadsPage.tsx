@@ -1,13 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { useLeads } from '../hooks/useLeads';
 import { useAuth } from '../hooks/useAuth';
-// --- 1. Importar Product ---
 import { Lead, USER_ROLES, Product } from '../types'; 
 import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
 import BillingModal from '../components/billing/BillingModal';
 
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, writeBatch } from 'firebase/firestore'; 
 import { db } from '../firebaseConfig'; 
 
 type SortColumn = 'affiliateNumber' | 'name' | 'sellerName';
@@ -20,17 +19,16 @@ const getCurrentMonthYear = () => {
     return `${month}-${year}`;
 };
 
-// --- 2. 'WonLeadRow' AHORA ACEPTA 'selectedMonth' ---
 const WonLeadRow: React.FC<{ 
     lead: Lead; 
     sellerName?: string; 
     onBillingClick: (lead: Lead) => void;
     isManager: boolean; 
-    selectedMonth: string; // <-- PROP PARA EL MES
+    selectedMonth: string;
 }> = ({ lead, sellerName, onBillingClick, isManager, selectedMonth }) => { 
     
-    // --- 3. USA 'selectedMonth' PARA EL CHECK ---
     const currentMonthBilled = lead.billingHistory?.[selectedMonth] === true;
+    const currentAmounts = lead.billingAmounts?.[selectedMonth];
 
     return (
         <tr className={`bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 ${lead.clientStatus === 'Inactivo' ? 'opacity-50' : ''}`}>
@@ -44,7 +42,23 @@ const WonLeadRow: React.FC<{
             </td>
             <td className="px-6 py-4 text-center">
                 {currentMonthBilled ? (
-                    <span className="text-green-500 font-bold text-2xl">✓</span>
+                    <div className="flex flex-col items-center">
+                        <span className="text-green-500 font-bold text-2xl leading-none">✓</span>
+                        {currentAmounts && (
+                            <div className="flex flex-col items-center mt-1 space-y-1">
+                                {(currentAmounts.montoCRC > 0) && (
+                                    <span className="text-[10px] text-gray-700 dark:text-gray-300 font-bold bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md border border-gray-200 dark:border-gray-600">
+                                        {new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(currentAmounts.montoCRC)}
+                                    </span>
+                                )}
+                                {(currentAmounts.montoUSD > 0) && (
+                                    <span className="text-[10px] text-blue-700 dark:text-blue-300 font-bold bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800">
+                                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(currentAmounts.montoUSD)}
+                                    </span>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 ) : (
                     <span className="text-red-500 font-bold text-xl">×</span>
                 )}
@@ -61,25 +75,21 @@ const WonLeadRow: React.FC<{
 };
 
 const WonLeadsPage: React.FC = () => {
-    // --- 4. OBTENER 'products' DEL HOOK ---
     const { allLeads, stages, getUserById, providers, getProviderById, dispatch, products } = useLeads();
     const { user } = useAuth();
     const [selectedProviderId, setSelectedProviderId] = useState('all');
-    // --- 5. AÑADIR ESTADO PARA FILTRO DE PRODUCTOS ---
     const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
     const [includeInactive, setIncludeInactive] = useState(false);
     const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthYear());
     const [billingLead, setBillingLead] = useState<Lead | null>(null);
-    
+    const [isUploading, setIsUploading] = useState(false);
     const [sortColumn, setSortColumn] = useState<SortColumn>('affiliateNumber'); 
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc'); 
 
     const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
 
-    // --- 6. AÑADIR OPCIONES PARA FILTRO DE PRODUCTOS ---
     const productOptions = useMemo(() => products.map(p => ({ value: p.id, label: p.name })), [products]);
 
-    // --- 7. ACTUALIZAR LÓGICA DE 'wonLeads' ---
     const wonLeads = useMemo(() => {
         const wonStageIds = stages.filter(s => s.type === 'won').map(s => s.id);
         let leads = allLeads.filter(lead => wonStageIds.includes(lead.status));
@@ -93,7 +103,6 @@ const WonLeadsPage: React.FC = () => {
             if (!includeInactive) {
                 leads = leads.filter(lead => lead.clientStatus !== 'Inactivo');
             }
-            // --- Añadir filtro de productos ---
             if (selectedProducts.length > 0) {
                  leads = leads.filter(lead => 
                     lead.productIds && lead.productIds.some(prodId => selectedProducts.includes(prodId))
@@ -104,7 +113,6 @@ const WonLeadsPage: React.FC = () => {
         }
         
         leads.sort((a, b) => {
-            // ... (lógica de ordenamiento sin cambios) ...
             let valA: string | number | undefined;
             let valB: string | number | undefined;
             if (sortColumn === 'affiliateNumber') {
@@ -125,10 +133,9 @@ const WonLeadsPage: React.FC = () => {
         });
         
         return leads;
-    }, [allLeads, stages, user, selectedProviderId, includeInactive, sortColumn, sortDirection, getUserById, selectedProducts]); // <-- Añadida dependencia
+    }, [allLeads, stages, user, selectedProviderId, includeInactive, sortColumn, sortDirection, getUserById, selectedProducts]); 
     
     const handleSaveBilling = async (updatedData: Partial<Lead>) => {
-        // ... (código sin cambios) ...
         if (!billingLead) return;
         try {
             const leadRef = doc(db, 'leads', billingLead.id);
@@ -141,7 +148,136 @@ const WonLeadsPage: React.FC = () => {
         }
     };
 
-    // --- 8. AÑADIR 'getProductNames' Y ACTUALIZAR EXPORTACIÓN ---
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        const reader = new FileReader();
+
+        reader.onload = async (evt) => {
+            try {
+                const bstr = evt.target?.result;
+                const workbook = XLSX.read(bstr, { type: 'binary' });
+                const wsname = workbook.SheetNames[0];
+                const ws = workbook.Sheets[wsname];
+                const data = XLSX.utils.sheet_to_json(ws);
+                
+                type MontosMoneda = { montoCRC: number, comisionCRC: number, montoUSD: number, comisionUSD: number };
+                const facturadosExcel = new Map<string, MontosMoneda>();
+                
+                data.forEach((row: any) => {
+                    if (row['Código afiliado']) {
+                        const num = String(row['Código afiliado']).trim();
+                        const codMoneda = String(row['Cod. moneda']).trim();
+                        
+                        const rawMonto = row['Monto'];
+                        // --- AQUÍ ESTÁ EL CAMBIO CLAVE: Tomamos 'Comisión ADQ' ---
+                        const rawComision = row['Comisión ADQ']; 
+                        
+                        const monto = typeof rawMonto === 'number' ? rawMonto : parseFloat(String(rawMonto).replace(/,/g, '')) || 0;
+                        const comision = typeof rawComision === 'number' ? rawComision : parseFloat(String(rawComision).replace(/,/g, '')) || 0;
+
+                        if (!facturadosExcel.has(num)) {
+                            facturadosExcel.set(num, { montoCRC: 0, comisionCRC: 0, montoUSD: 0, comisionUSD: 0 });
+                        }
+
+                        const existing = facturadosExcel.get(num)!;
+                        
+                        if (codMoneda === '1') {
+                            existing.montoCRC += monto;
+                            existing.comisionCRC += comision;
+                        } else if (codMoneda === '2') {
+                            existing.montoUSD += monto;
+                            existing.comisionUSD += comision;
+                        }
+                    }
+                });
+
+                const leadsFacturaron: { lead: Lead, montos: MontosMoneda }[] = [];
+                const leadsNoFacturaron: Lead[] = [];
+                const matchedKeys = new Set<string>();
+
+                wonLeads.forEach(lead => {
+                    let matchFound = false;
+                    let acumuladoMonedas: MontosMoneda = { montoCRC: 0, comisionCRC: 0, montoUSD: 0, comisionUSD: 0 };
+
+                    if (lead.affiliateNumber) {
+                        const afiliadosDelCRM = lead.affiliateNumber.split(/[-/,]+/).map(n => n.trim()).filter(n => n !== '');
+                        
+                        afiliadosDelCRM.forEach(numCrm => {
+                            if (facturadosExcel.has(numCrm)) {
+                                matchFound = true;
+                                matchedKeys.add(numCrm);
+                                const datos = facturadosExcel.get(numCrm)!;
+                                
+                                acumuladoMonedas.montoCRC += datos.montoCRC;
+                                acumuladoMonedas.comisionCRC += datos.comisionCRC;
+                                acumuladoMonedas.montoUSD += datos.montoUSD;
+                                acumuladoMonedas.comisionUSD += datos.comisionUSD;
+                            }
+                        });
+                    }
+
+                    if (matchFound) {
+                        leadsFacturaron.push({ lead, montos: acumuladoMonedas });
+                    } else {
+                        leadsNoFacturaron.push(lead);
+                    }
+                });
+
+                const huerfanos = Array.from(facturadosExcel.keys()).filter(k => !matchedKeys.has(k));
+
+                const confirmMessage = `Resumen de Conciliación (${selectedMonth}):\n\n` +
+                    `✅ Facturaron: ${leadsFacturaron.length} clientes (Con multimoneda CRC/USD).\n` +
+                    `❌ No facturaron en este Excel: ${leadsNoFacturaron.length} clientes.\n` +
+                    `⚠️ Afiliados en Excel NO registrados: ${huerfanos.length} códigos.\n\n` +
+                    `¿Deseas guardar esta actualización?`;
+
+                if (window.confirm(confirmMessage)) {
+                    const batch = writeBatch(db);
+
+                    leadsFacturaron.forEach(({lead, montos}) => {
+                        const leadRef = doc(db, 'leads', lead.id);
+                        const newBillingHistory = { ...lead.billingHistory, [selectedMonth]: true };
+                        const newBillingAmounts = { ...lead.billingAmounts, [selectedMonth]: montos };
+                        
+                        batch.update(leadRef, { 
+                            billingHistory: newBillingHistory,
+                            billingAmounts: newBillingAmounts
+                        });
+
+                        dispatch({ 
+                            type: 'UPDATE_LEAD', 
+                            payload: { ...lead, billingHistory: newBillingHistory, billingAmounts: newBillingAmounts } 
+                        });
+                    });
+
+                    leadsNoFacturaron.forEach(lead => {
+                        if (lead.billingHistory && lead.billingHistory[selectedMonth]) {
+                            const leadRef = doc(db, 'leads', lead.id);
+                            const newBillingHistory = { ...lead.billingHistory };
+                            delete newBillingHistory[selectedMonth];
+                            batch.update(leadRef, { billingHistory: newBillingHistory });
+                            dispatch({ type: 'UPDATE_LEAD', payload: { ...lead, billingHistory: newBillingHistory } });
+                        }
+                    });
+
+                    await batch.commit();
+                    alert("¡Facturación y montos (CRC/USD) guardados exitosamente!");
+                }
+
+            } catch (error) {
+                console.error("Error procesando Excel:", error);
+                alert("Hubo un error al procesar el Excel. Revisa el archivo.");
+            } finally {
+                setIsUploading(false);
+            }
+        };
+
+        reader.readAsBinaryString(file);
+    };
+
     const getProductNames = (productIds?: string[]): string => {
         if (!productIds || productIds.length === 0) return 'N/A';
         return productIds
@@ -153,18 +289,27 @@ const WonLeadsPage: React.FC = () => {
     const handleExportExcel = () => {
         const leadsForReport = wonLeads.filter(lead => lead.billingHistory?.[selectedMonth] === true);
 
-        const dataToExport = leadsForReport.map(lead => ({
-            'Nº Afiliado': lead.affiliateNumber || 'N/A',
-            'Nombre Cliente': lead.name,
-            'Empresa': lead.company,
-            'Vendedor Asignado': getUserById(lead.ownerId)?.name || 'N/A',
-            'Productos': getProductNames(lead.productIds), // <-- Columna añadida
-            'Referido por': getProviderById(lead.providerId || '')?.name || 'N/A',
-        }));
+        const dataToExport = leadsForReport.map(lead => {
+            const montosDelMes = lead.billingAmounts?.[selectedMonth] || { montoCRC: 0, comisionCRC: 0, montoUSD: 0, comisionUSD: 0 };
+            
+            return {
+                'Nº Afiliado': lead.affiliateNumber || 'N/A',
+                'Nombre Cliente': lead.name,
+                'Empresa': lead.company,
+                'Vendedor Asignado': getUserById(lead.ownerId)?.name || 'N/A',
+                'Productos': getProductNames(lead.productIds),
+                'Referido por': getProviderById(lead.providerId || '')?.name || 'N/A',
+                'Monto (CRC)': montosDelMes.montoCRC || 0,
+                'Comisión (CRC)': montosDelMes.comisionCRC || 0,
+                'Monto (USD)': montosDelMes.montoUSD || 0,
+                'Comisión (USD)': montosDelMes.comisionUSD || 0,
+            };
+        });
         
         const headers: string[] = [ 
             'Nº Afiliado', 'Nombre Cliente', 'Empresa', 
-            'Vendedor Asignado', 'Productos', 'Referido por'
+            'Vendedor Asignado', 'Productos', 'Referido por',
+            'Monto (CRC)', 'Comisión (CRC)', 'Monto (USD)', 'Comisión (USD)'
         ];
 
         const worksheet = XLSX.utils.json_to_sheet(dataToExport, { header: headers });
@@ -174,7 +319,6 @@ const WonLeadsPage: React.FC = () => {
     };
     
     const monthOptions = useMemo(() => {
-        // ... (código sin cambios) ...
         const options = [];
         let date = new Date();
         for (let i = 0; i < 6; i++) {
@@ -187,7 +331,6 @@ const WonLeadsPage: React.FC = () => {
     }, []);
 
     const handleSort = (column: SortColumn) => {
-        // ... (código sin cambios) ...
         if (column === sortColumn) {
             setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
         } else {
@@ -197,7 +340,6 @@ const WonLeadsPage: React.FC = () => {
     };
 
     const renderSortArrow = (column: SortColumn) => {
-        // ... (código sin cambios) ...
         if (column !== sortColumn) return null; 
         return sortDirection === 'asc' ? ' ↑' : ' ↓';
     };
@@ -222,11 +364,9 @@ const WonLeadsPage: React.FC = () => {
                                     </select>
                                 </div>
                                 
-                                {/* --- 9. AÑADIMOS EL NUEVO FILTRO DE PRODUCTO --- */}
                                 <div className="w-full sm:w-auto">
-                                    {/* Usamos un select simple por ahora para mantener la estética */}
                                     <select 
-                                        value={selectedProducts[0] || 'all'} // Asume selección simple
+                                        value={selectedProducts[0] || 'all'} 
                                         onChange={(e) => setSelectedProducts(e.target.value === 'all' ? [] : [e.target.value])} 
                                         className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                     >
@@ -239,6 +379,18 @@ const WonLeadsPage: React.FC = () => {
                                     <input type="checkbox" id="include-inactive" checked={includeInactive} onChange={(e) => setIncludeInactive(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"/>
                                     <label htmlFor="include-inactive" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">Incluir Inactivos</label>
                                 </div>
+
+                                <label className="cursor-pointer bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium text-sm transition-colors flex items-center justify-center shadow-sm whitespace-nowrap">
+                                    {isUploading ? 'Leyendo...' : 'Importar Archivo'}
+                                    <input 
+                                        type="file" 
+                                        accept=".xlsx, .xls, .csv" 
+                                        className="hidden" 
+                                        onChange={handleFileUpload} 
+                                        onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+                                        disabled={isUploading}
+                                    />
+                                </label>
                             </>
                         )}
                         <Button onClick={handleExportExcel}>Exportar Reporte</Button>
@@ -259,7 +411,6 @@ const WonLeadsPage: React.FC = () => {
                                 <th scope="col" className="px-6 py-3">Nombre</th>
                                 <th scope="col" className="px-6 py-3">Vendedor</th>
                                 <th scope="col" className="px-6 py-3">Estado Cliente</th>
-                                {/* --- 10. TÍTULO DE COLUMNA DINÁMICO (CORREGIDO) --- */}
                                 <th scope="col" className="px-6 py-3 text-center">Facturación ({selectedMonth})</th>
                                 <th scope="col" className="px-6 py-3 text-center">Acciones</th>
                             </tr>
@@ -267,14 +418,13 @@ const WonLeadsPage: React.FC = () => {
                         <tbody>
                             {wonLeads.map(lead => {
                                 const seller = getUserById(lead.ownerId);
-                                // --- 11. PASAMOS 'selectedMonth' A CADA FILA ---
                                 return <WonLeadRow 
                                             key={lead.id} 
                                             lead={lead} 
                                             sellerName={seller?.name} 
                                             onBillingClick={setBillingLead} 
                                             isManager={isManager} 
-                                            selectedMonth={selectedMonth} // <-- PROP AÑADIDA
+                                            selectedMonth={selectedMonth} 
                                         />;
                             })}
                         </tbody>

@@ -2,12 +2,10 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import Button from '../components/ui/Button';
-// --- RUTA CORREGIDA AQUÍ ---
 import Spinner from '../components/ui/Spinner';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 
-// --- IMPORTACIÓN DEL LOGO ---
 import companyLogo from '../assets/logo-laro.png';
 
 const Login: React.FC = () => {
@@ -25,12 +23,18 @@ const Login: React.FC = () => {
     setError('');
     setMessage('');
     setLoading(true);
-    const success = await login(email, password);
+    
+    // --- AQUÍ ESTÁ LA CORRECCIÓN CLAVE ---
+    // Desestructuramos el objeto inteligente que ahora nos manda el AuthContext
+    const response = await login(email, password);
+    
     setLoading(false);
-    if (success) {
+    
+    if (response.success) {
       navigate('/dashboard');
     } else {
-      setError('Credenciales incorrectas. Por favor, intente de nuevo.');
+      // Si falla, mostramos el mensaje de error EXACTO que nos mandó el guardia de seguridad
+      setError(response.message || 'Error al iniciar sesión. Por favor, intente de nuevo.');
     }
   };
 
@@ -86,8 +90,8 @@ const Login: React.FC = () => {
                     <input id="email-reset" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClasses} placeholder="Escribe tu correo electrónico" required />
                 </div>
                 
-                {error && <p className="text-sm text-red-500 text-center">{error}</p>}
-                {message && <p className="text-sm text-green-500 text-center">{message}</p>}
+                {error && <p className="text-sm font-medium text-red-500 bg-red-50 p-3 rounded-md text-center">{error}</p>}
+                {message && <p className="text-sm font-medium text-green-600 bg-green-50 p-3 rounded-md text-center">{message}</p>}
 
                 <div>
                     <Button type="submit" className="w-full" disabled={loading}>
@@ -117,7 +121,12 @@ const Login: React.FC = () => {
                   <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={inputClasses} placeholder="••••••••" required />
                 </div>
 
-                {error && <p className="text-sm text-red-500 text-center">{error}</p>}
+                {/* --- MENSAJE DE ERROR MEJORADO VISUALMENTE --- */}
+                {error && (
+                    <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded-md">
+                        <p className="text-sm font-medium text-red-700 text-center">{error}</p>
+                    </div>
+                )}
                 
                 <div>
                   <Button className="w-full" type="submit" disabled={loading}>
