@@ -1,5 +1,3 @@
-// components/layout/Header.tsx (Versión Final y Completa)
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import Button from '../ui/Button';
@@ -27,12 +25,16 @@ const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout, onM
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
+  // --- EL BUSCADOR MÁGICO UNIVERSAL ---
   useEffect(() => {
     if (searchQuery.length > 1) {
       const lowerCaseQuery = searchQuery.toLowerCase();
       const filtered = allLeads.filter(lead =>
-        lead.name.toLowerCase().includes(lowerCaseQuery) ||
-        lead.company.toLowerCase().includes(lowerCaseQuery)
+        (lead.name?.toLowerCase() || '').includes(lowerCaseQuery) ||
+        (lead.company?.toLowerCase() || '').includes(lowerCaseQuery) ||
+        (lead.affiliateNumber?.toLowerCase() || '').includes(lowerCaseQuery) || // ¡Ahora busca por Afiliado!
+        (lead.email?.toLowerCase() || '').includes(lowerCaseQuery) ||           // ¡Ahora busca por Correo!
+        (lead.phone?.toLowerCase() || '').includes(lowerCaseQuery)              // ¡Ahora busca por Teléfono!
       );
       setSearchResults(filtered);
     } else {
@@ -66,17 +68,12 @@ const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout, onM
 
   const firstName = userName ? userName.split(' ')[0] : 'Usuario';
   
-  // --- FUNCIÓN ACTUALIZADA PARA LIMPIAR NOTIFICACIONES ---
   const handleLeadSelect = (lead: Lead) => {
-    // Si el usuario es un Vendedor y el prospecto tiene una notificación para él...
     if (user?.role === USER_ROLES.Vendedor && lead.notificationForSeller) {
-      // ...la marcamos como leída para que la alerta desaparezca.
       const updatedLead = { ...lead, notificationForSeller: false };
       dispatch({ type: 'UPDATE_LEAD', payload: updatedLead });
     }
-    // Si el usuario es un Manager y el prospecto tiene una notificación de respuesta...
     if ((user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor) && lead.sellerHasViewedNotification) {
-      // ...la marcamos como leída.
       const updatedLead = { ...lead, sellerHasViewedNotification: false, notificationForManagerId: '' };
       dispatch({ type: 'UPDATE_LEAD', payload: updatedLead });
     }
@@ -100,30 +97,41 @@ const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout, onM
           <div className="hidden md:block relative w-64" ref={searchContainerRef}>
               <input
                   type="text"
-                  placeholder="Buscar..."
+                  placeholder="Buscar prospecto..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onFocus={() => setIsSearchFocused(true)}
                   className="w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
               />
               {isSearchFocused && searchQuery && (
-                  <div className="absolute mt-1 w-full bg-white dark:bg-gray-800 rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
+                  <div className="absolute mt-1 w-full bg-white dark:bg-gray-800 rounded-md shadow-lg z-50 max-h-80 overflow-y-auto border border-gray-100 dark:border-gray-700">
                       {searchResults.length > 0 ? (
                           <ul>
                               {searchResults.map((lead: Lead) => (
                                   <li 
                                       key={lead.id} 
                                       onClick={() => handleLeadSelect(lead)}
-                                      className="px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                                      className="px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 border-b last:border-0 border-gray-100 dark:border-gray-700"
                                   >
-                                      <p className="font-semibold text-gray-800 dark:text-gray-100">{lead.name}</p>
-                                      <p className="text-sm text-gray-500 dark:text-gray-400">{getStageById(lead.status)?.name || lead.status}</p>
+                                      <div className="flex justify-between items-start">
+                                        <p className="font-semibold text-gray-800 dark:text-gray-100 truncate pr-2">{lead.name}</p>
+                                        {/* Etiqueta visual para el número de afiliado en los resultados */}
+                                        {lead.affiliateNumber && (
+                                            <span className="inline-block px-1.5 py-0.5 text-[10px] font-mono font-bold bg-blue-100 text-blue-800 rounded flex-shrink-0">
+                                                {lead.affiliateNumber}
+                                            </span>
+                                        )}
+                                      </div>
+                                      <div className="flex justify-between items-center mt-1">
+                                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{lead.company || lead.email}</p>
+                                          <p className="text-[10px] font-medium text-gray-400 uppercase">{getStageById(lead.status)?.name || lead.status}</p>
+                                      </div>
                                   </li>
                               ))}
                           </ul>
                       ) : (
-                          <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                              No se encontraron resultados.
+                          <div className="px-4 py-4 text-sm text-center text-gray-500 dark:text-gray-400">
+                              No se encontraron resultados para "<span className="font-semibold">{searchQuery}</span>".
                           </div>
                       )}
                   </div>
