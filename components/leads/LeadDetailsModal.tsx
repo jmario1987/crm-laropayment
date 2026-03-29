@@ -22,25 +22,25 @@ const LeadDetailItem: React.FC<{ icon: React.ReactNode, label: string, value: st
 
 const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClose }) => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false); // --- ESTADO DE DUPLICACIÓN ---
     const { getUserById, products, getProviderById, getStageById, tags, allLeads } = useLeads();
 
-    // --- MAGIA DE NAVEGACIÓN INTERNA ---
-    // Guardamos el ID del lead que estamos viendo actualmente
     const [activeLeadId, setActiveLeadId] = useState(lead.id);
 
-    // Si abren el modal con un lead distinto desde afuera, reiniciamos el visor
     useEffect(() => {
         setActiveLeadId(lead.id);
     }, [lead.id]);
 
-    // Buscamos la versión más fresca del lead activo
     const activeLead = allLeads.find(l => l.id === activeLeadId) || lead;
 
     const handleEditSuccess = () => {
         setIsEditModalOpen(false);
     };
+
+    const handleDuplicateSuccess = () => {
+        setIsDuplicateModalOpen(false);
+    };
     
-    // Usamos activeLead en lugar de lead para todo el cálculo
     const ownerName = getUserById(activeLead.ownerId)?.name;
     const creatorName = activeLead.creatorId ? getUserById(activeLead.creatorId)?.name : null;
     const isCoOwned = activeLead.creatorId && activeLead.creatorId !== activeLead.ownerId;
@@ -218,10 +218,10 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                     )}
                 </div> 
 
-                {/* --- BOTONES FIJOS ABAJO --- */}
-                <div className="flex justify-end space-x-2 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-b-xl sticky bottom-0 z-10">
+                {/* --- BOTONES FIJOS ABAJO (CON EL NUEVO BOTÓN DE DUPLICAR) --- */}
+                <div className="flex justify-end space-x-3 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-b-xl sticky bottom-0 z-10">
                     <Button variant="secondary" onClick={onClose}>Cerrar</Button>
-                    {/* Al darle a Editar, se edita el lead ACTIVO, no necesariamente el que abrió el modal primero */}
+                    <Button variant="secondary" onClick={() => setIsDuplicateModalOpen(true)}>Duplicar</Button>
                     <Button onClick={() => setIsEditModalOpen(true)}>Editar Prospecto</Button>
                 </div>
             </Modal>
@@ -236,6 +236,20 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                     <LeadForm 
                         lead={activeLead} 
                         onSuccess={handleEditSuccess} 
+                    /> 
+                </Modal>
+            )}
+
+            {/* --- MODAL DE DUPLICACIÓN --- */}
+            {isDuplicateModalOpen && (
+                <Modal 
+                    isOpen={isDuplicateModalOpen} 
+                    onClose={() => setIsDuplicateModalOpen(false)} 
+                    title={`Duplicar a ${activeLead.name}`}
+                >
+                    <LeadForm 
+                        duplicateFrom={activeLead} 
+                        onSuccess={handleDuplicateSuccess} 
                     /> 
                 </Modal>
             )}

@@ -9,10 +9,11 @@ import { db } from '../../firebaseConfig';
 
 interface LeadFormProps {
   lead?: Lead;
+  duplicateFrom?: Lead; // --- NUEVO: Propiedad para clonar prospectos ---
   onSuccess: () => void;
 }
 
-const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
+const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) => {
   const { dispatch, sellers, products, providers, stages, tags, allLeads } = useLeads(); 
   const { user } = useAuth();
   
@@ -59,6 +60,22 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
         affiliateNumber: lead.affiliateNumber || '',
         assignedOffice: lead.assignedOffice || '', 
       });
+    } else if (duplicateFrom) {
+      // --- LÓGICA DE CLONACIÓN ---
+      setFormData({
+        name: duplicateFrom.name || '',
+        company: duplicateFrom.company || '',
+        email: duplicateFrom.email || '',
+        phone: duplicateFrom.phone || '',
+        status: defaultStatus, // Lo regresamos al inicio del pipeline
+        ownerId: duplicateFrom.ownerId || initialOwnerId || '', 
+        productIds: [], // En blanco para que elijan el nuevo producto
+        providerId: duplicateFrom.providerId || '', 
+        newObservation: '', 
+        tagId: '', // Sin sub-etapa
+        affiliateNumber: '', // Sin número de afiliado
+        assignedOffice: duplicateFrom.assignedOffice || '', 
+      });
     } else {
       setFormData({
         name: '', 
@@ -75,7 +92,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
         assignedOffice: ''
       });
     }
-  }, [lead, stages, user, sellers, defaultStatus]); 
+  }, [lead, duplicateFrom, stages, user, sellers, defaultStatus]); 
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -95,6 +112,18 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
     if (!user) {
       alert("Error: Usuario no autenticado.");
       return;
+    }
+
+    if (selectedStage?.type === 'won') {
+        const afNum = formData.affiliateNumber || '';
+        if (afNum.length !== 10) {
+            alert("⚠️ Error: El número de afiliado debe tener exactamente 10 dígitos.");
+            return;
+        }
+        if (!afNum.startsWith('0')) {
+            alert("⚠️ Error: El número de afiliado debe comenzar siempre con un cero (0).");
+            return;
+        }
     }
 
     const isNewLead = !lead;
@@ -302,8 +331,30 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
 
             {selectedStage && selectedStage.type === 'won' && ( 
                 <div className="md:col-span-2 bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800"> 
-                    <label htmlFor="affiliateNumber" className="block text-sm font-bold text-green-800 dark:text-green-400 mb-1">Número de Afiliado (Requerido para Producción)</label> 
-                    <input type="text" name="affiliateNumber" id="affiliateNumber" value={formData.affiliateNumber} onChange={handleChange} className={inputClass} placeholder="Introduce el número de afiliado" /> 
+                    <label htmlFor="affiliateNumber" className="block text-sm font-bold text-green-800 dark:text-green-400 mb-1">
+                        Número de Afiliado (Requerido para Producción) *
+                    </label> 
+                    <input 
+                        type="text" 
+                        name="affiliateNumber" 
+                        id="affiliateNumber" 
+                        value={formData.affiliateNumber} 
+                        onChange={(e) => {
+                            const soloNumeros = e.target.value.replace(/\D/g, '').slice(0, 10);
+                            setFormData(prev => ({ ...prev, affiliateNumber: soloNumeros }));
+                        }} 
+                        className={inputClass} 
+                        placeholder="Ej: 0123456789" 
+                        required 
+                    /> 
+                    <div className="flex justify-between items-center mt-1">
+                        <p className="text-xs text-green-700 dark:text-green-500 font-medium">
+                            Debe comenzar con 0 y tener exactamente 10 dígitos.
+                        </p>
+                        <p className={`text-xs font-bold ${formData.affiliateNumber.length === 10 ? 'text-green-600' : 'text-red-500'}`}>
+                            {formData.affiliateNumber.length}/10
+                        </p>
+                    </div>
                 </div> 
             )}
 
@@ -347,10 +398,10 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, onSuccess }) => {
         <textarea name="newObservation" id="newObservation" value={formData.newObservation} onChange={handleChange} rows={3} className="mt-1 block w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm" placeholder="Escribe aquí la nueva nota, minutas de reunión o estatus..."/>
       </div>
       
-      {/* --- BOTÓN DE GUARDAR FIJO --- */}
+      {/* --- BOTÓN DE GUARDAR DINÁMICO --- */}
       <div className="flex justify-end pt-4 pb-2 sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-2 z-20">
         <Button type="submit" className="bg-primary-600 hover:bg-primary-700 text-white w-full sm:w-auto text-lg px-8 py-2">
-          {lead ? 'Guardar Cambios' : 'Crear Prospecto'}
+          {lead ? 'Guardar Cambios' : duplicateFrom ? 'Crear Prospecto Duplicado' : 'Crear Prospecto'}
         </Button>
       </div>
     </form>
