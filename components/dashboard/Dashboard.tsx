@@ -45,8 +45,12 @@ const Dashboard: React.FC = () => {
       let totalComisionUSD = 0;
 
       filteredLeadsForStats.forEach(lead => {
+          // --- AQUÍ ESTÁ EL CANDADO: Verificamos si realmente se facturó este mes ---
+          const isBilledThisMonth = lead.billingHistory?.[currentMonthYear] === true;
           const monthData = lead.billingAmounts?.[currentMonthYear];
-          if (monthData) {
+          
+          // Solo sumamos el dinero SI existen los datos Y ADEMÁS el check de facturado está activo
+          if (monthData && isBilledThisMonth) {
               totalMontoCRC += (monthData.montoCRC || 0);
               totalMontoUSD += (monthData.montoUSD || 0);
               totalComisionCRC += (monthData.comisionCRC || 0);
@@ -60,13 +64,11 @@ const Dashboard: React.FC = () => {
       };
   }, [filteredLeadsForStats, currentMonthYear]);
 
-  // --- NUEVA LÓGICA: EXTRAER ÚLTIMOS 5 CLIENTES GANADOS ---
   const recentWonLeads = useMemo(() => {
     return filteredLeadsForStats
         .filter(lead => wonStageIds.includes(lead.status))
-        // Ordenamos por la fecha de última actualización (del más nuevo al más viejo)
         .sort((a, b) => new Date(b.lastUpdate).getTime() - new Date(a.lastUpdate).getTime())
-        .slice(0, 5); // Cortamos la lista a solo 5 resultados
+        .slice(0, 5); 
   }, [filteredLeadsForStats, wonStageIds]);
 
   const getDashboardTitle = () => {
@@ -134,10 +136,7 @@ const Dashboard: React.FC = () => {
         />
       </div>
 
-      {/* --- NUEVA ESTRUCTURA DIVIDIDA EN DOS COLUMNAS --- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Columna Izquierda: Gráfico (Ocupa 2 espacios) */}
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
             <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">Prospectos por Etapa</h3>
             <div className="h-80">
@@ -145,7 +144,6 @@ const Dashboard: React.FC = () => {
             </div>
         </div>
 
-        {/* Columna Derecha: Últimos Ganados (Ocupa 1 espacio) */}
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md flex flex-col h-full">
             <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white flex items-center gap-2">
                 <span className="text-yellow-500">🏆</span> Últimos Cierres
