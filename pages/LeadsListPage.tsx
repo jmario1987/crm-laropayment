@@ -8,7 +8,6 @@ import * as XLSX from 'xlsx';
 import Button from '../components/ui/Button';
 import { useClickOutside } from '../hooks/useClickOutside';
 import BulkImportModal from '../components/pipeline/BulkImportModal'; 
-// --- NUEVO: Importamos el Modal Interactivo ---
 import LeadDetailsModal from '../components/leads/LeadDetailsModal';
 
 const LeadsListPage: React.FC = () => {
@@ -26,7 +25,6 @@ const LeadsListPage: React.FC = () => {
     const [openMenu, setOpenMenu] = useState<string | null>(null);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     
-    // --- NUEVO ESTADO: Controla qué lead se abre en el Modal ---
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
     const filtersRef = useClickOutside<HTMLDivElement>(() => {
@@ -150,13 +148,17 @@ const LeadsListPage: React.FC = () => {
     const handleExportExcel = () => {
         const dataToExport = sortedLeads.map((lead: Lead) => {
             const currentTag = getTagInfo(lead.tagIds?.[0]);
+            const ownerName = users.find(u => u.id === lead.ownerId)?.name || 'N/A';
+            const creatorName = lead.creatorId && lead.creatorId !== lead.ownerId ? users.find(u => u.id === lead.creatorId)?.name : null;
+
             return {
                 'Prospecto': lead.name,
                 'Empresa': lead.company,
                 'Etapa': getStageById(lead.status)?.name || 'N/A',
                 'Sub-Etapa': currentTag?.name || 'N/A',
                 'Productos': getProductNames(lead.productIds), 
-                'Vendedor': users.find(u => u.id === lead.ownerId)?.name || 'N/A',
+                'SDR (Creador)': creatorName || '-', // --- NUEVO EN EXCEL ---
+                'Ejecutivo Asignado': ownerName,
                 'Proveedor': providers.find(p => p.id === lead.providerId)?.name || 'N/A', 
                 'Fecha de Ingreso': new Date(lead.createdAt).toLocaleDateString(),
                 'Días en Proceso': Math.floor((new Date().getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24)),
@@ -166,7 +168,7 @@ const LeadsListPage: React.FC = () => {
         
         const headers: string[] = [
             'Prospecto', 'Empresa', 'Etapa', 'Sub-Etapa', 'Productos', 
-            'Vendedor', 'Proveedor', 'Fecha de Ingreso', 
+            'SDR (Creador)', 'Ejecutivo Asignado', 'Proveedor', 'Fecha de Ingreso', 
             'Días en Proceso', 'Días en Sub-Etapa'
         ];
         
@@ -183,7 +185,6 @@ const LeadsListPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            {/* --- SECCIÓN 1: FILTROS MÁS COMPACTOS --- */}
             {user && (
                 <div ref={filtersRef} className={`grid grid-cols-1 ${isManager ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-4 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 items-center`}>
                     <Select isMulti options={stageOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => { setSelectedStages(selected as any); setSelectedTags([]); }} placeholder="Filtrar por Etapa..." onMenuOpen={() => setOpenMenu('stage')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'stage'} />
@@ -197,7 +198,6 @@ const LeadsListPage: React.FC = () => {
                 </div>
             )}
 
-            {/* --- SECCIÓN 2: BOTONERA DE ACCIÓN ALINEADA --- */}
             <div className="flex justify-between items-center px-1">
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
                     {sortedLeads.length} Prospectos encontrados
@@ -219,7 +219,6 @@ const LeadsListPage: React.FC = () => {
                 )}
             </div>
 
-            {/* --- SECCIÓN 3: TABLA INTERACTIVA CON NUEVAS COLUMNAS --- */}
             <div className="relative overflow-x-auto shadow-md sm:rounded-lg border border-gray-200 dark:border-gray-700">
                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                     <thead className="text-xs text-gray-700 uppercase bg-gray-100 dark:bg-gray-800 dark:text-gray-400">
@@ -236,7 +235,12 @@ const LeadsListPage: React.FC = () => {
                             const currentTag = getTagInfo(lead.tagIds?.[0]);
                             const daysInTag = getDaysInTag(lead);
                             const productNames = getProductNames(lead.productIds);
-                            const sellerName = users.find(u => u.id === lead.ownerId)?.name || 'Sin asignar';
+                            
+                            // --- MAGIA DE CO-PROPIEDAD ---
+                            const ownerName = users.find(u => u.id === lead.ownerId)?.name || 'Sin asignar';
+                            const creatorName = lead.creatorId ? users.find(u => u.id === lead.creatorId)?.name : null;
+                            const isCoOwned = lead.creatorId && lead.creatorId !== lead.ownerId;
+                            
                             const providerName = providers.find(p => p.id === lead.providerId)?.name || 'Directo';
 
                             return (
@@ -260,11 +264,19 @@ const LeadsListPage: React.FC = () => {
                                         )}
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className="font-medium text-gray-800 dark:text-gray-300 flex items-center gap-1.5">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                            {sellerName}
+                                        {/* --- MOSTRAR CREADOR (SDR) SI ES CO-PROPIEDAD --- */}
+                                        {isCoOwned && (
+                                            <div className="text-xs font-semibold text-yellow-600 dark:text-yellow-500 mb-1 flex items-center gap-1.5" title="Creador (SDR)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                                                {creatorName} (SDR)
+                                            </div>
+                                        )}
+                                        {/* --- MOSTRAR RESPONSABLE ACTUAL --- */}
+                                        <div className="font-medium text-gray-800 dark:text-gray-300 flex items-center gap-1.5" title={isCoOwned ? "Responsable Actual" : "Responsable"}>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isCoOwned ? "text-blue-500" : "text-gray-400"}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                            {ownerName}
                                         </div>
-                                        <div className="text-xs text-gray-500 mt-1 flex items-center gap-1.5">
+                                        <div className="text-xs text-gray-500 mt-1 flex items-center gap-1.5" title="Referido por">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><path d="M20 6h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zM10 4h4v2h-4V4z"/></svg>
                                             Ref: {providerName}
                                         </div>
@@ -303,7 +315,6 @@ const LeadsListPage: React.FC = () => {
               onClose={handleCloseImportModal} 
             />
             
-            {/* --- EL MODAL INTERACTIVO SE LEVANTA AQUÍ --- */}
             {selectedLead && (
                 <LeadDetailsModal 
                     lead={selectedLead}
