@@ -4,19 +4,15 @@ import LeadDetailsModal from '../leads/LeadDetailsModal';
 import { useLeads } from '../../hooks/useLeads';
 import { useAuth } from '../../hooks/useAuth';
 
-const DragHandleIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-    <path fillRule="evenodd" d="M7 2a1 1 0 00-1 1v1a1 1 0 001 1h1a1 1 0 001-1V3a1 1 0 00-1-1H7zM7 8a1 1 0 00-1 1v1a1 1 0 001 1h1a1 1 0 001-1V9a1 1 0 00-1-1H7zM7 14a1 1 0 00-1 1v1a1 1 0 001 1h1a1 1 0 001-1v-1a1 1 0 00-1-1H7zM12 2a1 1 0 00-1 1v1a1 1 0 001 1h1a1 1 0 001-1V3a1 1 0 00-1-1h-1zM12 8a1 1 0 00-1 1v1a1 1 0 001 1h1a1 1 0 001-1V9a1 1 0 00-1-1h-1zM12 14a1 1 0 00-1 1v1a1 1 0 001 1h1a1 1 0 001-1v-1a1 1 0 00-1-1h-1z" clipRule="evenodd" />
-  </svg>
-);
+// Eliminamos la interfaz del DragHandleIcon porque ya no se usa
 
 interface LeadCardProps {
   lead: Lead;
   stage: Stage;
-  handleDragEnd: (e: React.DragEvent<HTMLDivElement>) => void;
+  // Eliminamos handleDragEnd de los Props
 }
 
-const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
+const LeadCard: React.FC<LeadCardProps> = ({ lead, stage }) => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const { allLeads, tags, products, getUserById } = useLeads(); 
   const { user } = useAuth(); 
@@ -36,7 +32,6 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
               </span>
           );
       } else if (user.id === freshLead.ownerId) {
-          // --- CORRECCIÓN DE TYPESCRIPT AQUÍ (|| '') ---
           const creatorName = getUserById(freshLead.creatorId || '')?.name || 'un SDR';
           coOwnerBadge = (
               <span className="inline-block mt-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold rounded-full border border-blue-200" title="Este cliente fue prospectado por otro compañero.">
@@ -113,32 +108,19 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stage, handleDragEnd }) => {
     <>
       <div 
         id={lead.id} 
-        className="lead-card bg-white dark:bg-gray-800 rounded-md shadow-sm p-3 mb-3 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow duration-200 flex flex-col"
+        // Eliminamos la propiedad draggable
+        className="lead-card bg-white dark:bg-gray-800 rounded-md shadow-sm p-3 mb-3 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow duration-200 flex flex-col cursor-pointer"
         onClick={() => setIsDetailsModalOpen(true)}
       >
-        <div className="flex-grow cursor-pointer">
+        <div className="flex-grow">
             <div className="flex justify-between items-start">
               <div className="flex-1 pr-2">
                   <h4 className="font-bold text-gray-900 dark:text-white leading-tight">{freshLead.name}</h4>
                   {coOwnerBadge}
               </div>
               
-              <div
-                draggable
-                onDragStart={(e) => {
-                  e.stopPropagation(); 
-                  e.dataTransfer.setData('leadId', lead.id); 
-                  e.dataTransfer.setData('sourceStageId', stage.id);
-                }}
-                onDragEnd={(e) => {
-                  e.stopPropagation();
-                  handleDragEnd(e);
-                }}
-                onClick={(e) => e.stopPropagation()} 
-                className="cursor-grab active:cursor-grabbing p-1 -mr-2 -mt-1"
-              >
-                <DragHandleIcon />
-              </div>
+              {/* Se eliminó el div que contenía el DragHandleIcon y los eventos de DragStart/End */}
+
             </div>
             
             <p className="text-xs text-gray-600 dark:text-gray-300 mt-2">{freshLead.company}</p>

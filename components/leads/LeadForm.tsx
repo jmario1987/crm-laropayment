@@ -9,7 +9,7 @@ import { db } from '../../firebaseConfig';
 
 interface LeadFormProps {
   lead?: Lead;
-  duplicateFrom?: Lead; // --- NUEVO: Propiedad para clonar prospectos ---
+  duplicateFrom?: Lead;
   onSuccess: () => void;
 }
 
@@ -34,6 +34,21 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     affiliateNumber: '',
     assignedOffice: '', 
   });
+
+  const isNewLeadCreation = !lead;
+
+  const availableStagesForDropdown = useMemo(() => {
+      if (isNewLeadCreation) return sortedStages.slice(0, 1);
+      
+      const currentIndex = sortedStages.findIndex(s => s.id === lead?.status);
+      if (currentIndex === -1) return sortedStages;
+      
+      return sortedStages.filter((s, index) => 
+          Math.abs(index - currentIndex) <= 1 || 
+          s.type === 'lost' || 
+          index === currentIndex
+      );
+  }, [isNewLeadCreation, sortedStages, lead?.status]);
 
   const availableTags = useMemo(() => tags.filter(tag => tag.stageId === formData.status), [formData.status, tags]);
   const selectedStage = useMemo(() => stages.find(s => s.id === formData.status), [formData.status, stages]);
@@ -61,19 +76,18 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         assignedOffice: lead.assignedOffice || '', 
       });
     } else if (duplicateFrom) {
-      // --- LÓGICA DE CLONACIÓN ---
       setFormData({
         name: duplicateFrom.name || '',
         company: duplicateFrom.company || '',
         email: duplicateFrom.email || '',
         phone: duplicateFrom.phone || '',
-        status: defaultStatus, // Lo regresamos al inicio del pipeline
+        status: defaultStatus,
         ownerId: duplicateFrom.ownerId || initialOwnerId || '', 
-        productIds: [], // En blanco para que elijan el nuevo producto
+        productIds: [], 
         providerId: duplicateFrom.providerId || '', 
         newObservation: '', 
-        tagId: '', // Sin sub-etapa
-        affiliateNumber: '', // Sin número de afiliado
+        tagId: '', 
+        affiliateNumber: '', 
         assignedOffice: duplicateFrom.assignedOffice || '', 
       });
     } else {
@@ -114,6 +128,33 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
       return;
     }
 
+    const normalizedInputName = formData.name.trim().toLowerCase();
+    const nameExists = allLeads.some(l => 
+        l.id !== lead?.id &&
+        l.name.trim().toLowerCase() === normalizedInputName
+    );
+    
+    if (nameExists) {
+        alert("⚠️ Error: Ya existe un prospecto con ese nombre exacto. Por favor agrega un distintivo (ej. Nombre - Sucursal o Nombre - Link de Pago).");
+        return;
+    }
+
+    if (isNewLeadCreation && !formData.providerId) {
+        alert("⚠️ Error: Debes seleccionar el Origen ('Referido por') para poder crear el prospecto.");
+        return;
+    }
+
+    if (!formData.productIds || formData.productIds.length !== 1) {
+        alert("⚠️ Error: Debes seleccionar EXACTAMENTE UN (1) producto.\n\nSi el cliente necesita más de un producto, crea este prospecto con el principal y luego usa el botón 'Duplicar' en su ficha para añadir los productos adicionales.");
+        return;
+    }
+
+    // --- REGLA NUEVA: SUB-ETAPA OBLIGATORIA ---
+    if (availableTags.length > 0 && !formData.tagId) {
+        alert("⚠️ Error: Debes seleccionar una Sub-Etapa / Etiqueta obligatoriamente para esta etapa.");
+        return;
+    }
+
     if (selectedStage?.type === 'won') {
         const afNum = formData.affiliateNumber || '';
         if (afNum.length !== 10) {
@@ -122,6 +163,16 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         }
         if (!afNum.startsWith('0')) {
             alert("⚠️ Error: El número de afiliado debe comenzar siempre con un cero (0).");
+            return;
+        }
+        
+        const affiliateExists = allLeads.some(l => 
+            l.id !== lead?.id && 
+            l.affiliateNumber === afNum
+        );
+
+        if (affiliateExists) {
+            alert("⚠️ Error: Este Número de Afiliado ya está registrado en otro cliente dentro del sistema.");
             return;
         }
     }
@@ -277,7 +328,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar p-1">
       
-      {/* --- BLOQUE 1: DATOS GENERALES --- */}
       <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600">
             Datos Principales
@@ -306,7 +356,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         </div>
       </div>
 
-      {/* --- BLOQUE 2: CLASIFICACIÓN --- */}
       <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600">
             Estado y Clasificación
@@ -314,16 +363,29 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label htmlFor="status" className={labelClass}>Etapa</label>
-                <select name="status" id="status" value={formData.status} onChange={handleChange} className={inputClass}>
-                    {sortedStages.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
+                <select 
+                    name="status" 
+                    id="status" 
+                    value={formData.status} 
+                    onChange={handleChange} 
+                    disabled={isNewLeadCreation}
+                    className={`${inputClass} ${isNewLeadCreation ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed text-gray-500' : ''}`}
+                >
+                    {availableStagesForDropdown.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
                 </select>
+                {isNewLeadCreation && (
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">
+                        Todo prospecto nuevo debe iniciar en esta etapa.
+                    </p>
+                )}
             </div>
             
+            {/* --- HTML ACTUALIZADO: OBLIGA A SELECCIONAR SUB-ETAPA SI EXISTE --- */}
             {availableTags.length > 0 ? (
                 <div>
-                    <label htmlFor="tagId" className={labelClass}>Sub-Etapa / Etiqueta</label>
-                    <select name="tagId" id="tagId" value={formData.tagId} onChange={handleChange} className={inputClass}>
-                        <option value="">Ninguna</option>
+                    <label htmlFor="tagId" className={labelClass}>Sub-Etapa / Etiqueta *</label>
+                    <select name="tagId" id="tagId" value={formData.tagId} onChange={handleChange} required className={inputClass}>
+                        <option value="">Seleccione una sub-etapa...</option>
                         {availableTags.map(tag => <option key={tag.id} value={tag.id}>{tag.name}</option>)}
                     </select>
                 </div>
@@ -359,22 +421,31 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
             )}
 
             <div className="md:col-span-2 z-10">
-                <label className={labelClass}>Productos de Interés</label>
-                <MultiSelectDropdown options={productOptions} selectedValues={formData.productIds || []} onChange={handleProductSelectionChange} placeholder="Seleccionar productos..."/>
+                <label className={labelClass}>Productos de Interés *</label>
+                <MultiSelectDropdown options={productOptions} selectedValues={formData.productIds || []} onChange={handleProductSelectionChange} placeholder="Seleccionar producto..."/>
+                <p className="text-xs text-gray-500 mt-1 font-medium">
+                    Debes seleccionar exactamente un (1) producto.
+                </p>
             </div>
         </div>
       </div>
 
-      {/* --- BLOQUE 3: ASIGNACIÓN Y ORIGEN --- */}
       <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600">
             Asignación y Origen
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
             <div>
-                <label htmlFor="providerId" className={labelClass}>Referido por:</label>
-                <select name="providerId" id="providerId" value={formData.providerId} onChange={handleChange} className={inputClass}>
-                    <option value="">Ninguno</option>
+                <label htmlFor="providerId" className={labelClass}>Referido por {isNewLeadCreation && '*'}:</label>
+                <select 
+                    name="providerId" 
+                    id="providerId" 
+                    value={formData.providerId} 
+                    onChange={handleChange} 
+                    required={isNewLeadCreation} 
+                    className={inputClass}
+                >
+                    <option value="">Seleccione una opción...</option>
                     {providers.map(provider => <option key={provider.id} value={provider.id}>{provider.name}</option>)}
                 </select>
             </div>
@@ -392,13 +463,11 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         </div>
       </div>
 
-      {/* --- BLOQUE 4: OBSERVACIONES --- */}
       <div>
         <label htmlFor="newObservation" className="block text-base font-bold text-gray-800 dark:text-white mb-2">Añadir Observación</label>
         <textarea name="newObservation" id="newObservation" value={formData.newObservation} onChange={handleChange} rows={3} className="mt-1 block w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm" placeholder="Escribe aquí la nueva nota, minutas de reunión o estatus..."/>
       </div>
       
-      {/* --- BOTÓN DE GUARDAR DINÁMICO --- */}
       <div className="flex justify-end pt-4 pb-2 sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-2 z-20">
         <Button type="submit" className="bg-primary-600 hover:bg-primary-700 text-white w-full sm:w-auto text-lg px-8 py-2">
           {lead ? 'Guardar Cambios' : duplicateFrom ? 'Crear Prospecto Duplicado' : 'Crear Prospecto'}

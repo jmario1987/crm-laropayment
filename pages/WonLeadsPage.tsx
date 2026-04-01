@@ -19,13 +19,15 @@ const getCurrentMonthYear = () => {
     return `${month}-${year}`;
 };
 
+// --- AÑADIMOS creatorName A LAS PROPIEDADES DE LA FILA ---
 const WonLeadRow: React.FC<{ 
     lead: Lead; 
     sellerName?: string; 
+    creatorName?: string; 
     onBillingClick: (lead: Lead) => void;
-    isManager: boolean; 
+    isAdmin: boolean; 
     selectedMonth: string;
-}> = ({ lead, sellerName, onBillingClick, isManager, selectedMonth }) => { 
+}> = ({ lead, sellerName, creatorName, onBillingClick, isAdmin, selectedMonth }) => { 
     
     const currentMonthBilled = lead.billingHistory?.[selectedMonth] === true;
     const currentAmounts = lead.billingAmounts?.[selectedMonth];
@@ -34,42 +36,59 @@ const WonLeadRow: React.FC<{
         <tr className={`bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 ${lead.clientStatus === 'Inactivo' ? 'opacity-50' : ''}`}>
             <td className="px-6 py-4 font-mono font-bold text-gray-900 dark:text-white">{lead.affiliateNumber || 'N/A'}</td>
             <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{lead.name}</td>
-            <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{sellerName || 'N/A'}</td>
+            
+            {/* --- ACTUALIZAMOS LA CELDA DEL VENDEDOR PARA MOSTRAR AL SDR --- */}
+            <td className="px-6 py-4">
+                {creatorName && (
+                    <div className="text-xs font-semibold text-yellow-600 dark:text-yellow-500 mb-1 flex items-center gap-1.5" title="Creador (SDR)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                        {creatorName} (SDR)
+                    </div>
+                )}
+                <div className="font-medium text-gray-800 dark:text-gray-300 flex items-center gap-1.5" title={creatorName ? "Responsable Actual" : "Responsable"}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={creatorName ? "text-blue-500" : "text-gray-400"}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    {sellerName || 'Sin asignar'}
+                </div>
+            </td>
+
             <td className="px-6 py-4">
                 <span className={`px-2 py-1 text-xs font-bold rounded-full ${lead.clientStatus === 'Inactivo' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
                     {lead.clientStatus || 'Activo'}
                 </span>
             </td>
-            <td className="px-6 py-4 text-center">
-                {currentMonthBilled ? (
-                    <div className="flex flex-col items-center">
-                        <span className="text-green-500 font-bold text-2xl leading-none">✓</span>
-                        {currentAmounts && (
-                            <div className="flex flex-col items-center mt-1 space-y-1">
-                                {(currentAmounts.montoCRC > 0) && (
-                                    <span className="text-[10px] text-gray-700 dark:text-gray-300 font-bold bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md border border-gray-200 dark:border-gray-600">
-                                        {new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(currentAmounts.montoCRC)}
-                                    </span>
-                                )}
-                                {(currentAmounts.montoUSD > 0) && (
-                                    <span className="text-[10px] text-blue-700 dark:text-blue-300 font-bold bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800">
-                                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(currentAmounts.montoUSD)}
-                                    </span>
+            
+            {isAdmin && (
+                <>
+                    <td className="px-6 py-4 text-center">
+                        {currentMonthBilled ? (
+                            <div className="flex flex-col items-center">
+                                <span className="text-green-500 font-bold text-2xl leading-none">✓</span>
+                                {currentAmounts && (
+                                    <div className="flex flex-col items-center mt-1 space-y-1">
+                                        {(currentAmounts.montoCRC > 0) && (
+                                            <span className="text-[10px] text-gray-700 dark:text-gray-300 font-bold bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md border border-gray-200 dark:border-gray-600">
+                                                {new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(currentAmounts.montoCRC)}
+                                            </span>
+                                        )}
+                                        {(currentAmounts.montoUSD > 0) && (
+                                            <span className="text-[10px] text-blue-700 dark:text-blue-300 font-bold bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800">
+                                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(currentAmounts.montoUSD)}
+                                            </span>
+                                        )}
+                                    </div>
                                 )}
                             </div>
+                        ) : (
+                            <span className="text-red-500 font-bold text-xl">×</span>
                         )}
-                    </div>
-                ) : (
-                    <span className="text-red-500 font-bold text-xl">×</span>
-                )}
-            </td>
-            <td className="px-6 py-4 text-center">
-                {isManager && (
-                    <Button variant="icon" onClick={() => onBillingClick(lead)}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                    </Button>
-                )}
-            </td>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                        <Button variant="icon" onClick={() => onBillingClick(lead)}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        </Button>
+                    </td>
+                </>
+            )}
         </tr>
     );
 };
@@ -87,6 +106,7 @@ const WonLeadsPage: React.FC = () => {
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc'); 
 
     const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
+    const isAdmin = user?.role === USER_ROLES.Admin;
 
     const productOptions = useMemo(() => products.map(p => ({ value: p.id, label: p.name })), [products]);
 
@@ -109,7 +129,10 @@ const WonLeadsPage: React.FC = () => {
                 );
             }
         } else {
-            leads = leads.filter(lead => lead.ownerId === user.id && lead.clientStatus !== 'Inactivo');
+            leads = leads.filter(lead => 
+                (lead.ownerId === user.id || lead.creatorId === user.id) && 
+                lead.clientStatus !== 'Inactivo'
+            );
         }
         
         leads.sort((a, b) => {
@@ -172,7 +195,6 @@ const WonLeadsPage: React.FC = () => {
                         const codMoneda = String(row['Cod. moneda']).trim();
                         
                         const rawMonto = row['Monto'];
-                        // --- AQUÍ ESTÁ EL CAMBIO CLAVE: Tomamos 'Comisión ADQ' ---
                         const rawComision = row['Comisión ADQ']; 
                         
                         const monto = typeof rawMonto === 'number' ? rawMonto : parseFloat(String(rawMonto).replace(/,/g, '')) || 0;
@@ -228,11 +250,11 @@ const WonLeadsPage: React.FC = () => {
 
                 const huerfanos = Array.from(facturadosExcel.keys()).filter(k => !matchedKeys.has(k));
 
-                const confirmMessage = `Resumen de Conciliación (${selectedMonth}):\n\n` +
-                    `✅ Facturaron: ${leadsFacturaron.length} clientes (Con multimoneda CRC/USD).\n` +
-                    `❌ No facturaron en este Excel: ${leadsNoFacturaron.length} clientes.\n` +
-                    `⚠️ Afiliados en Excel NO registrados: ${huerfanos.length} códigos.\n\n` +
-                    `¿Deseas guardar esta actualización?`;
+                const confirmMessage = `Resumen de lectura del archivo (${selectedMonth}):\n\n` +
+                    `✅ ÉXITO: ${leadsFacturaron.length} de tus clientes facturaron (se guardarán sus montos).\n` +
+                    `ℹ️ SIN MOVIMIENTOS: ${leadsNoFacturaron.length} de tus clientes no aparecen en este Excel (su mes quedará en 0).\n` +
+                    `⏭️ IGNORADOS: ${huerfanos.length} registros del Excel no te pertenecen (fueron omitidos con éxito).\n\n` +
+                    `¿Deseas aplicar esta actualización en el sistema?`;
 
                 if (window.confirm(confirmMessage)) {
                     const batch = writeBatch(db);
@@ -258,13 +280,23 @@ const WonLeadsPage: React.FC = () => {
                             const leadRef = doc(db, 'leads', lead.id);
                             const newBillingHistory = { ...lead.billingHistory };
                             delete newBillingHistory[selectedMonth];
-                            batch.update(leadRef, { billingHistory: newBillingHistory });
-                            dispatch({ type: 'UPDATE_LEAD', payload: { ...lead, billingHistory: newBillingHistory } });
+                            
+                            const newBillingAmounts = { ...lead.billingAmounts };
+                            delete newBillingAmounts[selectedMonth];
+
+                            batch.update(leadRef, { 
+                                billingHistory: newBillingHistory,
+                                billingAmounts: newBillingAmounts
+                            });
+                            dispatch({ 
+                                type: 'UPDATE_LEAD', 
+                                payload: { ...lead, billingHistory: newBillingHistory, billingAmounts: newBillingAmounts } 
+                            });
                         }
                     });
 
                     await batch.commit();
-                    alert("¡Facturación y montos (CRC/USD) guardados exitosamente!");
+                    alert(`¡Facturación y montos de ${selectedMonth} guardados exitosamente!`);
                 }
 
             } catch (error) {
@@ -287,40 +319,53 @@ const WonLeadsPage: React.FC = () => {
     };
 
     const handleExportExcel = () => {
-        const leadsForReport = wonLeads.filter(lead => lead.billingHistory?.[selectedMonth] === true);
+        const leadsForReport = isAdmin 
+            ? wonLeads.filter(lead => lead.billingHistory?.[selectedMonth] === true)
+            : wonLeads;
 
         const dataToExport = leadsForReport.map(lead => {
             const montosDelMes = lead.billingAmounts?.[selectedMonth] || { montoCRC: 0, comisionCRC: 0, montoUSD: 0, comisionUSD: 0 };
+            const creatorName = lead.creatorId && lead.creatorId !== lead.ownerId ? getUserById(lead.creatorId)?.name : null;
             
-            return {
+            const baseRow = {
                 'Nº Afiliado': lead.affiliateNumber || 'N/A',
                 'Nombre Cliente': lead.name,
                 'Empresa': lead.company,
+                'SDR (Creador)': creatorName || '-', // --- NUEVA COLUMNA EN EXCEL ---
                 'Vendedor Asignado': getUserById(lead.ownerId)?.name || 'N/A',
                 'Productos': getProductNames(lead.productIds),
                 'Referido por': getProviderById(lead.providerId || '')?.name || 'N/A',
-                'Monto (CRC)': montosDelMes.montoCRC || 0,
-                'Comisión (CRC)': montosDelMes.comisionCRC || 0,
-                'Monto (USD)': montosDelMes.montoUSD || 0,
-                'Comisión (USD)': montosDelMes.comisionUSD || 0,
             };
+
+            if (isAdmin) {
+                return {
+                    ...baseRow,
+                    'Monto (CRC)': montosDelMes.montoCRC || 0,
+                    'Comisión (CRC)': montosDelMes.comisionCRC || 0,
+                    'Monto (USD)': montosDelMes.montoUSD || 0,
+                    'Comisión (USD)': montosDelMes.comisionUSD || 0,
+                };
+            }
+
+            return baseRow;
         });
         
-        const headers: string[] = [ 
-            'Nº Afiliado', 'Nombre Cliente', 'Empresa', 
-            'Vendedor Asignado', 'Productos', 'Referido por',
-            'Monto (CRC)', 'Comisión (CRC)', 'Monto (USD)', 'Comisión (USD)'
-        ];
+        // --- ACTUALIZAMOS LOS HEADERS ---
+        const headers = isAdmin 
+            ? ['Nº Afiliado', 'Nombre Cliente', 'Empresa', 'SDR (Creador)', 'Vendedor Asignado', 'Productos', 'Referido por', 'Monto (CRC)', 'Comisión (CRC)', 'Monto (USD)', 'Comisión (USD)']
+            : ['Nº Afiliado', 'Nombre Cliente', 'Empresa', 'SDR (Creador)', 'Vendedor Asignado', 'Productos', 'Referido por'];
 
         const worksheet = XLSX.utils.json_to_sheet(dataToExport, { header: headers });
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, `Comisiones ${selectedMonth}`);
-        XLSX.writeFile(workbook, `Reporte_Comisiones_${selectedMonth}.xlsx`);
+        const sheetName = isAdmin ? `Comisiones ${selectedMonth}` : 'Clientes Activos';
+        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+        XLSX.writeFile(workbook, isAdmin ? `Reporte_Comisiones_${selectedMonth}.xlsx` : 'Reporte_Clientes_Produccion.xlsx');
     };
     
     const monthOptions = useMemo(() => {
         const options = [];
         let date = new Date();
+        date.setDate(15); 
         for (let i = 0; i < 6; i++) {
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const year = date.getFullYear();
@@ -352,11 +397,14 @@ const WonLeadsPage: React.FC = () => {
                     <div className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
                         {isManager && (
                             <>
-                                <div className="w-full sm:w-auto">
-                                    <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                                        {monthOptions.map(m => <option key={m} value={m}>Facturación de {m}</option>)}
-                                    </select>
-                                </div>
+                                {isAdmin && (
+                                    <div className="w-full sm:w-auto">
+                                        <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                            {monthOptions.map(m => <option key={m} value={m}>Facturación de {m}</option>)}
+                                        </select>
+                                    </div>
+                                )}
+                                
                                 <div className="w-full sm:w-auto">
                                     <select value={selectedProviderId} onChange={(e) => setSelectedProviderId(e.target.value)} className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                         <option value="all">Todos los Desarrolladores</option> 
@@ -380,17 +428,19 @@ const WonLeadsPage: React.FC = () => {
                                     <label htmlFor="include-inactive" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">Incluir Inactivos</label>
                                 </div>
 
-                                <label className="cursor-pointer bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium text-sm transition-colors flex items-center justify-center shadow-sm whitespace-nowrap">
-                                    {isUploading ? 'Leyendo...' : 'Importar Archivo'}
-                                    <input 
-                                        type="file" 
-                                        accept=".xlsx, .xls, .csv" 
-                                        className="hidden" 
-                                        onChange={handleFileUpload} 
-                                        onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
-                                        disabled={isUploading}
-                                    />
-                                </label>
+                                {isAdmin && (
+                                    <label className="cursor-pointer bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium text-sm transition-colors flex items-center justify-center shadow-sm whitespace-nowrap">
+                                        {isUploading ? 'Leyendo...' : 'Importar Archivo'}
+                                        <input 
+                                            type="file" 
+                                            accept=".xlsx, .xls, .csv" 
+                                            className="hidden" 
+                                            onChange={handleFileUpload} 
+                                            onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+                                            disabled={isUploading}
+                                        />
+                                    </label>
+                                )}
                             </>
                         )}
                         <Button onClick={handleExportExcel}>Exportar Reporte</Button>
@@ -409,21 +459,28 @@ const WonLeadsPage: React.FC = () => {
                                     </button>
                                 </th>
                                 <th scope="col" className="px-6 py-3">Nombre</th>
-                                <th scope="col" className="px-6 py-3">Vendedor</th>
+                                <th scope="col" className="px-6 py-3">Responsable / Origen</th>
                                 <th scope="col" className="px-6 py-3">Estado Cliente</th>
-                                <th scope="col" className="px-6 py-3 text-center">Facturación ({selectedMonth})</th>
-                                <th scope="col" className="px-6 py-3 text-center">Acciones</th>
+                                
+                                {isAdmin && (
+                                    <>
+                                        <th scope="col" className="px-6 py-3 text-center">Facturación ({selectedMonth})</th>
+                                        <th scope="col" className="px-6 py-3 text-center">Acciones</th>
+                                    </>
+                                )}
                             </tr>
                         </thead>
                         <tbody>
                             {wonLeads.map(lead => {
                                 const seller = getUserById(lead.ownerId);
+                                const creator = lead.creatorId && lead.creatorId !== lead.ownerId ? getUserById(lead.creatorId) : null;
                                 return <WonLeadRow 
                                             key={lead.id} 
                                             lead={lead} 
                                             sellerName={seller?.name} 
+                                            creatorName={creator?.name}
                                             onBillingClick={setBillingLead} 
-                                            isManager={isManager} 
+                                            isAdmin={isAdmin} 
                                             selectedMonth={selectedMonth} 
                                         />;
                             })}

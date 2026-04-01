@@ -7,7 +7,7 @@ import Button from '../ui/Button';
 import BulkImportModal from './BulkImportModal';
 
 const Pipeline: React.FC = () => {
-  const { allLeads, dispatch, sellers, stages } = useLeads();
+  const { allLeads, sellers, stages } = useLeads();
   const { user } = useAuth();
   const [selectedSellerId, setSelectedSellerId] = useState('all');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -17,11 +17,8 @@ const Pipeline: React.FC = () => {
   
   const pipelineStages = useMemo(() => stages.filter(s => s.type === 'open' || s.type === 'lost').sort((a,b) => a.order - b.order), [stages]);
 
-  // --- CORRECCIÓN MAGISTRAL: LAS GAFAS DE LA CO-PROPIEDAD ---
   const visibleLeads = useMemo(() => {
     if (isManager) return allLeads;
-    
-    // Si eres vendedor, ves el prospecto si eres el dueño actual O si fuiste quien lo creó (SDR)
     return allLeads.filter(lead => lead.ownerId === user?.id || lead.creatorId === user?.id);
   }, [allLeads, user, isManager]);
 
@@ -29,57 +26,11 @@ const Pipeline: React.FC = () => {
     if (!isManager || selectedSellerId === 'all') {
         return visibleLeads;
     }
-    // Si el manager usa el filtro, filtramos por quién lo está trabajando actualmente
     return visibleLeads.filter(lead => lead.ownerId === selectedSellerId);
   }, [visibleLeads, selectedSellerId, isManager]);
 
   const handleSellerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
       setSelectedSellerId(e.target.value);
-  };
-
-  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
-    e.currentTarget.classList.remove('opacity-50');
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-  };
-  
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>, newStatusId: string) => {
-    e.preventDefault();
-    const leadId = e.dataTransfer.getData('leadId');
-    const originalStatus = e.dataTransfer.getData('originalStatus');
-    
-    document.querySelectorAll('.pipeline-column').forEach(col => col.classList.remove('bg-primary-100', 'dark:bg-primary-900'));
-    
-    if (newStatusId !== originalStatus) {
-      const leadToUpdate = allLeads.find(lead => lead.id === leadId);
-      if (leadToUpdate) {
-        const oldHistory = leadToUpdate.statusHistory || [];
-        const newHistoryEntry = { status: newStatusId, date: new Date().toISOString() };
-        const newStatusHistory = [...oldHistory, newHistoryEntry];
-        const updatedPayload = {
-            ...leadToUpdate,
-            status: newStatusId,
-            statusHistory: newStatusHistory,
-            lastUpdate: new Date().toISOString(),
-        };
-        dispatch({
-          type: 'UPDATE_LEAD',
-          payload: updatedPayload,
-        });
-      }
-    }
-  };
-
-  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.currentTarget.classList.add('bg-primary-100', 'dark:bg-primary-900');
-  };
-  
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.currentTarget.classList.remove('bg-primary-100', 'dark:bg-primary-900');
   };
 
   return (
@@ -116,10 +67,6 @@ const Pipeline: React.FC = () => {
                 <div
                     key={stage.id}
                     className="pipeline-column flex-1 min-w-0 flex flex-col bg-gray-100 dark:bg-gray-900 rounded-lg shadow-md transition-colors duration-300"
-                    onDrop={(e) => handleDrop(e, stage.id)}
-                    onDragOver={handleDragOver}
-                    onDragEnter={(e) => handleDragEnter(e)}
-                    onDragLeave={(e) => handleDragLeave(e)}
                 >
                     <div className={`px-3 py-2 font-semibold text-lg text-gray-700 dark:text-gray-200 border-t-4 rounded-t-lg flex justify-between items-center bg-white dark:bg-gray-800`}
                         style={{ borderTopColor: stage.color }}
@@ -127,10 +74,10 @@ const Pipeline: React.FC = () => {
                         <span>{stage.name}</span>
                         <span className="px-2 py-1 text-sm font-bold rounded-full text-white" style={{ backgroundColor: stage.color }}>{leadsInStage.length}</span>
                     </div>
+                    {/* AQUÍ ESTÁ LA CORRECCIÓN: Llamamos al componente de forma simple */}
                     <PipelineColumn
                         stage={stage}
                         leads={leadsInStage}
-                        handleDragEnd={handleDragEnd}
                     />
                 </div>
                 );

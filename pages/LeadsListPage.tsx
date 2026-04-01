@@ -22,6 +22,11 @@ const LeadsListPage: React.FC = () => {
     const [selectedSellers, setSelectedSellers] = useState<{ value: string; label: string; }[]>([]);
     const [selectedProviders, setSelectedProviders] = useState<{ value: string; label: string; }[]>([]);
     const [selectedProducts, setSelectedProducts] = useState<{ value: string; label: string; }[]>([]); 
+    
+    // --- ESTADOS PARA LAS FECHAS ---
+    const [startDate, setStartDate] = useState<string>('');
+    const [endDate, setEndDate] = useState<string>('');
+
     const [openMenu, setOpenMenu] = useState<string | null>(null);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     
@@ -59,10 +64,23 @@ const LeadsListPage: React.FC = () => {
         let baseLeads = leadsCopy;
 
         if (user?.role === USER_ROLES.Vendedor) {
-            baseLeads = leadsCopy.filter(lead => lead.ownerId === user.id);
+            baseLeads = leadsCopy.filter(lead => lead.ownerId === user.id || lead.creatorId === user.id);
         }
        
         let filteredList = baseLeads;
+
+        // --- LÓGICA DE FILTRADO POR FECHAS ---
+        if (startDate) {
+            const start = new Date(startDate);
+            start.setHours(0, 0, 0, 0); // Inicio del día
+            filteredList = filteredList.filter(lead => new Date(lead.createdAt) >= start);
+        }
+        
+        if (endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999); // Final del día
+            filteredList = filteredList.filter(lead => new Date(lead.createdAt) <= end);
+        }
 
         if (selectedStages.length > 0) {
             const stageIds = selectedStages.map(s => s.value);
@@ -91,7 +109,7 @@ const LeadsListPage: React.FC = () => {
         }
 
         return filteredList; 
-    }, [leadsCopy, user, isManager, stages, selectedStages, selectedTags, selectedSellers, selectedProviders, providers, selectedProducts]);
+    }, [leadsCopy, user, isManager, stages, selectedStages, selectedTags, selectedSellers, selectedProviders, providers, selectedProducts, startDate, endDate]);
 
     const getTagInfo = (tagId?: string) => tags.find(t => t.id === tagId);
 
@@ -101,6 +119,30 @@ const LeadsListPage: React.FC = () => {
         const lastEntry = lead.tagHistory.filter(h => h.tagId === currentTagId).pop();
         if (!lastEntry) return null;
         return Math.floor((new Date().getTime() - new Date(lastEntry.date).getTime()) / (1000 * 3600 * 24));
+    };
+
+    const getDaysInProcess = (lead: Lead): number => {
+        const currentStage = getStageById(lead.status);
+        const isClosed = currentStage?.type === 'won' || currentStage?.type === 'lost';
+
+        let endDate = new Date().getTime(); 
+
+        if (isClosed) {
+            if (lead.statusHistory && lead.statusHistory.length > 0) {
+                const finalStatusEntry = [...lead.statusHistory].reverse().find(h => h.status === lead.status);
+                if (finalStatusEntry && finalStatusEntry.date) {
+                    endDate = new Date(finalStatusEntry.date).getTime();
+                } else if (lead.lastUpdate) {
+                    endDate = new Date(lead.lastUpdate).getTime();
+                }
+            } else if (lead.lastUpdate) {
+                 endDate = new Date(lead.lastUpdate).getTime();
+            }
+        }
+
+        const startDate = new Date(lead.createdAt).getTime();
+        const diff = endDate - startDate;
+        return Math.max(0, Math.floor(diff / (1000 * 3600 * 24)));
     };
     
     const getProductNames = (productIds?: string[]): string => {
@@ -123,8 +165,8 @@ const LeadsListPage: React.FC = () => {
                 case 'createdAt': 
                     return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * direction;
                 case 'daysInProcess':
-                    const aDays = new Date().getTime() - new Date(a.createdAt).getTime();
-                    const bDays = new Date().getTime() - new Date(b.createdAt).getTime();
+                    const aDays = getDaysInProcess(a);
+                    const bDays = getDaysInProcess(b);
                     return (aDays - bDays) * direction;
                 case 'daysInTag':
                     const aDaysTag = getDaysInTag(a) ?? -1;
@@ -157,11 +199,11 @@ const LeadsListPage: React.FC = () => {
                 'Etapa': getStageById(lead.status)?.name || 'N/A',
                 'Sub-Etapa': currentTag?.name || 'N/A',
                 'Productos': getProductNames(lead.productIds), 
-                'SDR (Creador)': creatorName || '-', // --- NUEVO EN EXCEL ---
+                'SDR (Creador)': creatorName || '-', 
                 'Ejecutivo Asignado': ownerName,
                 'Proveedor': providers.find(p => p.id === lead.providerId)?.name || 'N/A', 
                 'Fecha de Ingreso': new Date(lead.createdAt).toLocaleDateString(),
-                'Días en Proceso': Math.floor((new Date().getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24)),
+                'Días en Proceso': getDaysInProcess(lead), 
                 'Días en Sub-Etapa': getDaysInTag(lead) ?? 'N/A',
             };
         });
@@ -186,15 +228,49 @@ const LeadsListPage: React.FC = () => {
     return (
         <div className="space-y-6">
             {user && (
-                <div ref={filtersRef} className={`grid grid-cols-1 ${isManager ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-4 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 items-center`}>
-                    <Select isMulti options={stageOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => { setSelectedStages(selected as any); setSelectedTags([]); }} placeholder="Filtrar por Etapa..." onMenuOpen={() => setOpenMenu('stage')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'stage'} />
-                    <Select isMulti options={tagOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedTags(selected as any)} placeholder="Filtrar por Sub-Etapa..." onMenuOpen={() => setOpenMenu('tag')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'tag'} isDisabled={!isManager && selectedStages.length === 0} value={selectedTags} />
-                    <Select isMulti options={providerOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedProviders(selected as any)} placeholder="Filtrar por Proveedor..." onMenuOpen={() => setOpenMenu('provider')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'provider'} /> 
-                    <Select isMulti options={productOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedProducts(selected as any)} placeholder="Filtrar por Producto..." onMenuOpen={() => setOpenMenu('product')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'product'} />
+                <div ref={filtersRef} className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
+                    {/* SELECTORES ORIGINALES */}
+                    <div className={`grid grid-cols-1 ${isManager ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-4 items-center`}>
+                        <Select isMulti options={stageOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => { setSelectedStages(selected as any); setSelectedTags([]); }} placeholder="Filtrar por Etapa..." onMenuOpen={() => setOpenMenu('stage')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'stage'} />
+                        <Select isMulti options={tagOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedTags(selected as any)} placeholder="Filtrar por Sub-Etapa..." onMenuOpen={() => setOpenMenu('tag')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'tag'} isDisabled={!isManager && selectedStages.length === 0} value={selectedTags} />
+                        <Select isMulti options={providerOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedProviders(selected as any)} placeholder="Filtrar por Proveedor..." onMenuOpen={() => setOpenMenu('provider')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'provider'} /> 
+                        <Select isMulti options={productOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedProducts(selected as any)} placeholder="Filtrar por Producto..." onMenuOpen={() => setOpenMenu('product')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'product'} />
 
-                    {isManager && (
-                        <Select isMulti options={sellerOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedSellers(selected as any)} placeholder="Filtrar por Vendedor..." onMenuOpen={() => setOpenMenu('seller')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'seller'} />
-                    )}
+                        {isManager && (
+                            <Select isMulti options={sellerOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedSellers(selected as any)} placeholder="Filtrar por Vendedor..." onMenuOpen={() => setOpenMenu('seller')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'seller'} />
+                        )}
+                    </div>
+                    
+                    {/* --- NUEVA SECCIÓN: FILTROS DE FECHA --- */}
+                    <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+                        <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Fecha de Ingreso:</span>
+                        <div className="flex items-center gap-2">
+                            <label className="text-xs text-gray-500 dark:text-gray-400">Desde</label>
+                            <input 
+                                type="date" 
+                                value={startDate} 
+                                onChange={e => setStartDate(e.target.value)} 
+                                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500" 
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-xs text-gray-500 dark:text-gray-400">Hasta</label>
+                            <input 
+                                type="date" 
+                                value={endDate} 
+                                onChange={e => setEndDate(e.target.value)} 
+                                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500" 
+                            />
+                        </div>
+                        {(startDate || endDate) && (
+                            <button 
+                                onClick={() => { setStartDate(''); setEndDate(''); }} 
+                                className="text-xs font-semibold text-red-500 hover:text-red-700 transition-colors bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 px-3 py-1.5 rounded-md"
+                            >
+                                Limpiar Fechas
+                            </button>
+                        )}
+                    </div>
                 </div>
             )}
 
@@ -232,16 +308,19 @@ const LeadsListPage: React.FC = () => {
                     </thead>
                     <tbody>
                         {sortedLeads.map(lead => {
+                            const currentStage = getStageById(lead.status);
                             const currentTag = getTagInfo(lead.tagIds?.[0]);
                             const daysInTag = getDaysInTag(lead);
                             const productNames = getProductNames(lead.productIds);
                             
-                            // --- MAGIA DE CO-PROPIEDAD ---
                             const ownerName = users.find(u => u.id === lead.ownerId)?.name || 'Sin asignar';
                             const creatorName = lead.creatorId ? users.find(u => u.id === lead.creatorId)?.name : null;
                             const isCoOwned = lead.creatorId && lead.creatorId !== lead.ownerId;
                             
                             const providerName = providers.find(p => p.id === lead.providerId)?.name || 'Directo';
+
+                            const daysInProcess = getDaysInProcess(lead);
+                            const isClosed = currentStage?.type === 'won' || currentStage?.type === 'lost';
 
                             return (
                                 <tr 
@@ -254,7 +333,7 @@ const LeadsListPage: React.FC = () => {
                                         <div className="text-xs text-gray-500 mt-1">{lead.company || lead.email || 'Sin empresa'}</div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className="font-medium text-gray-800 dark:text-gray-300">{getStageById(lead.status)?.name || 'N/A'}</div>
+                                        <div className="font-medium text-gray-800 dark:text-gray-300">{currentStage?.name || 'N/A'}</div>
                                         {currentTag && (
                                             <div className="mt-1.5">
                                                 <span className="px-2 py-0.5 text-[10px] font-bold rounded-full text-white tracking-wide uppercase shadow-sm" style={{ backgroundColor: currentTag.color }}>
@@ -264,14 +343,12 @@ const LeadsListPage: React.FC = () => {
                                         )}
                                     </td>
                                     <td className="px-6 py-4">
-                                        {/* --- MOSTRAR CREADOR (SDR) SI ES CO-PROPIEDAD --- */}
                                         {isCoOwned && (
                                             <div className="text-xs font-semibold text-yellow-600 dark:text-yellow-500 mb-1 flex items-center gap-1.5" title="Creador (SDR)">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                                                 {creatorName} (SDR)
                                             </div>
                                         )}
-                                        {/* --- MOSTRAR RESPONSABLE ACTUAL --- */}
                                         <div className="font-medium text-gray-800 dark:text-gray-300 flex items-center gap-1.5" title={isCoOwned ? "Responsable Actual" : "Responsable"}>
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isCoOwned ? "text-blue-500" : "text-gray-400"}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                                             {ownerName}
@@ -288,10 +365,10 @@ const LeadsListPage: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col gap-1">
-                                            <span className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-gray-600 dark:text-gray-300 w-fit">
-                                                En proceso: <strong className="text-gray-900 dark:text-white">{Math.floor((new Date().getTime() - new Date(lead.createdAt).getTime()) / (1000 * 3600 * 24))} d</strong>
+                                            <span className={`text-xs px-2 py-1 rounded w-fit ${isClosed ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border border-blue-100 dark:border-blue-800' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}>
+                                                {isClosed ? 'Cerrado en:' : 'En proceso:'} <strong className={isClosed ? 'text-blue-800 dark:text-blue-300' : 'text-gray-900 dark:text-white'}>{daysInProcess} d</strong>
                                             </span>
-                                            {daysInTag !== null && (
+                                            {daysInTag !== null && !isClosed && (
                                                 <span className="text-xs bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded text-red-600 dark:text-red-400 w-fit">
                                                     En sub-etapa: <strong>{daysInTag} d</strong>
                                                 </span>

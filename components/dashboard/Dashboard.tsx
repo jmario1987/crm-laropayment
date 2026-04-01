@@ -15,10 +15,11 @@ const Dashboard: React.FC = () => {
   };
 
   const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
+  const isAdmin = user?.role === USER_ROLES.Admin;
 
   const visibleLeads = useMemo(() => {
     if (isManager) return allLeads;
-    return allLeads.filter(lead => lead.ownerId === user?.id);
+    return allLeads.filter(lead => lead.ownerId === user?.id || lead.creatorId === user?.id);
   }, [allLeads, user, isManager]);
 
   const filteredLeadsForStats = useMemo(() => {
@@ -38,18 +39,46 @@ const Dashboard: React.FC = () => {
       return `${String(date.getMonth() + 1).padStart(2, '0')}-${date.getFullYear()}`;
   }, []);
 
+  // --- LÓGICA NUEVA: BUSCAMOS EL ÚLTIMO MES QUE TIENE DATOS ---
+  const lastLoadedMonth = useMemo(() => {
+      if (!isAdmin) return null;
+      let latestMonth = '';
+      let latestDate = new Date(2000, 0, 1);
+
+      filteredLeadsForStats.forEach(lead => {
+          if (lead.billingHistory) {
+              Object.keys(lead.billingHistory).forEach(monthStr => {
+                  if (lead.billingHistory && lead.billingHistory[monthStr]) {
+                      const parts = monthStr.split('-');
+                      if (parts.length === 2) {
+                          const m = parseInt(parts[0], 10);
+                          const y = parseInt(parts[1], 10);
+                          const dateObj = new Date(y, m - 1, 1);
+                          if (dateObj > latestDate) {
+                              latestDate = dateObj;
+                              latestMonth = monthStr;
+                          }
+                      }
+                  }
+              });
+          }
+      });
+      return latestMonth || currentMonthYear; // Si no hay nada, muestra el actual en 0
+  }, [filteredLeadsForStats, isAdmin, currentMonthYear]);
+
   const financialStats = useMemo(() => {
+      if (!isAdmin) return { facturacion: { crc: 0, usd: 0 }, gananciaLaro: { crc: 0, usd: 0 } };
+
       let totalMontoCRC = 0;
       let totalMontoUSD = 0;
       let totalComisionCRC = 0;
       let totalComisionUSD = 0;
 
       filteredLeadsForStats.forEach(lead => {
-          // --- AQUÍ ESTÁ EL CANDADO: Verificamos si realmente se facturó este mes ---
-          const isBilledThisMonth = lead.billingHistory?.[currentMonthYear] === true;
-          const monthData = lead.billingAmounts?.[currentMonthYear];
+          // AHORA CALCULAMOS CON EL ÚLTIMO MES ENCONTRADO EN LUGAR DEL ACTUAL
+          const isBilledThisMonth = lastLoadedMonth ? lead.billingHistory?.[lastLoadedMonth] === true : false;
+          const monthData = lastLoadedMonth ? lead.billingAmounts?.[lastLoadedMonth] : null;
           
-          // Solo sumamos el dinero SI existen los datos Y ADEMÁS el check de facturado está activo
           if (monthData && isBilledThisMonth) {
               totalMontoCRC += (monthData.montoCRC || 0);
               totalMontoUSD += (monthData.montoUSD || 0);
@@ -62,7 +91,7 @@ const Dashboard: React.FC = () => {
           facturacion: { crc: totalMontoCRC, usd: totalMontoUSD },
           gananciaLaro: { crc: totalComisionCRC * 0.42, usd: totalComisionUSD * 0.42 }
       };
-  }, [filteredLeadsForStats, currentMonthYear]);
+  }, [filteredLeadsForStats, lastLoadedMonth, isAdmin]);
 
   const recentWonLeads = useMemo(() => {
     return filteredLeadsForStats
@@ -121,19 +150,24 @@ const Dashboard: React.FC = () => {
             )}
         </div>
         
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-2'} gap-6`}>
         <StatCard title="Prospectos Activos" value={activeLeads.toString()} icon="users" />
         <StatCard title="Tasa de Cierre" value={`${conversionRate.toFixed(1)}%`} icon="trophy" />
-        <StatCard 
-            title="Facturación (Mes Actual)" 
-            value={<MoneyDisplay crc={financialStats.facturacion.crc} usd={financialStats.facturacion.usd} label={`Total ${currentMonthYear}`} />} 
-            icon="trendingUp" 
-        />
-        <StatCard 
-            title="Ganancia Laro (42%)" 
-            value={<MoneyDisplay crc={financialStats.gananciaLaro.crc} usd={financialStats.gananciaLaro.usd} label={`Estimado ${currentMonthYear}`} />} 
-            icon="star" 
-        />
+        
+        {isAdmin && (
+            <>
+                <StatCard 
+                    title={`Facturación (${lastLoadedMonth})`} 
+                    value={<MoneyDisplay crc={financialStats.facturacion.crc} usd={financialStats.facturacion.usd} label={`Total mensual`} />} 
+                    icon="trendingUp" 
+                />
+                <StatCard 
+                    title="Comisiones Generadas" 
+                    value={<MoneyDisplay crc={financialStats.gananciaLaro.crc} usd={financialStats.gananciaLaro.usd} label={`Mes: ${lastLoadedMonth}`} />} 
+                    icon="star" 
+                />
+            </>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
