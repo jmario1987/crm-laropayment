@@ -14,6 +14,11 @@ const Desarrolladores: React.FC = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
 
+    // --- NUEVO: CREAMOS UNA COPIA ORDENADA ALFABÉTICAMENTE ---
+    const sortedProviders = [...providers].sort((a, b) => 
+        a.name.localeCompare(b.name)
+    );
+
     const handleOpenCreateModal = () => setIsCreateModalOpen(true);
     const handleCloseCreateModal = () => setIsCreateModalOpen(false);
 
@@ -58,7 +63,6 @@ const Desarrolladores: React.FC = () => {
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                             <tr>
                                 <th scope="col" className="px-6 py-3">Nombre del Software</th>
-                                {/* --- NUEVA COLUMNA EN EL ENCABEZADO --- */}
                                 <th scope="col" className="px-6 py-3">Tipo de Software</th>
                                 <th scope="col" className="px-6 py-3">Persona de Contacto</th>
                                 <th scope="col" className="px-6 py-3">Email</th>
@@ -67,7 +71,8 @@ const Desarrolladores: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {providers.map(provider => (
+                            {/* --- USAMOS LA LISTA ORDENADA AQUÍ --- */}
+                            {sortedProviders.map(provider => (
                                 <ProviderRow
                                     key={provider.id}
                                     provider={provider}
