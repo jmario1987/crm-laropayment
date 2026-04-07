@@ -85,13 +85,15 @@ export interface Product {
   description: string;
 }
 
-// Definición del Proveedor (Desarrollador)
+// Definición del Proveedor (Desarrollador / Software)
 export interface Provider {
   id: string;
   name: string;
   contactPerson: string;
   email: string | null; 
   phone: string | null; 
+  // --- NUEVO CAMPO: Tipo de Software (Comercial / Propietario) ---
+  softwareType?: string; 
 }
 
 // Definición de la Etapa del Pipeline

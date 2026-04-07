@@ -5,7 +5,6 @@ import Modal from '../components/ui/Modal';
 import Button from '../components/ui/Button';
 import ProviderForm from '../components/providers/ProviderForm';
 import ProviderRow from '../components/providers/ProviderRow';
-// --- 1. IMPORTAMOS LAS FUNCIONES DE FIREBASE ---
 import { db } from '../firebaseConfig';
 import { doc, deleteDoc } from 'firebase/firestore';
 
@@ -28,7 +27,6 @@ const Desarrolladores: React.FC = () => {
         setSelectedProvider(null);
     };
 
-    // --- 2. CONVERTIMOS HANDLEDELETE EN ASÍNCRONO ---
     const handleDelete = async (providerId: string) => {
         const isProviderInUse = allLeads.some(lead => lead.providerId === providerId);
         if (isProviderInUse) {
@@ -38,14 +36,9 @@ const Desarrolladores: React.FC = () => {
 
         if (window.confirm('¿Está seguro de que desea eliminar este desarrollador?')) {
             try {
-                // --- 3. AÑADIMOS EL BORRADO DE FIREBASE ---
-                // 1. Borramos de Firebase
                 const docRef = doc(db, 'providers', providerId);
                 await deleteDoc(docRef);
-
-                // 2. Borramos del estado local (memoria)
                 dispatch({ type: 'DELETE_PROVIDER', payload: providerId });
-
             } catch (error) {
                 console.error("Error al eliminar de Firebase:", error);
                 alert("Error: No se pudo eliminar el desarrollador.");
@@ -58,13 +51,15 @@ const Desarrolladores: React.FC = () => {
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Catálogo de Desarrolladores</h3>
-                    <Button onClick={handleOpenCreateModal}>Crear Desarrollador</Button>
+                    <Button onClick={handleOpenCreateModal}>Crear Software</Button>
                 </div>
                 <div className="relative overflow-x-auto shadow-md sm:rounded-lg">
                     <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                             <tr>
-                                <th scope="col" className="px-6 py-3">Nombre del Desarrollador</th>
+                                <th scope="col" className="px-6 py-3">Nombre del Software</th>
+                                {/* --- NUEVA COLUMNA EN EL ENCABEZADO --- */}
+                                <th scope="col" className="px-6 py-3">Tipo de Software</th>
                                 <th scope="col" className="px-6 py-3">Persona de Contacto</th>
                                 <th scope="col" className="px-6 py-3">Email</th>
                                 <th scope="col" className="px-6 py-3">Teléfono</th>
@@ -85,7 +80,7 @@ const Desarrolladores: React.FC = () => {
                 </div>
             </div>
 
-            <Modal isOpen={isCreateModalOpen} onClose={handleCloseCreateModal} title="Crear Nuevo Desarrollador">
+            <Modal isOpen={isCreateModalOpen} onClose={handleCloseCreateModal} title="Crear Nuevo Software">
                 <ProviderForm onSuccess={handleCloseCreateModal} />
             </Modal>
 
