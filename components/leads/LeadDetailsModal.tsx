@@ -22,7 +22,7 @@ const LeadDetailItem: React.FC<{ icon: React.ReactNode, label: string, value: st
 
 const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClose }) => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false); // --- ESTADO DE DUPLICACIÓN ---
+    const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false); 
     const { getUserById, products, getProviderById, getStageById, tags, allLeads } = useLeads();
 
     const [activeLeadId, setActiveLeadId] = useState(lead.id);
@@ -98,6 +98,21 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                                 label="Teléfono"
                                 value={activeLead.phone}
                             />
+
+                            {/* --- AQUÍ ESTÁ EL NUEVO CAMPO: NÚMERO DE AFILIADO --- */}
+                            {activeLead.affiliateNumber && (
+                                <LeadDetailItem
+                                    icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>}
+                                    label="Número de Afiliado"
+                                    value={
+                                        <span className="font-mono bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800 px-2 py-0.5 rounded-md">
+                                            {activeLead.affiliateNumber}
+                                        </span>
+                                    }
+                                />
+                            )}
+                            {/* --------------------------------------------------- */}
+
                             <LeadDetailItem
                                 icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3v-1a1 1 0 00-1-1H9a1 1 0 00-1 1v1H5a1 1 0 110-2V4zm3 1a1 1 0 011-1h2a1 1 0 011 1v1a1 1 0 01-1 1H8a1 1 0 01-1-1V5zm1 5a1 1 0 00-1 1v1a1 1 0 102 0v-1a1 1 0 00-1-1zm5-1a1 1 0 100 2h.01a1 1 0 100-2H13zM9 9a1 1 0 100 2h.01a1 1 0 100-2H9zm5 1a1 1 0 00-1 1v1a1 1 0 102 0v-1a1 1 0 00-1-1z" clipRule="evenodd" /></svg>}
                                 label="Oficina Asignada"
@@ -218,7 +233,7 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                     )}
                 </div> 
 
-                {/* --- BOTONES FIJOS ABAJO (CON EL NUEVO BOTÓN DE DUPLICAR) --- */}
+                {/* --- BOTONES FIJOS ABAJO --- */}
                 <div className="flex justify-end space-x-3 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-b-xl sticky bottom-0 z-10">
                     <Button variant="secondary" onClick={onClose}>Cerrar</Button>
                     <Button variant="secondary" onClick={() => setIsDuplicateModalOpen(true)}>Duplicar</Button>
