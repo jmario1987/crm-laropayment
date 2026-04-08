@@ -1,15 +1,15 @@
 import * as XLSX from 'xlsx';
 import { Lead, Stage, User, Product, Provider, USER_ROLES, Tag } from '../types';
 
-// Encabezados para la primera hoja. 
+// Encabezados para la primera hoja.
 const HEADERS = [
     "Nombre Completo",
     "Empresa",
-    "Email",
+    "Email", // Ahora es opcional en la validación
     "Teléfono",
     "Etapa",
     "Sub-Etapa",
-    "Asignado a (Email)", // <-- CAMBIO 1: Nombre de la columna más general
+    "Asignado a (Email)",
     "Productos de Interés (nombres separados por coma)",
     "Referido por (nombre del proveedor)", 
     "Número de Afiliado",
@@ -69,8 +69,6 @@ export const parseAndValidateLeads = async (
 
     const validLeads: Lead[] = [];
     const erroredRows: { rowData: any, error: string }[] = [];
-    
-    // <-- CAMBIO 2: Eliminamos la línea que filtraba (const sellers = ...)
 
     data.forEach((row: any, index: number) => {
         const rowNumber = index + 2;
@@ -81,7 +79,7 @@ export const parseAndValidateLeads = async (
             "Teléfono": phone,
             "Etapa": stageName,
             "Sub-Etapa": tagName, 
-            "Asignado a (Email)": ownerEmail, // <-- Reflejamos el cambio de nombre
+            "Asignado a (Email)": ownerEmail, 
             "Productos de Interés (nombres separados por coma)": productNames,
             "Referido por (nombre del proveedor)": providerName, 
             "Número de Afiliado": affiliateNumber, 
@@ -89,8 +87,9 @@ export const parseAndValidateLeads = async (
             "Observaciones": observations,
         } = row;
 
-        if (!name || !company || !email || !stageName || !ownerEmail) {
-            erroredRows.push({ rowData: row, error: `Fila ${rowNumber}: Faltan datos obligatorios.` });
+        // --- CAMBIO: Quitamos "!email" de los datos obligatorios ---
+        if (!name || !company || !stageName || !ownerEmail) {
+            erroredRows.push({ rowData: row, error: `Fila ${rowNumber}: Faltan datos obligatorios (Nombre, Empresa, Etapa o Asignado a).` });
             return;
         }
 
@@ -100,7 +99,6 @@ export const parseAndValidateLeads = async (
             return;
         }
 
-        // <-- CAMBIO 3: Ahora buscamos en la lista completa de 'users', sin importar su rol
         const owner = users.find(u => u.email.toLowerCase() === String(ownerEmail).toLowerCase());
         if (!owner) {
             erroredRows.push({ rowData: row, error: `Fila ${rowNumber}: Usuario asignado no encontrado.` });
@@ -144,13 +142,14 @@ export const parseAndValidateLeads = async (
             id: `${new Date().toISOString()}-${index}`, 
             name: String(name),
             company: String(company),
-            email: String(email),
-            phone: String(phone) || '', 
+            // --- CAMBIO: Si no hay email, guardamos un string vacío ---
+            email: email ? String(email) : '', 
+            phone: phone ? String(phone) : '', // Por si acaso también dejan el teléfono vacío
             status: stage.id,
             createdAt: baseDate, 
             lastUpdate: baseDate,
             
-            ownerId: owner.id, // <-- Ahora puede ser el ID del Administrador
+            ownerId: owner.id, 
             observations: String(observations) || '', 
             
             providerId: providerFound?.id || null, 
