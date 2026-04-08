@@ -1,24 +1,28 @@
 import * as XLSX from 'xlsx';
-import { Lead, Stage, User, Product, Provider, USER_ROLES } from '../types';
+import { Lead, Stage, User, Product, Provider, USER_ROLES, Tag } from '../types';
 
-// Encabezados para la primera hoja.
+// Encabezados para la primera hoja. 
 const HEADERS = [
     "Nombre Completo",
     "Empresa",
     "Email",
     "Teléfono",
     "Etapa",
-    "Vendedor (Email)",
+    "Sub-Etapa",
+    "Asignado a (Email)", // <-- CAMBIO 1: Nombre de la columna más general
     "Productos de Interés (nombres separados por coma)",
-    "Referido por (nombre del proveedor)", // O Desarrollador
+    "Referido por (nombre del proveedor)", 
+    "Número de Afiliado",
+    "Fecha Histórica (YYYY-MM-DD)",
     "Observaciones"
 ];
 
-// Generar plantilla (sin cambios)
+// Generar plantilla 
 export const generateTemplate = (
     stages: Stage[],
     products: Product[],
-    providers: Provider[] // O Desarrolladores
+    providers: Provider[],
+    tags: Tag[] 
 ) => {
     const wsProspectos = XLSX.utils.aoa_to_sheet([HEADERS]);
     const stagesData = [["Etapas Válidas"], ...stages.map(s => [s.name])];
@@ -27,29 +31,34 @@ export const generateTemplate = (
     const wsProductos = XLSX.utils.aoa_to_sheet(productsData);
     const providersData = [["Proveedores Válidos"], ...providers.map(p => [p.name])]; 
     const wsProveedores = XLSX.utils.aoa_to_sheet(providersData);
+    
+    // Pestaña de guía para las Sub-Etapas
+    const tagsData = [["Sub-Etapas Válidas"], ...tags.map(t => [t.name])];
+    const wsTags = XLSX.utils.aoa_to_sheet(tagsData);
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, wsProspectos, 'Prospectos');
     XLSX.utils.book_append_sheet(wb, wsEtapas, 'Etapas');
+    XLSX.utils.book_append_sheet(wb, wsTags, 'Sub-Etapas');
     XLSX.utils.book_append_sheet(wb, wsProductos, 'Productos');
     XLSX.utils.book_append_sheet(wb, wsProveedores, 'Proveedores'); 
 
     XLSX.writeFile(wb, 'plantilla_prospectos_con_guias.xlsx');
 };
 
-
 interface ValidationResult {
     validLeads: Lead[];
     erroredRows: { rowData: any, error: string }[];
 }
 
-// Parsear y Validar Leads (con corrección final de 'undefined')
+// Parsear y Validar Leads 
 export const parseAndValidateLeads = async (
     file: File,
     stages: Stage[],
     users: User[],
     products: Product[],
-    providers: Provider[] 
+    providers: Provider[],
+    tags: Tag[] 
 ): Promise<ValidationResult> => {
 
     const fileBuffer = await file.arrayBuffer();
@@ -60,7 +69,8 @@ export const parseAndValidateLeads = async (
 
     const validLeads: Lead[] = [];
     const erroredRows: { rowData: any, error: string }[] = [];
-    const sellers = users.filter(u => u.role === USER_ROLES.Vendedor);
+    
+    // <-- CAMBIO 2: Eliminamos la línea que filtraba (const sellers = ...)
 
     data.forEach((row: any, index: number) => {
         const rowNumber = index + 2;
@@ -70,14 +80,17 @@ export const parseAndValidateLeads = async (
             "Email": email,
             "Teléfono": phone,
             "Etapa": stageName,
-            "Vendedor (Email)": ownerEmail,
+            "Sub-Etapa": tagName, 
+            "Asignado a (Email)": ownerEmail, // <-- Reflejamos el cambio de nombre
             "Productos de Interés (nombres separados por coma)": productNames,
             "Referido por (nombre del proveedor)": providerName, 
+            "Número de Afiliado": affiliateNumber, 
+            "Fecha Histórica (YYYY-MM-DD)": historicalDate, 
             "Observaciones": observations,
         } = row;
 
         if (!name || !company || !email || !stageName || !ownerEmail) {
-            erroredRows.push({ rowData: row, error: `Fila ${rowNumber}: Faltan datos obligatorios (Nombre, Empresa, Email, Etapa o Vendedor).` });
+            erroredRows.push({ rowData: row, error: `Fila ${rowNumber}: Faltan datos obligatorios.` });
             return;
         }
 
@@ -87,9 +100,10 @@ export const parseAndValidateLeads = async (
             return;
         }
 
-        const owner = sellers.find(s => s.email.toLowerCase() === String(ownerEmail).toLowerCase());
+        // <-- CAMBIO 3: Ahora buscamos en la lista completa de 'users', sin importar su rol
+        const owner = users.find(u => u.email.toLowerCase() === String(ownerEmail).toLowerCase());
         if (!owner) {
-            erroredRows.push({ rowData: row, error: `Fila ${rowNumber}: El vendedor con email "${ownerEmail}" no fue encontrado o no tiene rol de vendedor.` });
+            erroredRows.push({ rowData: row, error: `Fila ${rowNumber}: Usuario asignado no encontrado.` });
             return;
         }
 
@@ -100,40 +114,61 @@ export const parseAndValidateLeads = async (
 
         const providerFound = providerName ? providers.find(p => p.name.toLowerCase() === String(providerName).toLowerCase()) : undefined;
 
-        // --- CORRECCIÓN DEFINITIVA AL CREAR newLead ---
-        // Asignamos valores por defecto válidos (null, [], false) en lugar de undefined
+        // LÓGICA DE LA FECHA HISTÓRICA
+        let baseDate = new Date().toISOString();
+        if (historicalDate) {
+            let parsedDate;
+            if (typeof historicalDate === 'number') {
+                parsedDate = new Date(Math.round((historicalDate - 25569) * 86400 * 1000));
+            } else {
+                parsedDate = new Date(historicalDate);
+            }
+            if (!isNaN(parsedDate.getTime())) {
+                baseDate = parsedDate.toISOString();
+            }
+        }
+
+        // LÓGICA DE SUB-ETAPA
+        let tagIds: string[] = [];
+        let tagHistory: { tagId: string, date: string }[] = [];
+        
+        if (tagName && stage.type !== 'won' && stage.type !== 'lost') {
+            const tagFound = tags.find(t => t.name.toLowerCase() === String(tagName).toLowerCase());
+            if (tagFound) {
+                tagIds = [tagFound.id];
+                tagHistory = [{ tagId: tagFound.id, date: baseDate }]; 
+            }
+        }
+
         const newLead: Lead = {
             id: `${new Date().toISOString()}-${index}`, 
             name: String(name),
             company: String(company),
             email: String(email),
-            phone: String(phone) || '', // phone es string obligatorio
+            phone: String(phone) || '', 
             status: stage.id,
-            createdAt: new Date().toISOString(),
-            ownerId: owner.id,
-            observations: String(observations) || '', 
-            lastUpdate: new Date().toISOString(),
+            createdAt: baseDate, 
+            lastUpdate: baseDate,
             
-            // Campos que ahora son string | null
+            ownerId: owner.id, // <-- Ahora puede ser el ID del Administrador
+            observations: String(observations) || '', 
+            
             providerId: providerFound?.id || null, 
-            affiliateNumber: null, 
+            affiliateNumber: affiliateNumber ? String(affiliateNumber) : null, 
+            
             assignedOffice: null,
             notificationForManagerId: null, 
-            clientStatus: null, 
+            clientStatus: stage.type === 'won' ? 'Activo' : null, 
             
-            // Campos que son arrays opcionales (usar [])
-            productIds: productIds, // ya es [] si está vacío
-            tagIds: [], // <-- Error de la captura
-            tagHistory: [], // <-- Error futuro
+            productIds: productIds, 
+            tagIds: tagIds, 
+            tagHistory: tagHistory, 
             
-            statusHistory: [{ status: stage.id, date: new Date().toISOString() }], // Siempre debe tener 1
+            statusHistory: [{ status: stage.id, date: baseDate }], 
             
-            // Campos booleanos opcionales (usar false)
             notificationForSeller: false, 
             sellerHasViewedNotification: false, 
-            
             _version: 1 
-            // Omitimos billingHistory (opcional) para que no se envíe como undefined
         };
 
         validLeads.push(newLead);
