@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLeads } from '../../hooks/useLeads';
-// --- IMPORTAMOS LAS NUEVAS INTERFACES (Equipment, Terminal) ---
 import { Lead, LeadStatus, USER_ROLES, StatusHistoryEntry, TagHistoryEntry, Equipment, Terminal } from '../../types';
 import Button from '../ui/Button';
 import { useAuth } from '../../hooks/useAuth';
@@ -34,7 +33,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     tagId: '',
     affiliateNumber: '',
     assignedOffice: '', 
-    // --- NUEVO: ESTADO PARA LOS EQUIPOS ---
     equipments: [] as Equipment[]
   });
 
@@ -77,7 +75,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         tagId: lead.tagIds?.[0] || '',
         affiliateNumber: lead.affiliateNumber || '',
         assignedOffice: lead.assignedOffice || '', 
-        // --- CARGAMOS LOS EQUIPOS EXISTENTES ---
         equipments: lead.equipments || []
       });
     } else if (duplicateFrom) {
@@ -94,7 +91,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         tagId: '', 
         affiliateNumber: '', 
         assignedOffice: duplicateFrom.assignedOffice || '', 
-        // No duplicamos los equipos físicos al duplicar el cliente
         equipments: []
       });
     } else {
@@ -129,7 +125,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     setFormData(prev => ({ ...prev, productIds: selectedValues }));
   };
 
-  // --- FUNCIONES PARA MANEJAR PLACAS Y TERMINALES ---
   const addEquipment = () => {
     setFormData(prev => ({
         ...prev,
@@ -156,7 +151,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         ...prev,
         equipments: prev.equipments.map(eq => {
             if (eq.id === eqId) {
-                if (eq.terminals.length >= 8) return eq; // Bloqueo de seguridad: máximo 8 terminales
+                if (eq.terminals.length >= 8) return eq; 
                 return { 
                     ...eq, 
                     terminals: [...eq.terminals, { id: Date.now().toString() + Math.random(), number: '', currency: 'CRC' }] 
@@ -193,61 +188,26 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         })
     }));
   };
-  // --------------------------------------------------
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
-      alert("Error: Usuario no autenticado.");
-      return;
-    }
+    if (!user) return alert("Error: Usuario no autenticado.");
 
     const normalizedInputName = formData.name.trim().toLowerCase();
-    const nameExists = allLeads.some(l => 
-        l.id !== lead?.id &&
-        l.name.trim().toLowerCase() === normalizedInputName
-    );
+    const nameExists = allLeads.some(l => l.id !== lead?.id && l.name.trim().toLowerCase() === normalizedInputName);
     
-    if (nameExists) {
-        alert("⚠️ Error: Ya existe un prospecto con ese nombre exacto. Por favor agrega un distintivo (ej. Nombre - Sucursal o Nombre - Link de Pago).");
-        return;
-    }
-
-    if (isNewLeadCreation && !formData.providerId) {
-        alert("⚠️ Error: Debes seleccionar el Origen ('Referido por') para poder crear el prospecto.");
-        return;
-    }
-
-    if (!formData.productIds || formData.productIds.length !== 1) {
-        alert("⚠️ Error: Debes seleccionar EXACTAMENTE UN (1) producto.\n\nSi el cliente necesita más de un producto, crea este prospecto con el principal y luego usa el botón 'Duplicar' en su ficha para añadir los productos adicionales.");
-        return;
-    }
-
-    if (availableTags.length > 0 && !formData.tagId) {
-        alert("⚠️ Error: Debes seleccionar una Sub-Etapa / Etiqueta obligatoriamente para esta etapa.");
-        return;
-    }
+    if (nameExists) return alert("⚠️ Error: Ya existe un prospecto con ese nombre exacto.");
+    if (isNewLeadCreation && !formData.providerId) return alert("⚠️ Error: Debes seleccionar el Origen ('Referido por').");
+    if (!formData.productIds || formData.productIds.length !== 1) return alert("⚠️ Error: Debes seleccionar EXACTAMENTE UN (1) producto.");
+    if (availableTags.length > 0 && !formData.tagId) return alert("⚠️ Error: Debes seleccionar una Sub-Etapa.");
 
     if (selectedStage?.type === 'won') {
         const afNum = formData.affiliateNumber || '';
-        if (afNum.length !== 10) {
-            alert("⚠️ Error: El número de afiliado debe tener exactamente 10 dígitos.");
-            return;
-        }
-        if (!afNum.startsWith('0')) {
-            alert("⚠️ Error: El número de afiliado debe comenzar siempre con un cero (0).");
-            return;
-        }
+        if (afNum.length !== 10) return alert("⚠️ Error: El número de afiliado debe tener exactamente 10 dígitos.");
+        if (!afNum.startsWith('0')) return alert("⚠️ Error: El número de afiliado debe comenzar siempre con un cero (0).");
         
-        const affiliateExists = allLeads.some(l => 
-            l.id !== lead?.id && 
-            l.affiliateNumber === afNum
-        );
-
-        if (affiliateExists) {
-            alert("⚠️ Error: Este Número de Afiliado ya está registrado en otro cliente dentro del sistema.");
-            return;
-        }
+        const affiliateExists = allLeads.some(l => l.id !== lead?.id && l.affiliateNumber === afNum);
+        if (affiliateExists) return alert("⚠️ Error: Este Número de Afiliado ya está registrado en otro cliente.");
     }
 
     const isNewLead = !lead;
@@ -307,19 +267,14 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         createdAt: lead?.createdAt || new Date().toISOString(),
         lastUpdate: new Date().toISOString(),
         _version: (lead?._version || 0) + 1,
-        
         creatorId: isNewLead ? user.id : (lead?.creatorId || user.id),
-        
         notificationForManagerId: notificationForManagerIdCalc, 
         notificationForSeller: notificationForSellerCalc, 
         sellerHasViewedNotification: sellerHasViewedNotificationCalc, 
-
         providerId: formData.providerId || null, 
         productIds: formData.productIds || [],
         tagIds: formData.tagId ? [formData.tagId] : [],
         assignedOffice: formData.assignedOffice || null, 
-        
-        // --- GUARDAMOS LOS EQUIPOS EN LA BASE DE DATOS ---
         equipments: formData.equipments
     };
 
@@ -379,20 +334,17 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                   const leadRef = doc(db, 'leads', relatedLead.id);
                   batch.update(leadRef, { assignedOffice: newAssignedOffice });
               });
-
               try {
                   await batch.commit();
                   relatedLeadsToUpdate.forEach(relatedLead => {
                       dispatch({ type: 'UPDATE_LEAD', payload: { ...relatedLead, assignedOffice: newAssignedOffice } });
                   });
               } catch (batchError) {
-                  console.error("Error al actualizar prospectos relacionados:", batchError);
+                  console.error("Error al actualizar relacionados:", batchError);
               }
           } 
       }
-      
       onSuccess(); 
-      
     } catch (error) {
       console.error("Error al guardar:", error);
       alert('Hubo un error al guardar el prospecto.');
@@ -406,9 +358,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     <form onSubmit={handleSubmit} className="flex flex-col gap-6 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar p-1">
       
       <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-        <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600">
-            Datos Principales
-        </h4>
+        <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600">Datos Principales</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
                 <label htmlFor="name" className={labelClass}>Nombre del Prospecto *</label>
@@ -434,27 +384,13 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
       </div>
 
       <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-        <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600">
-            Estado y Clasificación
-        </h4>
+        <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600">Estado y Clasificación</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label htmlFor="status" className={labelClass}>Etapa</label>
-                <select 
-                    name="status" 
-                    id="status" 
-                    value={formData.status} 
-                    onChange={handleChange} 
-                    disabled={isNewLeadCreation}
-                    className={`${inputClass} ${isNewLeadCreation ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed text-gray-500' : ''}`}
-                >
+                <select name="status" id="status" value={formData.status} onChange={handleChange} disabled={isNewLeadCreation} className={`${inputClass} ${isNewLeadCreation ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed text-gray-500' : ''}`}>
                     {availableStagesForDropdown.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
                 </select>
-                {isNewLeadCreation && (
-                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">
-                        Todo prospecto nuevo debe iniciar en esta etapa.
-                    </p>
-                )}
             </div>
             
             {availableTags.length > 0 ? (
@@ -469,50 +405,27 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
 
             {selectedStage && selectedStage.type === 'won' && ( 
                 <div className="md:col-span-2 bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800"> 
-                    <label htmlFor="affiliateNumber" className="block text-sm font-bold text-green-800 dark:text-green-400 mb-1">
-                        Número de Afiliado (Requerido para Producción) *
-                    </label> 
+                    <label htmlFor="affiliateNumber" className="block text-sm font-bold text-green-800 dark:text-green-400 mb-1">Número de Afiliado (Requerido para Producción) *</label> 
                     <input 
-                        type="text" 
-                        name="affiliateNumber" 
-                        id="affiliateNumber" 
-                        value={formData.affiliateNumber} 
-                        onChange={(e) => {
-                            const soloNumeros = e.target.value.replace(/\D/g, '').slice(0, 10);
-                            setFormData(prev => ({ ...prev, affiliateNumber: soloNumeros }));
-                        }} 
-                        className={inputClass} 
-                        placeholder="Ej: 0123456789" 
-                        required 
+                        type="text" name="affiliateNumber" id="affiliateNumber" value={formData.affiliateNumber} 
+                        onChange={(e) => setFormData(prev => ({ ...prev, affiliateNumber: e.target.value.replace(/\D/g, '').slice(0, 10) }))} 
+                        className={inputClass} placeholder="Ej: 0123456789" required 
                     /> 
-                    <div className="flex justify-between items-center mt-1">
-                        <p className="text-xs text-green-700 dark:text-green-500 font-medium">
-                            Debe comenzar con 0 y tener exactamente 10 dígitos.
-                        </p>
-                        <p className={`text-xs font-bold ${formData.affiliateNumber.length === 10 ? 'text-green-600' : 'text-red-500'}`}>
-                            {formData.affiliateNumber.length}/10
-                        </p>
-                    </div>
                 </div> 
             )}
 
             <div className="md:col-span-2 z-10">
                 <label className={labelClass}>Productos de Interés *</label>
                 <MultiSelectDropdown options={productOptions} selectedValues={formData.productIds || []} onChange={handleProductSelectionChange} placeholder="Seleccionar producto..."/>
-                <p className="text-xs text-gray-500 mt-1 font-medium">
-                    Debes seleccionar exactamente un (1) producto.
-                </p>
             </div>
         </div>
       </div>
 
-      {/* --- NUEVA SECCIÓN: EQUIPOS Y CONFIGURACIÓN (PLACAS Y TERMINALES) --- */}
+      {/* --- NUEVO DISEÑO: EQUIPOS Y CONFIGURACIÓN --- */}
       <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="flex justify-between items-center mb-4 border-b pb-2 dark:border-gray-600">
-            <h4 className="text-base font-bold text-gray-800 dark:text-white">
-                Equipos y Configuración
-            </h4>
-            <Button type="button" variant="secondary" onClick={addEquipment} className="text-xs py-1 px-2">
+            <h4 className="text-base font-bold text-gray-800 dark:text-white">Equipos y Configuración</h4>
+            <Button type="button" variant="secondary" onClick={addEquipment} className="text-xs py-1 px-3 shadow-sm border-gray-300">
                 + Agregar Placa
             </Button>
         </div>
@@ -522,121 +435,120 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         ) : (
             <div className="space-y-4">
                 {formData.equipments.map((eq, eqIndex) => (
-                    <div key={eq.id} className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 p-3 rounded-lg shadow-sm relative">
+                    <div key={eq.id} className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 p-4 rounded-lg shadow-sm relative">
                         <button 
                             type="button" 
                             onClick={() => removeEquipment(eq.id)}
-                            className="absolute top-3 right-3 text-red-500 hover:text-red-700 transition-colors"
+                            className="absolute top-3 right-3 text-red-500 hover:text-red-700 transition-colors bg-red-50 hover:bg-red-100 p-1.5 rounded-md"
                             title="Eliminar Placa"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                         </button>
                         
-                        <h5 className="font-semibold text-gray-700 dark:text-gray-300 mb-3 text-sm">Placa #{eqIndex + 1}</h5>
+                        <h5 className="font-semibold text-gray-700 dark:text-gray-300 mb-3 text-sm border-b pb-1 dark:border-gray-600 w-fit pr-4">Placa #{eqIndex + 1}</h5>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">N° de Placa (Datáfono)</label>
-                                <input 
-                                    type="text" 
-                                    value={eq.placa} 
-                                    onChange={(e) => updateEquipment(eq.id, 'placa', e.target.value)} 
-                                    className="block w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-primary-500 focus:border-primary-500"
-                                    placeholder="Ej: P-1050"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                                    Sede <span className="font-normal text-gray-400">(Opcional)</span>
-                                </label>
-                                <input 
-                                    type="text" 
-                                    value={eq.sede || ''} 
-                                    onChange={(e) => updateEquipment(eq.id, 'sede', e.target.value)} 
-                                    className="block w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-primary-500 focus:border-primary-500"
-                                    placeholder="Ej: Sucursal Tibás"
-                                />
-                            </div>
-                        </div>
-
-                        {/* SUB-SECCIÓN DE TERMINALES DENTRO DE LA PLACA */}
-                        <div className="bg-gray-50 dark:bg-gray-800 rounded p-3 border border-gray-200 dark:border-gray-600">
-                            <div className="flex justify-between items-center mb-2">
-                                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">Terminales ({eq.terminals.length}/8)</label>
-                                <button 
-                                    type="button" 
-                                    onClick={() => addTerminal(eq.id)}
-                                    disabled={eq.terminals.length >= 8}
-                                    className={`text-xs font-medium py-1 px-2 rounded transition-colors ${eq.terminals.length >= 8 ? 'bg-gray-200 text-gray-400 cursor-not-allowed dark:bg-gray-700' : 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-800/80'}`}
-                                >
-                                    + Añadir Terminal
-                                </button>
-                            </div>
+                        {/* --- INICIO DEL GRID 2 COLUMNAS (Izquierda Placa/Sede - Derecha Terminales) --- */}
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                             
-                            {eq.terminals.length === 0 ? (
-                                <p className="text-xs text-gray-400 italic">Haz clic en "+ Añadir Terminal" para configurar las monedas de esta placa.</p>
-                            ) : (
-                                <div className="space-y-2">
-                                    {eq.terminals.map((term, termIndex) => (
-                                        <div key={term.id} className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-400 w-4">{termIndex + 1}.</span>
-                                            <input 
-                                                type="text" 
-                                                value={term.number} 
-                                                onChange={(e) => updateTerminal(eq.id, term.id, 'number', e.target.value)} 
-                                                className="block w-full px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-blue-500 focus:border-blue-500"
-                                                placeholder="N° Terminal (Ej: T-001)"
-                                                required
-                                            />
-                                            <select 
-                                                value={term.currency} 
-                                                onChange={(e) => updateTerminal(eq.id, term.id, 'currency', e.target.value)}
-                                                className="block w-24 px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-blue-500 focus:border-blue-500"
-                                            >
-                                                <option value="CRC">Colones</option>
-                                                <option value="USD">Dólares</option>
-                                            </select>
-                                            <button 
-                                                type="button" 
-                                                onClick={() => removeTerminal(eq.id, term.id)}
-                                                className="text-red-400 hover:text-red-600 p-1"
-                                                title="Eliminar Terminal"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                            </button>
-                                        </div>
-                                    ))}
+                            {/* LADO IZQUIERDO: Placa y Sede (Ocupa 5 de 12 columnas) */}
+                            <div className="lg:col-span-5 flex flex-col gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">N° de Placa (Datáfono)</label>
+                                    <input 
+                                        type="text" 
+                                        value={eq.placa} 
+                                        onChange={(e) => updateEquipment(eq.id, 'placa', e.target.value)} 
+                                        className="block w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-primary-500 focus:border-primary-500"
+                                        placeholder="Ej: 453-951-265"
+                                        required
+                                    />
                                 </div>
-                            )}
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                        Sede <span className="font-normal text-gray-400">(Opcional)</span>
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        value={eq.sede || ''} 
+                                        onChange={(e) => updateEquipment(eq.id, 'sede', e.target.value)} 
+                                        className="block w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-primary-500 focus:border-primary-500"
+                                        placeholder="Ej: Sucursal Tibás"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* LADO DERECHO: Terminales (Ocupa 7 de 12 columnas) */}
+                            <div className="lg:col-span-7">
+                                <div className="bg-gray-50 dark:bg-gray-800/80 rounded-md p-3 border border-gray-200 dark:border-gray-600 h-full flex flex-col">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">Terminales ({eq.terminals.length}/8)</label>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => addTerminal(eq.id)}
+                                            disabled={eq.terminals.length >= 8}
+                                            className={`text-xs font-bold py-1.5 px-3 rounded-md transition-colors shadow-sm border ${eq.terminals.length >= 8 ? 'bg-gray-200 text-gray-400 border-gray-200 cursor-not-allowed dark:bg-gray-700' : 'bg-white text-primary-600 border-primary-200 hover:bg-primary-50 dark:bg-gray-700 dark:text-primary-400 dark:border-primary-900/50 dark:hover:bg-gray-600'}`}
+                                        >
+                                            + Añadir Terminal
+                                        </button>
+                                    </div>
+                                    
+                                    {eq.terminals.length === 0 ? (
+                                        <div className="flex-1 flex items-center justify-center border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-md p-4">
+                                            <p className="text-xs text-gray-400 italic text-center">Sin terminales. Haz clic en "+ Añadir" para configurar las monedas.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2 flex-1">
+                                            {eq.terminals.map((term, termIndex) => (
+                                                <div key={term.id} className="flex items-center gap-2">
+                                                    <span className="text-xs text-gray-400 font-medium w-4">{termIndex + 1}.</span>
+                                                    <input 
+                                                        type="text" 
+                                                        value={term.number} 
+                                                        onChange={(e) => updateTerminal(eq.id, term.id, 'number', e.target.value)} 
+                                                        className="block w-full px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-primary-500 focus:border-primary-500"
+                                                        placeholder="N° Terminal"
+                                                        required
+                                                    />
+                                                    <select 
+                                                        value={term.currency} 
+                                                        onChange={(e) => updateTerminal(eq.id, term.id, 'currency', e.target.value)}
+                                                        className="block w-28 px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-medium focus:ring-primary-500 focus:border-primary-500"
+                                                    >
+                                                        <option value="CRC">Colones</option>
+                                                        <option value="USD">Dólares</option>
+                                                    </select>
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => removeTerminal(eq.id, term.id)}
+                                                        className="text-red-400 hover:text-red-600 p-1.5 bg-white border border-gray-200 hover:bg-red-50 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-red-900/30 rounded ml-1 transition-colors shadow-sm"
+                                                        title="Eliminar Terminal"
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
+                        {/* --- FIN DEL GRID --- */}
                     </div>
                 ))}
             </div>
         )}
       </div>
-      {/* ------------------------------------------------------------------------ */}
 
       <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-        <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600">
-            Asignación y Origen
-        </h4>
+        <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600">Asignación y Origen</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
             <div>
                 <label htmlFor="providerId" className={labelClass}>Referido por {isNewLeadCreation && '*'}:</label>
-                <select 
-                    name="providerId" 
-                    id="providerId" 
-                    value={formData.providerId} 
-                    onChange={handleChange} 
-                    required={isNewLeadCreation} 
-                    className={inputClass}
-                >
+                <select name="providerId" id="providerId" value={formData.providerId} onChange={handleChange} required={isNewLeadCreation} className={inputClass}>
                     <option value="">Seleccione una opción...</option>
                     {providers.map(provider => <option key={provider.id} value={provider.id}>{provider.name}</option>)}
                 </select>
             </div>
-
             {canReassign && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
                     <label htmlFor="ownerId" className="block text-sm font-bold text-blue-800 dark:text-blue-300 mb-1">
