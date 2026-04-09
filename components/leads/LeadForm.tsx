@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLeads } from '../../hooks/useLeads';
-import { Lead, LeadStatus, USER_ROLES, StatusHistoryEntry, TagHistoryEntry } from '../../types';
+// --- IMPORTAMOS LAS NUEVAS INTERFACES (Equipment, Terminal) ---
+import { Lead, LeadStatus, USER_ROLES, StatusHistoryEntry, TagHistoryEntry, Equipment, Terminal } from '../../types';
 import Button from '../ui/Button';
 import { useAuth } from '../../hooks/useAuth';
 import MultiSelectDropdown from '../ui/MultiSelectDropdown';
@@ -33,6 +34,8 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     tagId: '',
     affiliateNumber: '',
     assignedOffice: '', 
+    // --- NUEVO: ESTADO PARA LOS EQUIPOS ---
+    equipments: [] as Equipment[]
   });
 
   const isNewLeadCreation = !lead;
@@ -74,6 +77,8 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         tagId: lead.tagIds?.[0] || '',
         affiliateNumber: lead.affiliateNumber || '',
         assignedOffice: lead.assignedOffice || '', 
+        // --- CARGAMOS LOS EQUIPOS EXISTENTES ---
+        equipments: lead.equipments || []
       });
     } else if (duplicateFrom) {
       setFormData({
@@ -89,6 +94,8 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         tagId: '', 
         affiliateNumber: '', 
         assignedOffice: duplicateFrom.assignedOffice || '', 
+        // No duplicamos los equipos físicos al duplicar el cliente
+        equipments: []
       });
     } else {
       setFormData({
@@ -103,7 +110,8 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         newObservation: '', 
         tagId: '', 
         affiliateNumber: '', 
-        assignedOffice: ''
+        assignedOffice: '',
+        equipments: []
       });
     }
   }, [lead, duplicateFrom, stages, user, sellers, defaultStatus]); 
@@ -120,6 +128,72 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
   const handleProductSelectionChange = (selectedValues: string[]) => {
     setFormData(prev => ({ ...prev, productIds: selectedValues }));
   };
+
+  // --- FUNCIONES PARA MANEJAR PLACAS Y TERMINALES ---
+  const addEquipment = () => {
+    setFormData(prev => ({
+        ...prev,
+        equipments: [...prev.equipments, { id: Date.now().toString(), placa: '', sede: '', terminals: [] }]
+    }));
+  };
+
+  const removeEquipment = (eqId: string) => {
+    setFormData(prev => ({
+        ...prev,
+        equipments: prev.equipments.filter(eq => eq.id !== eqId)
+    }));
+  };
+
+  const updateEquipment = (eqId: string, field: string, value: string) => {
+    setFormData(prev => ({
+        ...prev,
+        equipments: prev.equipments.map(eq => eq.id === eqId ? { ...eq, [field]: value } : eq)
+    }));
+  };
+
+  const addTerminal = (eqId: string) => {
+    setFormData(prev => ({
+        ...prev,
+        equipments: prev.equipments.map(eq => {
+            if (eq.id === eqId) {
+                if (eq.terminals.length >= 8) return eq; // Bloqueo de seguridad: máximo 8 terminales
+                return { 
+                    ...eq, 
+                    terminals: [...eq.terminals, { id: Date.now().toString() + Math.random(), number: '', currency: 'CRC' }] 
+                };
+            }
+            return eq;
+        })
+    }));
+  };
+
+  const removeTerminal = (eqId: string, termId: string) => {
+    setFormData(prev => ({
+        ...prev,
+        equipments: prev.equipments.map(eq => {
+            if (eq.id === eqId) {
+                return { ...eq, terminals: eq.terminals.filter(t => t.id !== termId) };
+            }
+            return eq;
+        })
+    }));
+  };
+
+  const updateTerminal = (eqId: string, termId: string, field: string, value: string) => {
+    setFormData(prev => ({
+        ...prev,
+        equipments: prev.equipments.map(eq => {
+            if (eq.id === eqId) {
+                return {
+                    ...eq,
+                    terminals: eq.terminals.map(t => t.id === termId ? { ...t, [field]: value } : t)
+                };
+            }
+            return eq;
+        })
+    }));
+  };
+  // --------------------------------------------------
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,7 +223,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         return;
     }
 
-    // --- REGLA NUEVA: SUB-ETAPA OBLIGATORIA ---
     if (availableTags.length > 0 && !formData.tagId) {
         alert("⚠️ Error: Debes seleccionar una Sub-Etapa / Etiqueta obligatoriamente para esta etapa.");
         return;
@@ -245,6 +318,9 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         productIds: formData.productIds || [],
         tagIds: formData.tagId ? [formData.tagId] : [],
         assignedOffice: formData.assignedOffice || null, 
+        
+        // --- GUARDAMOS LOS EQUIPOS EN LA BASE DE DATOS ---
+        equipments: formData.equipments
     };
 
     if (!isNewLead && lead?.ownerId !== formData.ownerId) {
@@ -277,7 +353,8 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
           clientStatus: leadDataToSave.clientStatus ?? lead?.clientStatus ?? null, 
           billingHistory: leadDataToSave.billingHistory ?? lead?.billingHistory, 
           creatorId: leadDataToSave.creatorId,
-          reassignedAt: leadDataToSave.reassignedAt ?? lead?.reassignedAt ?? undefined
+          reassignedAt: leadDataToSave.reassignedAt ?? lead?.reassignedAt ?? undefined,
+          equipments: leadDataToSave.equipments ?? []
       } as Lead;
 
       if (isNewLead) {
@@ -380,7 +457,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                 )}
             </div>
             
-            {/* --- HTML ACTUALIZADO: OBLIGA A SELECCIONAR SUB-ETAPA SI EXISTE --- */}
             {availableTags.length > 0 ? (
                 <div>
                     <label htmlFor="tagId" className={labelClass}>Sub-Etapa / Etiqueta *</label>
@@ -429,6 +505,117 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
             </div>
         </div>
       </div>
+
+      {/* --- NUEVA SECCIÓN: EQUIPOS Y CONFIGURACIÓN (PLACAS Y TERMINALES) --- */}
+      <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="flex justify-between items-center mb-4 border-b pb-2 dark:border-gray-600">
+            <h4 className="text-base font-bold text-gray-800 dark:text-white">
+                Equipos y Configuración
+            </h4>
+            <Button type="button" variant="secondary" onClick={addEquipment} className="text-xs py-1 px-2">
+                + Agregar Placa
+            </Button>
+        </div>
+        
+        {formData.equipments.length === 0 ? (
+            <p className="text-sm text-gray-500 italic text-center py-4">No hay equipos registrados para este cliente.</p>
+        ) : (
+            <div className="space-y-4">
+                {formData.equipments.map((eq, eqIndex) => (
+                    <div key={eq.id} className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 p-3 rounded-lg shadow-sm relative">
+                        <button 
+                            type="button" 
+                            onClick={() => removeEquipment(eq.id)}
+                            className="absolute top-3 right-3 text-red-500 hover:text-red-700 transition-colors"
+                            title="Eliminar Placa"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        </button>
+                        
+                        <h5 className="font-semibold text-gray-700 dark:text-gray-300 mb-3 text-sm">Placa #{eqIndex + 1}</h5>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">N° de Placa (Datáfono)</label>
+                                <input 
+                                    type="text" 
+                                    value={eq.placa} 
+                                    onChange={(e) => updateEquipment(eq.id, 'placa', e.target.value)} 
+                                    className="block w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-primary-500 focus:border-primary-500"
+                                    placeholder="Ej: P-1050"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                                    Sede <span className="font-normal text-gray-400">(Opcional)</span>
+                                </label>
+                                <input 
+                                    type="text" 
+                                    value={eq.sede || ''} 
+                                    onChange={(e) => updateEquipment(eq.id, 'sede', e.target.value)} 
+                                    className="block w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-primary-500 focus:border-primary-500"
+                                    placeholder="Ej: Sucursal Tibás"
+                                />
+                            </div>
+                        </div>
+
+                        {/* SUB-SECCIÓN DE TERMINALES DENTRO DE LA PLACA */}
+                        <div className="bg-gray-50 dark:bg-gray-800 rounded p-3 border border-gray-200 dark:border-gray-600">
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">Terminales ({eq.terminals.length}/8)</label>
+                                <button 
+                                    type="button" 
+                                    onClick={() => addTerminal(eq.id)}
+                                    disabled={eq.terminals.length >= 8}
+                                    className={`text-xs font-medium py-1 px-2 rounded transition-colors ${eq.terminals.length >= 8 ? 'bg-gray-200 text-gray-400 cursor-not-allowed dark:bg-gray-700' : 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-800/80'}`}
+                                >
+                                    + Añadir Terminal
+                                </button>
+                            </div>
+                            
+                            {eq.terminals.length === 0 ? (
+                                <p className="text-xs text-gray-400 italic">Haz clic en "+ Añadir Terminal" para configurar las monedas de esta placa.</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {eq.terminals.map((term, termIndex) => (
+                                        <div key={term.id} className="flex items-center gap-2">
+                                            <span className="text-xs text-gray-400 w-4">{termIndex + 1}.</span>
+                                            <input 
+                                                type="text" 
+                                                value={term.number} 
+                                                onChange={(e) => updateTerminal(eq.id, term.id, 'number', e.target.value)} 
+                                                className="block w-full px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-blue-500 focus:border-blue-500"
+                                                placeholder="N° Terminal (Ej: T-001)"
+                                                required
+                                            />
+                                            <select 
+                                                value={term.currency} 
+                                                onChange={(e) => updateTerminal(eq.id, term.id, 'currency', e.target.value)}
+                                                className="block w-24 px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-blue-500 focus:border-blue-500"
+                                            >
+                                                <option value="CRC">Colones</option>
+                                                <option value="USD">Dólares</option>
+                                            </select>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => removeTerminal(eq.id, term.id)}
+                                                className="text-red-400 hover:text-red-600 p-1"
+                                                title="Eliminar Terminal"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        )}
+      </div>
+      {/* ------------------------------------------------------------------------ */}
 
       <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600">

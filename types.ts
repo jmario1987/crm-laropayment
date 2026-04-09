@@ -34,6 +34,21 @@ export type TagHistoryEntry = {
   date: string;
 };
 
+// --- NUEVO: Definición de Terminales (Moneda) ---
+export interface Terminal {
+  id: string;
+  number: string;
+  currency: 'CRC' | 'USD';
+}
+
+// --- NUEVO: Definición de Equipos (Datáfonos/Placas) ---
+export interface Equipment {
+  id: string;
+  placa: string;
+  sede?: string; // Opcional: Solo se usará en clientes como el INS
+  terminals: Terminal[]; // Aquí guardaremos hasta 8 terminales por placa
+}
+
 // Definición del Prospecto (Lead)
 export type Lead = {
   // --- CAMPOS OBLIGATORIOS ---
@@ -67,6 +82,9 @@ export type Lead = {
   _version?: number;
   assignedOffice: string | null; 
   
+  // --- NUEVO: LISTA DE EQUIPOS (PLACAS Y TERMINALES) ---
+  equipments?: Equipment[];
+
   // --- NUEVO: MONTOS DE FACTURACIÓN MULTIMONEDA ---
   billingAmounts?: { 
     [month: string]: { 

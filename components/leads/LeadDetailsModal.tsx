@@ -99,7 +99,7 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                                 value={activeLead.phone}
                             />
 
-                            {/* --- AQUÍ ESTÁ EL NUEVO CAMPO: NÚMERO DE AFILIADO --- */}
+                            {/* --- NÚMERO DE AFILIADO --- */}
                             {activeLead.affiliateNumber && (
                                 <LeadDetailItem
                                     icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>}
@@ -111,7 +111,6 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                                     }
                                 />
                             )}
-                            {/* --------------------------------------------------- */}
 
                             <LeadDetailItem
                                 icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3v-1a1 1 0 00-1-1H9a1 1 0 00-1 1v1H5a1 1 0 110-2V4zm3 1a1 1 0 011-1h2a1 1 0 011 1v1a1 1 0 01-1 1H8a1 1 0 01-1-1V5zm1 5a1 1 0 00-1 1v1a1 1 0 102 0v-1a1 1 0 00-1-1zm5-1a1 1 0 100 2h.01a1 1 0 100-2H13zM9 9a1 1 0 100 2h.01a1 1 0 100-2H9zm5 1a1 1 0 00-1 1v1a1 1 0 102 0v-1a1 1 0 00-1-1z" clipRule="evenodd" /></svg>}
@@ -174,9 +173,53 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                         </div>
                     </div>
 
+                    {/* --- NUEVA SECCIÓN: EQUIPOS Y CONFIGURACIÓN --- */}
+                    {activeLead.equipments && activeLead.equipments.length > 0 && (
+                        <div>
+                            <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3 mt-6 border-t pt-4 dark:border-gray-700">
+                                Equipos y Configuración
+                            </h4>
+                            <div className="space-y-3">
+                                {activeLead.equipments.map((eq, index) => (
+                                    <div key={eq.id || index} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                <span className="font-semibold text-gray-800 dark:text-gray-200">Placa: {eq.placa}</span>
+                                                {eq.sede && (
+                                                    <span className="ml-2 text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200 px-2 py-0.5 rounded-full font-medium">
+                                                        Sede: {eq.sede}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                                                {eq.terminals?.length || 0} Terminal(es)
+                                            </span>
+                                        </div>
+                                        
+                                        {eq.terminals && eq.terminals.length > 0 ? (
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+                                                {eq.terminals.map(term => (
+                                                    <div key={term.id} className="flex items-center text-sm bg-white dark:bg-gray-700 px-2 py-1 rounded border border-gray-200 dark:border-gray-600 shadow-sm">
+                                                        <span className="font-mono text-gray-700 dark:text-gray-300">{term.number}</span>
+                                                        <span className={`ml-auto text-xs font-bold px-1.5 py-0.5 rounded ${term.currency === 'USD' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'}`}>
+                                                            {term.currency}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-gray-400 italic mt-1">Sin terminales configuradas.</p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {/* ---------------------------------------------- */}
+
                     {/* --- SECCIÓN HISTORIAL DE ETAPAS --- */}
                     <div>
-                        <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Historial de Etapas</h4>
+                        <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 mt-6 border-t pt-4 dark:border-gray-700">Historial de Etapas</h4>
                         <LeadTimeline history={activeLead.statusHistory} />
                     </div>
 
