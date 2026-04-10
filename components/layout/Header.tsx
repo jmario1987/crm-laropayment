@@ -20,23 +20,60 @@ const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout, onM
   const { allLeads, getStageById, dispatch } = useLeads();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Lead[]>([]);
+  
+  // --- AHORA GUARDAMOS EL CLIENTE Y EL "MOTIVO" POR EL QUE FUE ENCONTRADO ---
+  const [searchResults, setSearchResults] = useState<{lead: Lead, matchReason?: string}[]>([]);
+  
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  // --- EL BUSCADOR MÁGICO UNIVERSAL ---
+  // --- EL BUSCADOR MÁGICO UNIVERSAL MEJORADO ---
   useEffect(() => {
     if (searchQuery.length > 1) {
       const lowerCaseQuery = searchQuery.toLowerCase();
-      const filtered = allLeads.filter(lead =>
-        (lead.name?.toLowerCase() || '').includes(lowerCaseQuery) ||
-        (lead.company?.toLowerCase() || '').includes(lowerCaseQuery) ||
-        (lead.affiliateNumber?.toLowerCase() || '').includes(lowerCaseQuery) || // ¡Ahora busca por Afiliado!
-        (lead.email?.toLowerCase() || '').includes(lowerCaseQuery) ||           // ¡Ahora busca por Correo!
-        (lead.phone?.toLowerCase() || '').includes(lowerCaseQuery)              // ¡Ahora busca por Teléfono!
-      );
-      setSearchResults(filtered);
+      const results: {lead: Lead, matchReason?: string}[] = [];
+
+      allLeads.forEach(lead => {
+          let isMatch = false;
+          let matchReason = '';
+
+          // 1. Búsqueda Clásica (Nombre, Empresa, Afiliado, Email, Teléfono)
+          if ((lead.name?.toLowerCase() || '').includes(lowerCaseQuery)) { isMatch = true; }
+          else if ((lead.company?.toLowerCase() || '').includes(lowerCaseQuery)) { isMatch = true; }
+          else if ((lead.email?.toLowerCase() || '').includes(lowerCaseQuery)) { isMatch = true; }
+          else if ((lead.phone?.toLowerCase() || '').includes(lowerCaseQuery)) { isMatch = true; }
+          else if ((lead.affiliateNumber?.toLowerCase() || '').includes(lowerCaseQuery)) { 
+              isMatch = true; 
+          }
+          
+          // 2. Búsqueda Profunda (Placas y Terminales)
+          if (!isMatch && lead.equipments && lead.equipments.length > 0) {
+              for (const eq of lead.equipments) {
+                  // ¿Coincide con el nombre de la placa?
+                  if (eq.placa.toLowerCase().includes(lowerCaseQuery)) {
+                      isMatch = true;
+                      matchReason = `Placa: ${eq.placa}`;
+                      break; 
+                  }
+                  // ¿Coincide con alguna terminal de esta placa?
+                  if (eq.terminals && eq.terminals.length > 0) {
+                      const matchedTerminal = eq.terminals.find(t => t.number.toLowerCase().includes(lowerCaseQuery));
+                      if (matchedTerminal) {
+                          isMatch = true;
+                          matchReason = `Terminal: ${matchedTerminal.number}`;
+                          break;
+                      }
+                  }
+              }
+          }
+
+          if (isMatch) {
+              results.push({ lead, matchReason });
+          }
+      });
+
+      setSearchResults(results);
     } else {
       setSearchResults([]);
     }
@@ -97,7 +134,7 @@ const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout, onM
           <div className="hidden md:block relative w-64" ref={searchContainerRef}>
               <input
                   type="text"
-                  placeholder="Buscar prospecto..."
+                  placeholder="Buscar prospecto, placa o terminal..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onFocus={() => setIsSearchFocused(true)}
@@ -107,7 +144,7 @@ const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout, onM
                   <div className="absolute mt-1 w-full bg-white dark:bg-gray-800 rounded-md shadow-lg z-50 max-h-80 overflow-y-auto border border-gray-100 dark:border-gray-700">
                       {searchResults.length > 0 ? (
                           <ul>
-                              {searchResults.map((lead: Lead) => (
+                              {searchResults.map(({lead, matchReason}) => (
                                   <li 
                                       key={lead.id} 
                                       onClick={() => handleLeadSelect(lead)}
@@ -115,12 +152,20 @@ const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout, onM
                                   >
                                       <div className="flex justify-between items-start">
                                         <p className="font-semibold text-gray-800 dark:text-gray-100 truncate pr-2">{lead.name}</p>
-                                        {/* Etiqueta visual para el número de afiliado en los resultados */}
-                                        {lead.affiliateNumber && (
-                                            <span className="inline-block px-1.5 py-0.5 text-[10px] font-mono font-bold bg-blue-100 text-blue-800 rounded flex-shrink-0">
-                                                {lead.affiliateNumber}
-                                            </span>
-                                        )}
+                                        
+                                        {/* ETIQUETAS VISUALES (Muestra el motivo de búsqueda o el afiliado) */}
+                                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                            {matchReason && (
+                                                <span className="inline-block px-1.5 py-0.5 text-[10px] font-bold bg-green-100 text-green-800 rounded shadow-sm border border-green-200">
+                                                    {matchReason}
+                                                </span>
+                                            )}
+                                            {lead.affiliateNumber && !matchReason && (
+                                                <span className="inline-block px-1.5 py-0.5 text-[10px] font-mono font-bold bg-blue-100 text-blue-800 rounded shadow-sm">
+                                                    Af: {lead.affiliateNumber}
+                                                </span>
+                                            )}
+                                        </div>
                                       </div>
                                       <div className="flex justify-between items-center mt-1">
                                           <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{lead.company || lead.email}</p>
