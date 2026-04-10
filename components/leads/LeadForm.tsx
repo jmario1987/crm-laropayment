@@ -447,10 +447,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                         
                         <h5 className="font-semibold text-gray-700 dark:text-gray-300 mb-3 text-sm border-b pb-1 dark:border-gray-600 w-fit pr-4">Placa #{eqIndex + 1}</h5>
                         
-                        {/* --- INICIO DEL GRID 2 COLUMNAS (Izquierda Placa/Sede - Derecha Terminales) --- */}
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                            
-                            {/* LADO IZQUIERDO: Placa y Sede (Ocupa 5 de 12 columnas) */}
                             <div className="lg:col-span-5 flex flex-col gap-4">
                                 <div>
                                     <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">N° de Placa (Datáfono)</label>
@@ -477,7 +474,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                                 </div>
                             </div>
 
-                            {/* LADO DERECHO: Terminales (Ocupa 7 de 12 columnas) */}
                             <div className="lg:col-span-7">
                                 <div className="bg-gray-50 dark:bg-gray-800/80 rounded-md p-3 border border-gray-200 dark:border-gray-600 h-full flex flex-col">
                                     <div className="flex justify-between items-center mb-3">
@@ -532,9 +528,18 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                                 </div>
                             </div>
                         </div>
-                        {/* --- FIN DEL GRID --- */}
                     </div>
                 ))}
+
+                {/* --- NUEVO BOTÓN FLOTANTE AL FINAL DE LA LISTA --- */}
+                <button
+                    type="button"
+                    onClick={addEquipment}
+                    className="w-full py-3 mt-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm font-semibold text-gray-500 dark:text-gray-400 hover:text-primary-600 hover:border-primary-400 dark:hover:text-primary-400 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-gray-800 transition-all flex items-center justify-center gap-2"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Añadir otra Placa
+                </button>
             </div>
         )}
       </div>
