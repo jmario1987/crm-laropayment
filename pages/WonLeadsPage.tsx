@@ -19,7 +19,6 @@ const getCurrentMonthYear = () => {
     return `${month}-${year}`;
 };
 
-// --- AÑADIMOS creatorName A LAS PROPIEDADES DE LA FILA ---
 const WonLeadRow: React.FC<{ 
     lead: Lead; 
     sellerName?: string; 
@@ -37,7 +36,6 @@ const WonLeadRow: React.FC<{
             <td className="px-6 py-4 font-mono font-bold text-gray-900 dark:text-white">{lead.affiliateNumber || 'N/A'}</td>
             <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{lead.name}</td>
             
-            {/* --- ACTUALIZAMOS LA CELDA DEL VENDEDOR PARA MOSTRAR AL SDR --- */}
             <td className="px-6 py-4">
                 {creatorName && (
                     <div className="text-xs font-semibold text-yellow-600 dark:text-yellow-500 mb-1 flex items-center gap-1.5" title="Creador (SDR)">
@@ -66,12 +64,12 @@ const WonLeadRow: React.FC<{
                                 {currentAmounts && (
                                     <div className="flex flex-col items-center mt-1 space-y-1">
                                         {(currentAmounts.montoCRC > 0) && (
-                                            <span className="text-[10px] text-gray-700 dark:text-gray-300 font-bold bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md border border-gray-200 dark:border-gray-600">
+                                            <span className="text-[10px] text-gray-700 dark:text-gray-300 font-bold bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md border border-gray-200 dark:border-gray-600" title="Ventas en Colones">
                                                 {new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(currentAmounts.montoCRC)}
                                             </span>
                                         )}
                                         {(currentAmounts.montoUSD > 0) && (
-                                            <span className="text-[10px] text-blue-700 dark:text-blue-300 font-bold bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800">
+                                            <span className="text-[10px] text-blue-700 dark:text-blue-300 font-bold bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800" title="Ventas en Dólares">
                                                 {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(currentAmounts.montoUSD)}
                                             </span>
                                         )}
@@ -206,6 +204,8 @@ const WonLeadsPage: React.FC = () => {
 
                         const existing = facturadosExcel.get(num)!;
                         
+                        // --- AQUÍ ESTABA EL ERROR MATEMÁTICO ---
+                        // Reemplazamos el "+=" duplicado por suma directa
                         if (codMoneda === '1') {
                             existing.montoCRC += monto;
                             existing.comisionCRC += comision;
@@ -331,7 +331,7 @@ const WonLeadsPage: React.FC = () => {
                 'Nº Afiliado': lead.affiliateNumber || 'N/A',
                 'Nombre Cliente': lead.name,
                 'Empresa': lead.company,
-                'SDR (Creador)': creatorName || '-', // --- NUEVA COLUMNA EN EXCEL ---
+                'SDR (Creador)': creatorName || '-', 
                 'Vendedor Asignado': getUserById(lead.ownerId)?.name || 'N/A',
                 'Productos': getProductNames(lead.productIds),
                 'Referido por': getProviderById(lead.providerId || '')?.name || 'N/A',
@@ -350,7 +350,6 @@ const WonLeadsPage: React.FC = () => {
             return baseRow;
         });
         
-        // --- ACTUALIZAMOS LOS HEADERS ---
         const headers = isAdmin 
             ? ['Nº Afiliado', 'Nombre Cliente', 'Empresa', 'SDR (Creador)', 'Vendedor Asignado', 'Productos', 'Referido por', 'Monto (CRC)', 'Comisión (CRC)', 'Monto (USD)', 'Comisión (USD)']
             : ['Nº Afiliado', 'Nombre Cliente', 'Empresa', 'SDR (Creador)', 'Vendedor Asignado', 'Productos', 'Referido por'];
@@ -366,7 +365,11 @@ const WonLeadsPage: React.FC = () => {
         const options = [];
         let date = new Date();
         date.setDate(15); 
-        for (let i = 0; i < 6; i++) {
+        
+        const targetYear = 2025;
+        const targetMonthIndex = 3; 
+
+        while (date.getFullYear() > targetYear || (date.getFullYear() === targetYear && date.getMonth() >= targetMonthIndex)) {
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const year = date.getFullYear();
             options.push(`${month}-${year}`);
@@ -392,60 +395,67 @@ const WonLeadsPage: React.FC = () => {
     return (
         <div className="space-y-8">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-                    <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Clientes en Producción</h3>
-                    <div className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
+                
+                <div className="flex flex-col lg:flex-row justify-between gap-4 mb-6 w-full">
+                    
+                    <div className="flex flex-wrap gap-3 items-center flex-1">
                         {isManager && (
                             <>
                                 {isAdmin && (
-                                    <div className="w-full sm:w-auto">
-                                        <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                    <div className="w-full sm:w-auto min-w-[200px]">
+                                        <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                             {monthOptions.map(m => <option key={m} value={m}>Facturación de {m}</option>)}
                                         </select>
                                     </div>
                                 )}
                                 
-                                <div className="w-full sm:w-auto">
-                                    <select value={selectedProviderId} onChange={(e) => setSelectedProviderId(e.target.value)} className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                <div className="w-full sm:w-auto min-w-[220px]">
+                                    <select value={selectedProviderId} onChange={(e) => setSelectedProviderId(e.target.value)} className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                         <option value="all">Todos los Desarrolladores</option> 
                                         {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                     </select>
                                 </div>
                                 
-                                <div className="w-full sm:w-auto">
+                                <div className="w-full sm:w-auto min-w-[200px]">
                                     <select 
                                         value={selectedProducts[0] || 'all'} 
                                         onChange={(e) => setSelectedProducts(e.target.value === 'all' ? [] : [e.target.value])} 
-                                        className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                     >
                                         <option value="all">Todos los Productos</option>
                                         {productOptions.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
                                     </select>
                                 </div>
                                 
-                                <div className="flex items-center">
+                                <div className="flex items-center whitespace-nowrap bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-md border border-gray-200 dark:border-gray-600">
                                     <input type="checkbox" id="include-inactive" checked={includeInactive} onChange={(e) => setIncludeInactive(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"/>
-                                    <label htmlFor="include-inactive" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">Incluir Inactivos</label>
+                                    <label htmlFor="include-inactive" className="ml-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Incluir Inactivos</label>
                                 </div>
-
-                                {isAdmin && (
-                                    <label className="cursor-pointer bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium text-sm transition-colors flex items-center justify-center shadow-sm whitespace-nowrap">
-                                        {isUploading ? 'Leyendo...' : 'Importar Archivo'}
-                                        <input 
-                                            type="file" 
-                                            accept=".xlsx, .xls, .csv" 
-                                            className="hidden" 
-                                            onChange={handleFileUpload} 
-                                            onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
-                                            disabled={isUploading}
-                                        />
-                                    </label>
-                                )}
                             </>
                         )}
-                        <Button onClick={handleExportExcel}>Exportar Reporte</Button>
                     </div>
+
+                    <div className="flex flex-wrap gap-3 items-center lg:justify-end">
+                        {isManager && isAdmin && (
+                            <label className="cursor-pointer bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium text-sm transition-colors flex items-center justify-center shadow-sm whitespace-nowrap h-[38px]">
+                                {isUploading ? 'Leyendo...' : 'Importar Archivo'}
+                                <input 
+                                    type="file" 
+                                    accept=".xlsx, .xls, .csv" 
+                                    className="hidden" 
+                                    onChange={handleFileUpload} 
+                                    onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+                                    disabled={isUploading}
+                                />
+                            </label>
+                        )}
+                        <Button onClick={handleExportExcel} className="whitespace-nowrap px-4 py-2 h-[38px]">
+                            Exportar Reporte
+                        </Button>
+                    </div>
+
                 </div>
+                
                 <div className="relative overflow-x-auto shadow-md sm:rounded-lg">
                     <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">

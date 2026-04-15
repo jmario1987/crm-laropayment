@@ -42,8 +42,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
       <div className={`fixed inset-y-0 left-0 flex flex-col h-screen bg-white dark:bg-gray-800 shadow-lg border-r border-gray-100 dark:border-gray-700 w-64 z-40 transform transition-transform md:relative md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         
+        {/* --- AQUÍ ESTÁ EL LOGO MÁS GRANDE (h-14 en lugar de h-10) --- */}
         <div className="flex items-center justify-center p-6 border-b border-gray-200 dark:border-gray-700">
-            <img src={logoLaro} alt="Logo Laro Payment" className="h-10 w-auto" />
+            <img src={logoLaro} alt="Logo Laro Payment" className="h-14 w-auto" />
         </div>
 
         <div className="space-y-1 flex flex-col flex-1 overflow-y-auto mt-4 custom-scrollbar">
@@ -70,12 +71,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               <span className="ml-3">Directorio</span>
             </NavLink>
 
-            {/* --- NUEVO BOTÓN: CENTRO DE REPORTES --- */}
+            {/* --- MENÚ CON EL NUEVO NOMBRE --- */}
             <NavLink to="/reports" onClick={handleLinkClick} className={getLinkClassName}>
                <NavIcon path="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              <span className="ml-3">Reporte de Placas y Terminales</span>
+              <span className="ml-3 leading-tight">Reporte de Equipos y Terminales</span>
             </NavLink>
-            {/* --------------------------------------- */}
             
             {isAdmin && (
               <>

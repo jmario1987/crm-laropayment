@@ -378,7 +378,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                     ⚡ Pegar desde Excel
                 </h5>
                 <p className="text-xs text-indigo-600 dark:text-indigo-400 mb-3">
-                    Copia las celdas de tu Excel y pégalas aquí. El formato debe ser: <strong>Placa | Terminal | Sede (Opcional)</strong>.
+                    Copia las celdas de tu Excel y pégalas aquí. El formato debe ser: <strong>Placa | Terminal | Sede o Caja (Opcional)</strong>.
                 </p>
                 
                 <div className="flex gap-4 mb-3">
@@ -444,14 +444,14 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                        Sede <span className="font-normal text-gray-400">(Opcional)</span>
+                                        Sede o Caja <span className="font-normal text-gray-400">(Opcional)</span>
                                     </label>
                                     <input 
                                         type="text" 
                                         value={eq.sede || ''} 
                                         onChange={(e) => updateEquipment(eq.id, 'sede', e.target.value)} 
                                         className="block w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-primary-500 focus:border-primary-500"
-                                        placeholder="Ej: Sucursal Tibás"
+                                        placeholder="Ej: Sucursal Tibás o Caja 1"
                                     />
                                 </div>
                             </div>
