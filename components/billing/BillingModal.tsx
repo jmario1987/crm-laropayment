@@ -3,18 +3,22 @@ import { Lead } from '../../types';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 
-// --- FIJAMOS EL DÍA AL 15 PARA EVITAR EL BUG DE FECHAS ---
-const getLastSixMonths = () => {
-    const months = [];
+// --- NUEVA LÓGICA: TODOS LOS MESES DESDE SEPTIEMBRE 2025 HASTA HOY ---
+const getAvailableMonths = () => {
+    const options = [];
     let date = new Date();
     date.setDate(15); 
-    for (let i = 0; i < 6; i++) {
+    
+    const targetYear = 2025;
+    const targetMonthIndex = 8; // Mes 8 en JavaScript es Septiembre
+
+    while (date.getFullYear() > targetYear || (date.getFullYear() === targetYear && date.getMonth() >= targetMonthIndex)) {
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const year = date.getFullYear();
-        months.push(`${month}-${year}`);
+        options.push(`${month}-${year}`);
         date.setMonth(date.getMonth() - 1);
     }
-    return months;
+    return options;
 };
 
 // --- MINI COMPONENTE PARA FORMATEAR MILES CON COMAS ---
@@ -89,7 +93,7 @@ const BillingModal: React.FC<BillingModalProps> = ({ lead, isOpen, onClose, onSa
     }
   }, [isOpen, lead]);
 
-  const monthsToDisplay = getLastSixMonths();
+  const monthsToDisplay = getAvailableMonths();
 
   const handleToggle = (monthYear: string) => {
     setHistory(prev => {

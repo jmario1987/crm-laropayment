@@ -36,7 +36,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     equipments: [] as Equipment[]
   });
 
-  // ESTADOS PARA HERRAMIENTAS DE EQUIPOS
   const [showImportBox, setShowImportBox] = useState(false);
   const [pasteData, setPasteData] = useState('');
   const [importCurrency, setImportCurrency] = useState<'CRC' | 'USD'>('CRC');
@@ -59,12 +58,21 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
   useEffect(() => {
     const initialOwnerId = user?.role === USER_ROLES.Vendedor ? user?.id : (sellers[0]?.id || ''); 
     if (lead) {
+      
+      // --- MIGRACIÓN AUTOMÁTICA AL VUELO ---
+      const mappedEquipments = (lead.equipments || []).map(eq => {
+          if (eq.serie === undefined) {
+              return { ...eq, serie: eq.placa, placa: '' };
+          }
+          return eq;
+      });
+
       setFormData({
         name: lead.name || '', company: lead.company || '', email: lead.email || '', phone: lead.phone || '',
         status: lead.status || defaultStatus, ownerId: lead.ownerId || initialOwnerId || '', 
         productIds: lead.productIds || [], providerId: lead.providerId || '', newObservation: '', 
         tagId: lead.tagIds?.[0] || '', affiliateNumber: lead.affiliateNumber || '', assignedOffice: lead.assignedOffice || '', 
-        equipments: lead.equipments || []
+        equipments: mappedEquipments
       });
     } else if (duplicateFrom) {
       setFormData({
@@ -89,38 +97,70 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
   
   const handleProductSelectionChange = (selectedValues: string[]) => setFormData(prev => ({ ...prev, productIds: selectedValues }));
 
-  // FUNCIONES DE EQUIPOS
-  const addEquipment = () => setFormData(prev => ({ ...prev, equipments: [...prev.equipments, { id: Date.now().toString(), placa: '', sede: '', terminals: [] }] }));
+  const addEquipment = () => setFormData(prev => ({ ...prev, equipments: [...prev.equipments, { id: Date.now().toString(), serie: '', placa: '', sede: '', terminals: [] }] }));
   const removeEquipment = (eqId: string) => setFormData(prev => ({ ...prev, equipments: prev.equipments.filter(eq => eq.id !== eqId) }));
   const updateEquipment = (eqId: string, field: string, value: string) => setFormData(prev => ({ ...prev, equipments: prev.equipments.map(eq => eq.id === eqId ? { ...eq, [field]: value } : eq) }));
   const addTerminal = (eqId: string) => setFormData(prev => ({ ...prev, equipments: prev.equipments.map(eq => { if (eq.id === eqId) { if (eq.terminals.length >= 8) return eq; return { ...eq, terminals: [...eq.terminals, { id: Date.now().toString() + Math.random(), number: '', currency: 'CRC' }] }; } return eq; }) }));
   const removeTerminal = (eqId: string, termId: string) => setFormData(prev => ({ ...prev, equipments: prev.equipments.map(eq => { if (eq.id === eqId) { return { ...eq, terminals: eq.terminals.filter(t => t.id !== termId) }; } return eq; }) }));
   const updateTerminal = (eqId: string, termId: string, field: string, value: string) => setFormData(prev => ({ ...prev, equipments: prev.equipments.map(eq => { if (eq.id === eqId) { return { ...eq, terminals: eq.terminals.map(t => t.id === termId ? { ...t, [field]: value } : t) }; } return eq; }) }));
 
+  // --- FORMATEADORES ---
+  const formatPlaca = (val: string) => val.replace(/\D/g, '').slice(0, 6);
+  const formatSerie = (val: string) => {
+      let cleaned = val.replace(/\D/g, '').slice(0, 9);
+      if (cleaned.length > 6) {
+          return `${cleaned.slice(0,3)}-${cleaned.slice(3,6)}-${cleaned.slice(6)}`;
+      } else if (cleaned.length > 3) {
+          return `${cleaned.slice(0,3)}-${cleaned.slice(3)}`;
+      }
+      return cleaned;
+  };
+
   const processPasteData = () => {
     if (!pasteData.trim()) return alert("Por favor pega los datos de Excel en la caja de texto.");
     const rows = pasteData.split('\n');
     const newEquipments: Equipment[] = [];
     let addedCount = 0;
+    
     rows.forEach(row => {
         if (!row.trim()) return;
         const cols = row.split('\t').map(c => c.trim());
         if (cols[0].toLowerCase().includes('serie') || cols[0].toLowerCase().includes('placa')) return;
-        if (cols.length >= 2) {
-            const placa = cols[0]; const terminal = cols[1]; const sede = cols.length >= 3 ? cols[2] : '';
-            const existingEqIndex = newEquipments.findIndex(eq => eq.placa === placa);
+        
+        if (cols.length >= 3) {
+            // Aplicamos los formateadores también al pegar desde Excel
+            const placa = formatPlaca(cols[0]); 
+            const serie = formatSerie(cols[1]); 
+            const terminal = cols[2]; 
+            const sede = cols.length >= 4 ? cols[3] : '';
+            
+            const existingEqIndex = newEquipments.findIndex(eq => (eq.serie === serie && serie !== '') || (eq.placa === placa && placa !== ''));
+            
             if (existingEqIndex >= 0) {
                 if (newEquipments[existingEqIndex].terminals.length < 8) {
                     newEquipments[existingEqIndex].terminals.push({ id: Date.now().toString() + Math.random(), number: terminal, currency: importCurrency });
                     addedCount++;
                 }
             } else {
-                newEquipments.push({ id: Date.now().toString() + Math.random(), placa: placa, sede: sede, terminals: [{ id: Date.now().toString() + Math.random(), number: terminal, currency: importCurrency }] });
+                newEquipments.push({ id: Date.now().toString() + Math.random(), serie: serie, placa: placa, sede: sede, terminals: [{ id: Date.now().toString() + Math.random(), number: terminal, currency: importCurrency }] });
                 addedCount++;
             }
+        } else if (cols.length === 2) {
+             const serie = formatSerie(cols[0]); 
+             const terminal = cols[1]; 
+             const existingEqIndex = newEquipments.findIndex(eq => eq.serie === serie);
+             if (existingEqIndex >= 0) {
+                 if (newEquipments[existingEqIndex].terminals.length < 8) {
+                     newEquipments[existingEqIndex].terminals.push({ id: Date.now().toString() + Math.random(), number: terminal, currency: importCurrency });
+                     addedCount++;
+                 }
+             } else {
+                 newEquipments.push({ id: Date.now().toString() + Math.random(), serie: serie, placa: '', sede: '', terminals: [{ id: Date.now().toString() + Math.random(), number: terminal, currency: importCurrency }] });
+                 addedCount++;
+             }
         }
     });
-    if (addedCount === 0) return alert("No se pudo detectar un formato válido. Asegúrate de copiar las columnas desde Excel.");
+    if (addedCount === 0) return alert("No se pudo detectar un formato válido. Asegúrate de copiar al menos 3 columnas desde Excel (Placa, Serie, Terminal).");
     setFormData(prev => ({ ...prev, equipments: [...prev.equipments, ...newEquipments] }));
     setPasteData(''); setShowImportBox(false);
   };
@@ -144,6 +184,19 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         
         const affiliateExists = allLeads.some(l => l.id !== lead?.id && l.affiliateNumber === afNum);
         if (affiliateExists) return alert("⚠️ Error: Este Número de Afiliado ya está registrado en otro cliente.");
+    }
+
+    // --- VALIDACIONES ESTRICTAS DE PLACA Y SERIE ---
+    for (const eq of formData.equipments) {
+        if (!eq.serie) {
+            return alert("⚠️ Error: El N° de Serie es obligatorio en todos los equipos.");
+        }
+        if (eq.serie.length !== 11) { // 9 números + 2 guiones = 11 caracteres
+            return alert(`⚠️ Error: El N° de Serie "${eq.serie}" está incompleto. Debe tener 9 dígitos (formato XXX-XXX-XXX).`);
+        }
+        if (eq.placa && eq.placa.length !== 6) {
+            return alert(`⚠️ Error: El N° de Placa "${eq.placa}" debe tener exactamente 6 dígitos.`);
+        }
     }
 
     const isNewLead = !lead;
@@ -267,6 +320,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     if (!eqSearchQuery) return formData.equipments;
     const q = eqSearchQuery.toLowerCase();
     return formData.equipments.filter(eq => 
+        (eq.serie && eq.serie.toLowerCase().includes(q)) ||
         eq.placa.toLowerCase().includes(q) || 
         (eq.sede && eq.sede.toLowerCase().includes(q)) || 
         (eq.terminals && eq.terminals.some(t => t.number.toLowerCase().includes(q)))
@@ -279,7 +333,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar p-1">
       
-      {/* 1. DATOS PRINCIPALES */}
+      {/* DATOS PRINCIPALES */}
       <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600">Datos Principales</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -306,7 +360,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         </div>
       </div>
 
-      {/* 2. ESTADO Y CLASIFICACIÓN */}
+      {/* ESTADO Y CLASIFICACIÓN */}
       <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600">Estado y Clasificación</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -345,7 +399,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         </div>
       </div>
 
-      {/* 3. EQUIPOS Y CONFIGURACIÓN (CON BUSCADOR E IMPORTACIÓN) */}
+      {/* EQUIPOS Y CONFIGURACIÓN */}
       <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b pb-3 dark:border-gray-600 gap-3">
             <h4 className="text-base font-bold text-gray-800 dark:text-white">Equipos y Configuración</h4>
@@ -354,7 +408,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                 <div className="relative w-full sm:w-64">
                     <input 
                         type="text" 
-                        placeholder="Buscar placa/terminal a editar..." 
+                        placeholder="Buscar placa/serie a editar..." 
                         value={eqSearchQuery}
                         onChange={(e) => setEqSearchQuery(e.target.value)}
                         className="block w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm focus:ring-primary-500"
@@ -367,7 +421,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                     Pegar desde Excel
                 </Button>
                 <Button type="button" variant="secondary" onClick={addEquipment} className="text-xs py-1.5 px-3 flex-1 sm:flex-none justify-center shadow-sm border-gray-300">
-                    + Agregar Placa
+                    + Agregar Equipo
                 </Button>
             </div>
         </div>
@@ -378,7 +432,8 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                     ⚡ Pegar desde Excel
                 </h5>
                 <p className="text-xs text-indigo-600 dark:text-indigo-400 mb-3">
-                    Copia las celdas de tu Excel y pégalas aquí. El formato debe ser: <strong>Placa | Terminal | Sede o Caja (Opcional)</strong>.
+                    Copia las celdas de tu Excel y pégalas aquí. El formato debe ser: <br/>
+                    <strong>N° Placa (Opcional) | N° Serie | Terminal | Sede o Caja (Opcional)</strong>.
                 </p>
                 
                 <div className="flex gap-4 mb-3">
@@ -422,23 +477,38 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                             type="button" 
                             onClick={() => removeEquipment(eq.id)}
                             className="absolute top-3 right-3 text-red-500 hover:text-red-700 transition-colors bg-red-50 hover:bg-red-100 p-1.5 rounded-md"
-                            title="Eliminar Placa"
+                            title="Eliminar Equipo"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                         </button>
                         
-                        <h5 className="font-semibold text-gray-700 dark:text-gray-300 mb-3 text-sm border-b pb-1 dark:border-gray-600 w-fit pr-4">Placa</h5>
+                        <h5 className="font-semibold text-gray-700 dark:text-gray-300 mb-3 text-sm border-b pb-1 dark:border-gray-600 w-fit pr-4">Hardware POS</h5>
                         
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                            {/* --- SECCIÓN IZQUIERDA --- */}
                             <div className="lg:col-span-5 flex flex-col gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">N° de Placa (Datáfono)</label>
+                                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                        N° de Placa (Activo Fijo) <span className="font-normal text-gray-400">(Opcional)</span>
+                                    </label>
                                     <input 
                                         type="text" 
-                                        value={eq.placa} 
-                                        onChange={(e) => updateEquipment(eq.id, 'placa', e.target.value)} 
+                                        value={eq.placa || ''} 
+                                        onChange={(e) => updateEquipment(eq.id, 'placa', formatPlaca(e.target.value))} 
                                         className="block w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-primary-500 focus:border-primary-500"
-                                        placeholder="Ej: 453-951-265"
+                                        placeholder="Ej: 123456"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                        N° de Serie (Datáfono) *
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        value={eq.serie || ''} 
+                                        onChange={(e) => updateEquipment(eq.id, 'serie', formatSerie(e.target.value))} 
+                                        className="block w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-primary-500 focus:border-primary-500 font-mono tracking-wider"
+                                        placeholder="XXX-XXX-XXX"
                                         required
                                     />
                                 </div>
@@ -522,14 +592,14 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                         className="w-full py-3 mt-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm font-semibold text-gray-500 dark:text-gray-400 hover:text-primary-600 hover:border-primary-400 dark:hover:text-primary-400 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-gray-800 transition-all flex items-center justify-center gap-2"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        Añadir otra Placa
+                        Añadir otro Equipo
                     </button>
                 )}
             </div>
         )}
       </div>
 
-      {/* 4. ASIGNACIÓN Y ORIGEN */}
+      {/* ASIGNACIÓN Y ORIGEN */}
       <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600">Asignación y Origen</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
@@ -553,13 +623,13 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         </div>
       </div>
 
-      {/* 5. OBSERVACIONES */}
+      {/* OBSERVACIONES */}
       <div>
         <label htmlFor="newObservation" className="block text-base font-bold text-gray-800 dark:text-white mb-2">Añadir Observación</label>
         <textarea name="newObservation" id="newObservation" value={formData.newObservation} onChange={handleChange} rows={3} className="mt-1 block w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm" placeholder="Escribe aquí la nueva nota, minutas de reunión o estatus..."/>
       </div>
       
-      {/* 6. BOTÓN GUARDAR */}
+      {/* BOTÓN GUARDAR */}
       <div className="flex justify-end pt-4 pb-2 sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-2 z-20">
         <Button type="submit" className="bg-primary-600 hover:bg-primary-700 text-white w-full sm:w-auto text-lg px-8 py-2">
           {lead ? 'Guardar Cambios' : duplicateFrom ? 'Crear Prospecto Duplicado' : 'Crear Prospecto'}

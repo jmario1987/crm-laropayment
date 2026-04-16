@@ -100,13 +100,18 @@ const WonLeadsPage: React.FC = () => {
     const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthYear());
     const [billingLead, setBillingLead] = useState<Lead | null>(null);
     const [isUploading, setIsUploading] = useState(false);
-    const [sortColumn, setSortColumn] = useState<SortColumn>('affiliateNumber'); 
+    const [sortColumn, setSortColumn] = useState<SortColumn>('name'); 
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc'); 
 
     const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
     const isAdmin = user?.role === USER_ROLES.Admin;
 
     const productOptions = useMemo(() => products.map(p => ({ value: p.id, label: p.name })), [products]);
+
+    // --- NUEVO: ORDENAMOS LOS DESARROLLADORES ALFABÉTICAMENTE ---
+    const sortedProviders = useMemo(() => {
+        return [...providers].sort((a, b) => a.name.localeCompare(b.name));
+    }, [providers]);
 
     const wonLeads = useMemo(() => {
         const wonStageIds = stages.filter(s => s.type === 'won').map(s => s.id);
@@ -204,8 +209,6 @@ const WonLeadsPage: React.FC = () => {
 
                         const existing = facturadosExcel.get(num)!;
                         
-                        // --- AQUÍ ESTABA EL ERROR MATEMÁTICO ---
-                        // Reemplazamos el "+=" duplicado por suma directa
                         if (codMoneda === '1') {
                             existing.montoCRC += monto;
                             existing.comisionCRC += comision;
@@ -319,9 +322,7 @@ const WonLeadsPage: React.FC = () => {
     };
 
     const handleExportExcel = () => {
-        const leadsForReport = isAdmin 
-            ? wonLeads.filter(lead => lead.billingHistory?.[selectedMonth] === true)
-            : wonLeads;
+        const leadsForReport = wonLeads;
 
         const dataToExport = leadsForReport.map(lead => {
             const montosDelMes = lead.billingAmounts?.[selectedMonth] || { montoCRC: 0, comisionCRC: 0, montoUSD: 0, comisionUSD: 0 };
@@ -367,7 +368,7 @@ const WonLeadsPage: React.FC = () => {
         date.setDate(15); 
         
         const targetYear = 2025;
-        const targetMonthIndex = 3; 
+        const targetMonthIndex = 8; 
 
         while (date.getFullYear() > targetYear || (date.getFullYear() === targetYear && date.getMonth() >= targetMonthIndex)) {
             const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -412,7 +413,8 @@ const WonLeadsPage: React.FC = () => {
                                 <div className="w-full sm:w-auto min-w-[220px]">
                                     <select value={selectedProviderId} onChange={(e) => setSelectedProviderId(e.target.value)} className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                         <option value="all">Todos los Desarrolladores</option> 
-                                        {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                        {/* --- USAMOS EL NUEVO ARREGLO ORDENADO --- */}
+                                        {sortedProviders.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                     </select>
                                 </div>
                                 
@@ -468,7 +470,14 @@ const WonLeadsPage: React.FC = () => {
                                         Nº Afiliado{renderSortArrow('affiliateNumber')}
                                     </button>
                                 </th>
-                                <th scope="col" className="px-6 py-3">Nombre</th>
+                                <th scope="col" className="px-6 py-3">
+                                    <button 
+                                        onClick={() => handleSort('name')} 
+                                        className="font-bold hover:text-primary-600 dark:hover:text-primary-400"
+                                    >
+                                        Nombre{renderSortArrow('name')}
+                                    </button>
+                                </th>
                                 <th scope="col" className="px-6 py-3">Responsable / Origen</th>
                                 <th scope="col" className="px-6 py-3">Estado Cliente</th>
                                 

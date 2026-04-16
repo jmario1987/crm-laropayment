@@ -7,10 +7,8 @@ import Select from 'react-select';
 const ReportsPage: React.FC = () => {
     const { allLeads, stages, providers } = useLeads();
 
-    // Identificamos automáticamente la etapa de "Ganado/Producción" para que sea el filtro por defecto
     const wonStageId = useMemo(() => stages.find(s => s.type === 'won')?.id || '', [stages]);
 
-    // --- ESTADOS PARA LOS FILTROS ---
     const [filterStage, setFilterStage] = useState<string>(wonStageId);
     const [filterStartDate, setFilterStartDate] = useState<string>('');
     const [filterEndDate, setFilterEndDate] = useState<string>('');
@@ -18,14 +16,12 @@ const ReportsPage: React.FC = () => {
     const [filterCurrency, setFilterCurrency] = useState<'ALL' | 'CRC' | 'USD'>('ALL');
     const [filterProvider, setFilterProvider] = useState<string>('');
 
-    // --- PREPARAR OPCIONES DEL BUSCADOR DE CLIENTES (Orden alfabético) ---
     const clientOptions = useMemo(() => {
         return allLeads
             .map(lead => ({ value: lead.id, label: lead.name }))
             .sort((a, b) => a.label.localeCompare(b.label));
     }, [allLeads]);
 
-    // --- LÓGICA DE EXPORTACIÓN Y APLANAMIENTO ---
     const handleExportEquipments = () => {
         let filteredLeads = allLeads;
 
@@ -48,6 +44,11 @@ const ReportsPage: React.FC = () => {
         filteredLeads.forEach(lead => {
             if (lead.equipments && lead.equipments.length > 0) {
                 lead.equipments.forEach(eq => {
+                    
+                    // --- MIGRACIÓN AL VUELO PARA EL EXCEL ---
+                    const displaySerie = eq.serie !== undefined ? eq.serie : eq.placa;
+                    const displayPlaca = eq.serie !== undefined ? eq.placa : '';
+
                     if (eq.terminals && eq.terminals.length > 0) {
                         eq.terminals.forEach(term => {
                             if (filterCurrency !== 'ALL' && term.currency !== filterCurrency) return;
@@ -57,7 +58,8 @@ const ReportsPage: React.FC = () => {
                                 "Número de Afiliado": lead.affiliateNumber || 'N/A',
                                 "Oficina Asignada": lead.assignedOffice || 'N/A',
                                 "Sede o Caja": eq.sede || 'N/A',
-                                "Placa": eq.placa,
+                                "Placa": displayPlaca || 'N/A',
+                                "N° Serie": displaySerie || 'N/A',
                                 "Moneda": term.currency,
                                 "Terminal": term.number,
                                 "Fecha Ingreso CRM": new Date(lead.createdAt).toLocaleDateString()
@@ -70,7 +72,8 @@ const ReportsPage: React.FC = () => {
                                 "Número de Afiliado": lead.affiliateNumber || 'N/A',
                                 "Oficina Asignada": lead.assignedOffice || 'N/A',
                                 "Sede o Caja": eq.sede || 'N/A',
-                                "Placa": eq.placa,
+                                "Placa": displayPlaca || 'N/A',
+                                "N° Serie": displaySerie || 'N/A',
                                 "Moneda": "Sin configurar",
                                 "Terminal": "Sin configurar",
                                 "Fecha Ingreso CRM": new Date(lead.createdAt).toLocaleDateString()
@@ -89,9 +92,10 @@ const ReportsPage: React.FC = () => {
         const worksheet = XLSX.utils.json_to_sheet(exportData);
         const workbook = XLSX.utils.book_new();
         
+        // Ajustamos los anchos de columna para que entre perfectamente Placa y Serie
         worksheet['!cols'] = [
-            { wch: 35 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, 
-            { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 18 }
+            { wch: 35 }, { wch: 18 }, { wch: 20 }, { wch: 20 }, 
+            { wch: 12 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 18 }
         ];
 
         XLSX.utils.book_append_sheet(workbook, worksheet, "Terminales");
@@ -101,14 +105,13 @@ const ReportsPage: React.FC = () => {
         XLSX.writeFile(workbook, `Reporte_Equipos_${clientName}_${today}.xlsx`);
     };
 
-    // Ajuste de padding en los inputs para ganar espacio
     const inputClass = "mt-1 block w-full px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm";
     const labelClass = "block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1";
 
     const selectStyles = {
         control: (base: any) => ({
             ...base,
-            minHeight: '34px', // Más delgado
+            minHeight: '34px',
             borderColor: '#d1d5db',
             borderRadius: '0.375rem',
             boxShadow: 'none',
@@ -133,10 +136,9 @@ const ReportsPage: React.FC = () => {
                     <h2 className="text-xl font-bold text-gray-800 dark:text-white">Reporte de Datáfonos y Terminales</h2>
                 </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 border-b border-gray-100 dark:border-gray-700 pb-3">
-                    Genera un archivo de Excel con la lista de todas las placas y terminales. Usa los filtros para segmentar la información.
+                    Genera un archivo de Excel con la lista de todas las placas, series y terminales. Usa los filtros para segmentar la información.
                 </p>
 
-                {/* Se redujo el gap-6 a gap-4 y el mb-8 a mb-4 para ahorrar altura */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label className={labelClass}>Etapa del Cliente</label>
@@ -190,7 +192,6 @@ const ReportsPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Botón más pequeño y centrado a la derecha */}
                 <div className="flex justify-end pt-3 border-t border-gray-100 dark:border-gray-700 mt-2">
                     <Button onClick={handleExportEquipments} className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2 px-5 py-2 text-sm font-semibold">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h2l2 3 2-3h2"></path><path d="M8 17h2l2-3 2 3h2"></path></svg>

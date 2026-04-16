@@ -25,7 +25,7 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
     const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false); 
     const [activeTab, setActiveTab] = useState<'info' | 'equipments' | 'history'>('info');
     
-    // --- NUEVO ESTADO: Buscador interno de equipos ---
+    // --- ESTADO: Buscador interno de equipos ---
     const [eqSearchQuery, setEqSearchQuery] = useState('');
 
     const { getUserById, products, getProviderById, getStageById, tags, allLeads } = useLeads();
@@ -63,17 +63,22 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
 
     const equipmentCount = activeLead.equipments?.length || 0;
 
-    // --- NUEVA LÓGICA: Aplanar y Filtrar Equipos para la Tabla ---
+    // --- LÓGICA ACTUALIZADA: Aplanar y Filtrar Equipos (Con Placa y Serie) ---
     const filteredFlatEquipments = useMemo(() => {
         if (!activeLead.equipments) return [];
         
         let flatList: any[] = [];
         activeLead.equipments.forEach(eq => {
+            // MIGRACIÓN VISUAL ON-THE-FLY PARA DATOS VIEJOS
+            // Si no existe 'serie', el dato que está en 'placa' es en realidad la serie.
+            const displaySerie = eq.serie !== undefined ? eq.serie : eq.placa;
+            const displayPlaca = eq.serie !== undefined ? eq.placa : '';
+
             if (!eq.terminals || eq.terminals.length === 0) {
-                flatList.push({ id: eq.id, placa: eq.placa, sede: eq.sede, terminalNumber: '-', currency: '-' });
+                flatList.push({ id: eq.id, placa: displayPlaca, serie: displaySerie, sede: eq.sede, terminalNumber: '-', currency: '-' });
             } else {
                 eq.terminals.forEach(t => {
-                    flatList.push({ id: t.id, placa: eq.placa, sede: eq.sede, terminalNumber: t.number, currency: t.currency });
+                    flatList.push({ id: t.id, placa: displayPlaca, serie: displaySerie, sede: eq.sede, terminalNumber: t.number, currency: t.currency });
                 });
             }
         });
@@ -83,6 +88,7 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
         const q = eqSearchQuery.toLowerCase();
         return flatList.filter(item => 
             item.placa.toLowerCase().includes(q) || 
+            (item.serie && item.serie.toLowerCase().includes(q)) || 
             (item.sede && item.sede.toLowerCase().includes(q)) || 
             item.terminalNumber.toLowerCase().includes(q)
         );
@@ -121,7 +127,7 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                         </div>
                     )}
 
-                    {/* --- PESTAÑA 2: NUEVA TABLA COMPACTA DE EQUIPOS --- */}
+                    {/* --- PESTAÑA 2: TABLA COMPACTA DE EQUIPOS (ACTUALIZADA) --- */}
                     {activeTab === 'equipments' && (
                         <div>
                             {equipmentCount === 0 ? (
@@ -138,19 +144,20 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                                         </div>
                                         <input 
                                             type="text" 
-                                            placeholder="Filtrar por placa, sede o terminal..." 
+                                            placeholder="Filtrar por placa, serie, sede o terminal..." 
                                             value={eqSearchQuery}
                                             onChange={(e) => setEqSearchQuery(e.target.value)}
                                             className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:text-white"
                                         />
                                     </div>
 
-                                    {/* TABLA DE RESULTADOS */}
-                                    <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                                    {/* TABLA DE RESULTADOS ACTUALIZADA CON COLUMNA SERIE */}
+                                    <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
                                         <table className="w-full text-sm text-left text-gray-600 dark:text-gray-300">
                                             <thead className="text-xs text-gray-700 uppercase bg-gray-100 dark:bg-gray-800 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                                                 <tr>
-                                                    <th scope="col" className="px-4 py-3">Placa / Serie</th>
+                                                    <th scope="col" className="px-4 py-3">Placa</th>
+                                                    <th scope="col" className="px-4 py-3">N° Serie</th>
                                                     <th scope="col" className="px-4 py-3">Terminal</th>
                                                     <th scope="col" className="px-4 py-3">Moneda</th>
                                                     <th scope="col" className="px-4 py-3">Sede / Caja</th>
@@ -161,7 +168,10 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                                                     filteredFlatEquipments.map((item, idx) => (
                                                         <tr key={idx} className="bg-white dark:bg-gray-900 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
                                                             <td className="px-4 py-2 font-medium text-gray-900 dark:text-white">
-                                                                {item.placa}
+                                                                {item.placa || '-'}
+                                                            </td>
+                                                            <td className="px-4 py-2 font-mono text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                                                                {item.serie || '-'}
                                                             </td>
                                                             <td className="px-4 py-2 font-mono">
                                                                 {item.terminalNumber}
@@ -174,13 +184,13 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({ lead, isOpen, onClo
                                                                 )}
                                                             </td>
                                                             <td className="px-4 py-2 text-xs">
-                                                                {item.sede ? <span className="bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 px-2 py-1 rounded">{item.sede}</span> : '-'}
+                                                                {item.sede ? <span className="bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 px-2 py-1 rounded whitespace-nowrap">{item.sede}</span> : '-'}
                                                             </td>
                                                         </tr>
                                                     ))
                                                 ) : (
                                                     <tr>
-                                                        <td colSpan={4} className="px-4 py-6 text-center text-gray-500 italic">
+                                                        <td colSpan={5} className="px-4 py-6 text-center text-gray-500 italic">
                                                             No se encontraron equipos con esa búsqueda.
                                                         </td>
                                                     </tr>

@@ -44,8 +44,9 @@ export interface Terminal {
 // --- NUEVO: Definición de Equipos (Datáfonos/Placas) ---
 export interface Equipment {
   id: string;
-  placa: string;
-  sede?: string; // Opcional: Solo se usará en clientes como el INS
+  serie?: string; // <--- NUEVO CAMPO: Número de serie de fábrica
+  placa: string;  // Viñeta de activo fijo
+  sede?: string; // Opcional: Solo se usará en clientes como el INS o cajas
   terminals: Terminal[]; // Aquí guardaremos hasta 8 terminales por placa
 }
 
