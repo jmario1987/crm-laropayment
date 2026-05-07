@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import MultiSelectDropdown from '../ui/MultiSelectDropdown';
 import { doc, setDoc, collection, writeBatch } from 'firebase/firestore'; 
 import { db } from '../../firebaseConfig';
+import { COSTA_RICA_LOCATIONS } from '../../data/locations'; // <-- CATÁLOGO DE UBICACIONES
 
 interface LeadFormProps {
   lead?: Lead;
@@ -33,7 +34,11 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     tagId: '',
     affiliateNumber: '',
     assignedOffice: '', 
-    equipments: [] as Equipment[]
+    equipments: [] as Equipment[],
+    province: '',
+    canton: '',
+    district: '',
+    addressDetails: ''
   });
 
   const [showImportBox, setShowImportBox] = useState(false);
@@ -43,12 +48,30 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
 
   const isNewLeadCreation = !lead;
 
+  // --- LÓGICA DE FAST-TRACK (SALTO DE ETAPA) ---
+  useEffect(() => {
+    if (isNewLeadCreation && !duplicateFrom) {
+        if (formData.providerId) {
+            const executiveStage = sortedStages.find(s => s.name.toLowerCase().includes('ejecutivo')) || sortedStages[2];
+            if (executiveStage && formData.status !== executiveStage.id) {
+                setFormData(prev => ({ ...prev, status: executiveStage.id }));
+            }
+        } else {
+            if (formData.status !== defaultStatus) {
+                setFormData(prev => ({ ...prev, status: defaultStatus }));
+            }
+        }
+    }
+  }, [formData.providerId, isNewLeadCreation, duplicateFrom, sortedStages, defaultStatus]);
+
   const availableStagesForDropdown = useMemo(() => {
-      if (isNewLeadCreation) return sortedStages.slice(0, 1);
+      if (isNewLeadCreation) {
+          return sortedStages.filter(s => s.id === defaultStatus || s.id === formData.status);
+      }
       const currentIndex = sortedStages.findIndex(s => s.id === lead?.status);
       if (currentIndex === -1) return sortedStages;
       return sortedStages.filter((s, index) => Math.abs(index - currentIndex) <= 1 || s.type === 'lost' || index === currentIndex);
-  }, [isNewLeadCreation, sortedStages, lead?.status]);
+  }, [isNewLeadCreation, sortedStages, lead?.status, defaultStatus, formData.status]);
 
   const availableTags = useMemo(() => tags.filter(tag => tag.stageId === formData.status), [formData.status, tags]);
   const selectedStage = useMemo(() => stages.find(s => s.id === formData.status), [formData.status, stages]);
@@ -58,7 +81,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
   useEffect(() => {
     const initialOwnerId = user?.role === USER_ROLES.Vendedor ? user?.id : (sellers[0]?.id || ''); 
     if (lead) {
-      
       // --- MIGRACIÓN AUTOMÁTICA AL VUELO ---
       const mappedEquipments = (lead.equipments || []).map(eq => {
           if (eq.serie === undefined) {
@@ -72,29 +94,44 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         status: lead.status || defaultStatus, ownerId: lead.ownerId || initialOwnerId || '', 
         productIds: lead.productIds || [], providerId: lead.providerId || '', newObservation: '', 
         tagId: lead.tagIds?.[0] || '', affiliateNumber: lead.affiliateNumber || '', assignedOffice: lead.assignedOffice || '', 
-        equipments: mappedEquipments
+        equipments: mappedEquipments,
+        province: lead.province || '', canton: lead.canton || '', district: lead.district || '', addressDetails: lead.addressDetails || ''
       });
     } else if (duplicateFrom) {
       setFormData({
         name: duplicateFrom.name || '', company: duplicateFrom.company || '', email: duplicateFrom.email || '', phone: duplicateFrom.phone || '',
         status: defaultStatus, ownerId: duplicateFrom.ownerId || initialOwnerId || '', productIds: [], 
         providerId: duplicateFrom.providerId || '', newObservation: '', tagId: '', affiliateNumber: '', 
-        assignedOffice: duplicateFrom.assignedOffice || '', equipments: []
+        assignedOffice: duplicateFrom.assignedOffice || '', equipments: [],
+        province: duplicateFrom.province || '', canton: duplicateFrom.canton || '', district: duplicateFrom.district || '', addressDetails: duplicateFrom.addressDetails || ''
       });
     } else {
       setFormData({
         name: '', company: '', email: '', phone: '', status: defaultStatus, ownerId: initialOwnerId || '', 
-        productIds: [], providerId: '', newObservation: '', tagId: '', affiliateNumber: '', assignedOffice: '', equipments: []
+        productIds: [], providerId: '', newObservation: '', tagId: '', affiliateNumber: '', assignedOffice: '', equipments: [],
+        province: '', canton: '', district: '', addressDetails: ''
       });
     }
   }, [lead, duplicateFrom, stages, user, sellers, defaultStatus]); 
 
+  // --- CONTROLADOR DE CAMBIOS CON CASCADA PARA UBICACIÓN ---
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    if (name === 'status') setFormData(prev => ({ ...prev, status: value, tagId: '' })); 
-    else setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === 'status') {
+        setFormData(prev => ({ ...prev, status: value, tagId: '' })); 
+    } else if (name === 'province') {
+        setFormData(prev => ({ ...prev, province: value, canton: '', district: '' }));
+    } else if (name === 'canton') {
+        setFormData(prev => ({ ...prev, canton: value, district: '' }));
+    } else {
+        setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
   
+  const provinces = Object.keys(COSTA_RICA_LOCATIONS);
+  const cantons = formData.province ? Object.keys(COSTA_RICA_LOCATIONS[formData.province]) : [];
+  const districts = (formData.province && formData.canton) ? COSTA_RICA_LOCATIONS[formData.province][formData.canton] : [];
+
   const handleProductSelectionChange = (selectedValues: string[]) => setFormData(prev => ({ ...prev, productIds: selectedValues }));
 
   const addEquipment = () => setFormData(prev => ({ ...prev, equipments: [...prev.equipments, { id: Date.now().toString(), serie: '', placa: '', sede: '', terminals: [] }] }));
@@ -104,15 +141,11 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
   const removeTerminal = (eqId: string, termId: string) => setFormData(prev => ({ ...prev, equipments: prev.equipments.map(eq => { if (eq.id === eqId) { return { ...eq, terminals: eq.terminals.filter(t => t.id !== termId) }; } return eq; }) }));
   const updateTerminal = (eqId: string, termId: string, field: string, value: string) => setFormData(prev => ({ ...prev, equipments: prev.equipments.map(eq => { if (eq.id === eqId) { return { ...eq, terminals: eq.terminals.map(t => t.id === termId ? { ...t, [field]: value } : t) }; } return eq; }) }));
 
-  // --- FORMATEADORES ---
   const formatPlaca = (val: string) => val.replace(/\D/g, '').slice(0, 6);
   const formatSerie = (val: string) => {
       let cleaned = val.replace(/\D/g, '').slice(0, 9);
-      if (cleaned.length > 6) {
-          return `${cleaned.slice(0,3)}-${cleaned.slice(3,6)}-${cleaned.slice(6)}`;
-      } else if (cleaned.length > 3) {
-          return `${cleaned.slice(0,3)}-${cleaned.slice(3)}`;
-      }
+      if (cleaned.length > 6) { return `${cleaned.slice(0,3)}-${cleaned.slice(3,6)}-${cleaned.slice(6)}`; } 
+      else if (cleaned.length > 3) { return `${cleaned.slice(0,3)}-${cleaned.slice(3)}`; }
       return cleaned;
   };
 
@@ -128,7 +161,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         if (cols[0].toLowerCase().includes('serie') || cols[0].toLowerCase().includes('placa')) return;
         
         if (cols.length >= 3) {
-            // Aplicamos los formateadores también al pegar desde Excel
             const placa = formatPlaca(cols[0]); 
             const serie = formatSerie(cols[1]); 
             const terminal = cols[2]; 
@@ -186,24 +218,16 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         if (affiliateExists) return alert("⚠️ Error: Este Número de Afiliado ya está registrado en otro cliente.");
     }
 
-    // --- VALIDACIONES ESTRICTAS DE PLACA Y SERIE ---
     for (const eq of formData.equipments) {
-        if (!eq.serie) {
-            return alert("⚠️ Error: El N° de Serie es obligatorio en todos los equipos.");
-        }
-        if (eq.serie.length !== 11) { // 9 números + 2 guiones = 11 caracteres
-            return alert(`⚠️ Error: El N° de Serie "${eq.serie}" está incompleto. Debe tener 9 dígitos (formato XXX-XXX-XXX).`);
-        }
-        if (eq.placa && eq.placa.length !== 6) {
-            return alert(`⚠️ Error: El N° de Placa "${eq.placa}" debe tener exactamente 6 dígitos.`);
-        }
+        if (!eq.serie) { return alert("⚠️ Error: El N° de Serie es obligatorio en todos los equipos."); }
+        if (eq.serie.length !== 11) { return alert(`⚠️ Error: El N° de Serie "${eq.serie}" está incompleto. Debe tener 9 dígitos (formato XXX-XXX-XXX).`); }
+        if (eq.placa && eq.placa.length !== 6) { return alert(`⚠️ Error: El N° de Placa "${eq.placa}" debe tener exactamente 6 dígitos.`); }
     }
 
-    const isNewLead = !lead;
     const leadId = lead?.id || doc(collection(db, 'leads')).id; 
 
     let statusHistory: StatusHistoryEntry[] = lead?.statusHistory || [];
-    if (isNewLead || lead?.status !== formData.status) {
+    if (isNewLeadCreation || lead?.status !== formData.status) {
       statusHistory = [...statusHistory, { status: formData.status, date: new Date().toISOString() }];
     }
     let tagHistory: TagHistoryEntry[] = lead?.tagHistory || [];
@@ -249,14 +273,15 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         phone: formData.phone || '', status: formData.status as LeadStatus, ownerId: formData.ownerId,
         observations: updatedObservations, createdAt: lead?.createdAt || new Date().toISOString(),
         lastUpdate: new Date().toISOString(), _version: (lead?._version || 0) + 1,
-        creatorId: isNewLead ? user.id : (lead?.creatorId || user.id),
+        creatorId: isNewLeadCreation ? user.id : (lead?.creatorId || user.id),
         notificationForManagerId: notificationForManagerIdCalc, notificationForSeller: notificationForSellerCalc, 
         sellerHasViewedNotification: sellerHasViewedNotificationCalc, providerId: formData.providerId || null, 
         productIds: formData.productIds || [], tagIds: formData.tagId ? [formData.tagId] : [],
-        assignedOffice: formData.assignedOffice || null, equipments: formData.equipments
+        assignedOffice: formData.assignedOffice || null, equipments: formData.equipments,
+        province: formData.province || null, canton: formData.canton || null, district: formData.district || null, addressDetails: formData.addressDetails || null
     };
 
-    if (!isNewLead && lead?.ownerId !== formData.ownerId) {
+    if (!isNewLeadCreation && lead?.ownerId !== formData.ownerId) {
         leadDataToSave.reassignedAt = new Date().toISOString();
     } else if (lead?.reassignedAt) {
         leadDataToSave.reassignedAt = lead.reassignedAt; 
@@ -284,16 +309,20 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
           billingHistory: leadDataToSave.billingHistory ?? lead?.billingHistory, 
           creatorId: leadDataToSave.creatorId,
           reassignedAt: leadDataToSave.reassignedAt ?? lead?.reassignedAt ?? undefined,
-          equipments: leadDataToSave.equipments ?? []
+          equipments: leadDataToSave.equipments ?? [],
+          province: leadDataToSave.province ?? null,
+          canton: leadDataToSave.canton ?? null,
+          district: leadDataToSave.district ?? null,
+          addressDetails: leadDataToSave.addressDetails ?? null
       } as Lead;
 
-      if (isNewLead) { dispatch({ type: 'ADD_LEAD', payload: finalLeadDataForState }); } 
+      if (isNewLeadCreation) { dispatch({ type: 'ADD_LEAD', payload: finalLeadDataForState }); } 
       else { dispatch({ type: 'UPDATE_LEAD', payload: finalLeadDataForState }); }
 
       const newAssignedOffice = leadDataToSave.assignedOffice;
       const officeChanged = newAssignedOffice !== (lead?.assignedOffice || null);
 
-      if (!isNewLead && officeChanged && leadDataToSave.email) {
+      if (!isNewLeadCreation && officeChanged && leadDataToSave.email) {
           const relatedLeadsToUpdate = allLeads.filter(l => l.email === leadDataToSave.email && l.id !== leadId && (l.assignedOffice || null) !== newAssignedOffice );
           if (relatedLeadsToUpdate.length > 0) {
               const batch = writeBatch(db);
@@ -360,15 +389,53 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         </div>
       </div>
 
+      {/* --- NUEVA SECCIÓN: UBICACIÓN GEOGRÁFICA --- */}
+      <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+        <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+            Ubicación del Comercio
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label className={labelClass}>Provincia</label>
+                <select name="province" value={formData.province} onChange={handleChange} className={inputClass}>
+                    <option value="">Seleccione...</option>
+                    {provinces.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+            </div>
+            <div>
+                <label className={labelClass}>Cantón</label>
+                <select name="canton" value={formData.canton} onChange={handleChange} disabled={!formData.province} className={`${inputClass} ${!formData.province ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed' : ''}`}>
+                    <option value="">Seleccione...</option>
+                    {cantons.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+            </div>
+            <div>
+                <label className={labelClass}>Distrito</label>
+                <select name="district" value={formData.district} onChange={handleChange} disabled={!formData.canton} className={`${inputClass} ${!formData.canton ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed' : ''}`}>
+                    <option value="">Seleccione...</option>
+                    {districts.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+            </div>
+            <div className="md:col-span-3">
+                <label className={labelClass}>Otras señas (Dirección Exacta)</label>
+                <textarea name="addressDetails" value={formData.addressDetails} onChange={handleChange} rows={2} className={inputClass} placeholder="Ej: 200m oeste de la escuela, casa blanca portón negro..."/>
+            </div>
+        </div>
+      </div>
+
       {/* ESTADO Y CLASIFICACIÓN */}
       <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600">Estado y Clasificación</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-                <label htmlFor="status" className={labelClass}>Etapa</label>
-                <select name="status" id="status" value={formData.status} onChange={handleChange} disabled={isNewLeadCreation} className={`${inputClass} ${isNewLeadCreation ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed text-gray-500' : ''}`}>
+                <label htmlFor="status" className={labelClass}>Etapa Actual</label>
+                <select name="status" id="status" value={formData.status} onChange={handleChange} className={`${inputClass} ${isNewLeadCreation && formData.providerId ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200' : ''}`}>
                     {availableStagesForDropdown.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
                 </select>
+                {isNewLeadCreation && formData.providerId && (
+                    <p className="text-[10px] text-blue-600 font-bold mt-1 uppercase">⚡ Salto automático por Desarrollador</p>
+                )}
             </div>
             
             {availableTags.length > 0 ? (
@@ -396,6 +463,28 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                 <label className={labelClass}>Productos de Interés *</label>
                 <MultiSelectDropdown options={productOptions} selectedValues={formData.productIds || []} onChange={handleProductSelectionChange} placeholder="Seleccionar producto..."/>
             </div>
+        </div>
+      </div>
+
+      {/* ASIGNACIÓN Y ORIGEN */}
+      <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm">
+        <h4 className="text-base font-bold text-blue-800 dark:text-blue-300 mb-4 border-b pb-2 dark:border-blue-700">Asignación y Origen</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            <div>
+                <label htmlFor="providerId" className="block text-sm font-bold text-blue-700 dark:text-blue-400 mb-1">Referido por (Desarrollador) {isNewLeadCreation && '*'}:</label>
+                <select name="providerId" id="providerId" value={formData.providerId} onChange={handleChange} required={isNewLeadCreation} className={inputClass}>
+                    <option value="">Seleccione un desarrollador...</option>
+                    {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+            </div>
+            {canReassign && (
+                <div>
+                    <label htmlFor="ownerId" className="block text-sm font-bold text-blue-700 dark:text-blue-400 mb-1">Responsable Actual:</label>
+                    <select name="ownerId" id="ownerId" value={formData.ownerId} onChange={handleChange} className={inputClass}>
+                        {sellers.map(seller => <option key={seller.id} value={seller.id}>{seller.name}</option>)}
+                    </select>
+                </div>
+            )}
         </div>
       </div>
 
@@ -485,7 +574,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                         <h5 className="font-semibold text-gray-700 dark:text-gray-300 mb-3 text-sm border-b pb-1 dark:border-gray-600 w-fit pr-4">Hardware POS</h5>
                         
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                            {/* --- SECCIÓN IZQUIERDA --- */}
                             <div className="lg:col-span-5 flex flex-col gap-4">
                                 <div>
                                     <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
@@ -597,30 +685,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                 )}
             </div>
         )}
-      </div>
-
-      {/* ASIGNACIÓN Y ORIGEN */}
-      <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-        <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600">Asignación y Origen</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-            <div>
-                <label htmlFor="providerId" className={labelClass}>Referido por {isNewLeadCreation && '*'}:</label>
-                <select name="providerId" id="providerId" value={formData.providerId} onChange={handleChange} required={isNewLeadCreation} className={inputClass}>
-                    <option value="">Seleccione una opción...</option>
-                    {providers.map(provider => <option key={provider.id} value={provider.id}>{provider.name}</option>)}
-                </select>
-            </div>
-            {canReassign && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
-                    <label htmlFor="ownerId" className="block text-sm font-bold text-blue-800 dark:text-blue-300 mb-1">
-                        {lead ? 'Asignado a:' : 'Asignar a Vendedor:'}
-                    </label>
-                    <select name="ownerId" id="ownerId" value={formData.ownerId} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-blue-300 dark:border-blue-700 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm font-medium">
-                        {sellers.map(seller => <option key={seller.id} value={seller.id}>{seller.name}</option>)}
-                    </select>
-                </div>
-            )}
-        </div>
       </div>
 
       {/* OBSERVACIONES */}

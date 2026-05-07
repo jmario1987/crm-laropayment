@@ -83,6 +83,12 @@ export type Lead = {
   _version?: number;
   assignedOffice: string | null; 
   
+  // --- NUEVO: UBICACIÓN GEOGRÁFICA ---
+  province?: string;
+  canton?: string;
+  district?: string;
+  addressDetails?: string;
+  
   // --- NUEVO: LISTA DE EQUIPOS (PLACAS Y TERMINALES) ---
   equipments?: Equipment[];
 

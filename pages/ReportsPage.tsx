@@ -3,6 +3,7 @@ import { useLeads } from '../hooks/useLeads';
 import Button from '../components/ui/Button';
 import * as XLSX from 'xlsx';
 import Select from 'react-select';
+import { COSTA_RICA_LOCATIONS } from '../data/locations'; // <-- IMPORTAMOS EL CATÁLOGO
 
 const ReportsPage: React.FC = () => {
     const { allLeads, stages, providers } = useLeads();
@@ -16,11 +17,32 @@ const ReportsPage: React.FC = () => {
     const [filterCurrency, setFilterCurrency] = useState<'ALL' | 'CRC' | 'USD'>('ALL');
     const [filterProvider, setFilterProvider] = useState<string>('');
 
+    // --- NUEVOS ESTADOS DE UBICACIÓN ---
+    const [filterProvince, setFilterProvince] = useState<string>('');
+    const [filterCanton, setFilterCanton] = useState<string>('');
+    const [filterDistrict, setFilterDistrict] = useState<string>('');
+
     const clientOptions = useMemo(() => {
         return allLeads
             .map(lead => ({ value: lead.id, label: lead.name }))
             .sort((a, b) => a.label.localeCompare(b.label));
     }, [allLeads]);
+
+    // --- LÓGICA DE CASCADA PARA LOS FILTROS ---
+    const provinces = Object.keys(COSTA_RICA_LOCATIONS);
+    const cantons = filterProvince ? Object.keys(COSTA_RICA_LOCATIONS[filterProvince]) : [];
+    const districts = (filterProvince && filterCanton) ? COSTA_RICA_LOCATIONS[filterProvince][filterCanton] : [];
+
+    const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        setFilterProvince(e.target.value);
+        setFilterCanton(''); // Limpia cantón y distrito al cambiar provincia
+        setFilterDistrict('');
+    };
+
+    const handleCantonChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        setFilterCanton(e.target.value);
+        setFilterDistrict(''); // Limpia distrito al cambiar cantón
+    };
 
     const handleExportEquipments = () => {
         let filteredLeads = allLeads;
@@ -39,23 +61,31 @@ const ReportsPage: React.FC = () => {
         if (filterLeadId) filteredLeads = filteredLeads.filter(lead => lead.id === filterLeadId);
         if (filterProvider) filteredLeads = filteredLeads.filter(lead => lead.providerId === filterProvider);
 
+        // --- APLICAR FILTROS GEOGRÁFICOS ---
+        if (filterProvince) filteredLeads = filteredLeads.filter(lead => lead.province === filterProvince);
+        if (filterCanton) filteredLeads = filteredLeads.filter(lead => lead.canton === filterCanton);
+        if (filterDistrict) filteredLeads = filteredLeads.filter(lead => lead.district === filterDistrict);
+
         const exportData: any[] = [];
 
         filteredLeads.forEach(lead => {
             if (lead.equipments && lead.equipments.length > 0) {
-                lead.equipments.forEach(eq => {
+                lead.equipments.forEach((eq: any) => {
                     
-                    // --- MIGRACIÓN AL VUELO PARA EL EXCEL ---
                     const displaySerie = eq.serie !== undefined ? eq.serie : eq.placa;
                     const displayPlaca = eq.serie !== undefined ? eq.placa : '';
 
                     if (eq.terminals && eq.terminals.length > 0) {
-                        eq.terminals.forEach(term => {
+                        eq.terminals.forEach((term: any) => {
                             if (filterCurrency !== 'ALL' && term.currency !== filterCurrency) return;
 
                             exportData.push({
                                 "Nombre del Comercio": lead.name,
                                 "Número de Afiliado": lead.affiliateNumber || 'N/A',
+                                "Provincia": lead.province || 'N/A',
+                                "Cantón": lead.canton || 'N/A',
+                                "Distrito": lead.district || 'N/A',
+                                "Otras Señas": lead.addressDetails || 'N/A',
                                 "Oficina Asignada": lead.assignedOffice || 'N/A',
                                 "Sede o Caja": eq.sede || 'N/A',
                                 "Placa": displayPlaca || 'N/A',
@@ -70,6 +100,10 @@ const ReportsPage: React.FC = () => {
                             exportData.push({
                                 "Nombre del Comercio": lead.name,
                                 "Número de Afiliado": lead.affiliateNumber || 'N/A',
+                                "Provincia": lead.province || 'N/A',
+                                "Cantón": lead.canton || 'N/A',
+                                "Distrito": lead.district || 'N/A',
+                                "Otras Señas": lead.addressDetails || 'N/A',
                                 "Oficina Asignada": lead.assignedOffice || 'N/A',
                                 "Sede o Caja": eq.sede || 'N/A',
                                 "Placa": displayPlaca || 'N/A',
@@ -92,10 +126,21 @@ const ReportsPage: React.FC = () => {
         const worksheet = XLSX.utils.json_to_sheet(exportData);
         const workbook = XLSX.utils.book_new();
         
-        // Ajustamos los anchos de columna para que entre perfectamente Placa y Serie
+        // Ajustamos los anchos de columna para que entren las direcciones
         worksheet['!cols'] = [
-            { wch: 35 }, { wch: 18 }, { wch: 20 }, { wch: 20 }, 
-            { wch: 12 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 18 }
+            { wch: 35 }, // Comercio
+            { wch: 18 }, // Afiliado
+            { wch: 15 }, // Provincia
+            { wch: 15 }, // Cantón
+            { wch: 20 }, // Distrito
+            { wch: 40 }, // Otras Señas
+            { wch: 20 }, // Oficina Asignada
+            { wch: 20 }, // Sede
+            { wch: 12 }, // Placa
+            { wch: 15 }, // Serie
+            { wch: 10 }, // Moneda
+            { wch: 15 }, // Terminal
+            { wch: 18 }  // Fecha
         ];
 
         XLSX.utils.book_append_sheet(workbook, worksheet, "Terminales");
@@ -171,6 +216,37 @@ const ReportsPage: React.FC = () => {
                             className="text-sm text-gray-900"
                             noOptionsMessage={() => "No se encontraron clientes"}
                         />
+                    </div>
+
+                    {/* --- NUEVA SECCIÓN DE FILTROS GEOGRÁFICOS --- */}
+                    <div className="md:col-span-2 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <label className="block text-sm font-bold text-gray-800 dark:text-gray-300 mb-3 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                            Filtros Geográficos (Opcional)
+                        </label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Provincia</label>
+                                <select value={filterProvince} onChange={handleProvinceChange} className={inputClass}>
+                                    <option value="">Todas las provincias</option>
+                                    {provinces.map(p => <option key={p} value={p}>{p}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Cantón</label>
+                                <select value={filterCanton} onChange={handleCantonChange} disabled={!filterProvince} className={`${inputClass} ${!filterProvince ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed text-gray-400' : ''}`}>
+                                    <option value="">Todos los cantones</option>
+                                    {cantons.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Distrito</label>
+                                <select value={filterDistrict} onChange={e => setFilterDistrict(e.target.value)} disabled={!filterCanton} className={`${inputClass} ${!filterCanton ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed text-gray-400' : ''}`}>
+                                    <option value="">Todos los distritos</option>
+                                    {districts.map(d => <option key={d} value={d}>{d}</option>)}
+                                </select>
+                            </div>
+                        </div>
                     </div>
 
                     <div>
