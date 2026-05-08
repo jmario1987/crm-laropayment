@@ -6,7 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import MultiSelectDropdown from '../ui/MultiSelectDropdown';
 import { doc, setDoc, collection, writeBatch } from 'firebase/firestore'; 
 import { db } from '../../firebaseConfig';
-import { COSTA_RICA_LOCATIONS } from '../../data/locations'; // <-- CATÁLOGO DE UBICACIONES
+import { COSTA_RICA_LOCATIONS } from '../../data/locations';
 
 interface LeadFormProps {
   lead?: Lead;
@@ -20,6 +20,10 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
   
   const sortedStages = useMemo(() => [...stages].sort((a,b) => a.order - b.order), [stages]);
   const defaultStatus = sortedStages.find(s => s.type === 'open')?.id || sortedStages[0]?.id || '';
+
+  const sortedProviders = useMemo(() => {
+      return [...providers].sort((a, b) => a.name.localeCompare(b.name));
+  }, [providers]);
 
   const [formData, setFormData] = useState({
     name: '', 
@@ -48,30 +52,35 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
 
   const isNewLeadCreation = !lead;
 
-  // --- LÓGICA DE FAST-TRACK (SALTO DE ETAPA) ---
   useEffect(() => {
     if (isNewLeadCreation && !duplicateFrom) {
-        if (formData.providerId) {
-            const executiveStage = sortedStages.find(s => s.name.toLowerCase().includes('ejecutivo')) || sortedStages[2];
-            if (executiveStage && formData.status !== executiveStage.id) {
-                setFormData(prev => ({ ...prev, status: executiveStage.id }));
+        if (formData.providerId && formData.providerId !== 'DIRECT') {
+            const executiveStage = sortedStages[1]; 
+            if (executiveStage && formData.status !== executiveStage.id && formData.status !== sortedStages[2]?.id) {
+                setFormData(prev => ({ ...prev, status: executiveStage.id, tagId: '' }));
             }
         } else {
-            if (formData.status !== defaultStatus) {
-                setFormData(prev => ({ ...prev, status: defaultStatus }));
+            const firstStage = sortedStages[0];
+            if (firstStage && formData.status !== firstStage.id) {
+                setFormData(prev => ({ ...prev, status: firstStage.id, tagId: '' }));
             }
         }
     }
-  }, [formData.providerId, isNewLeadCreation, duplicateFrom, sortedStages, defaultStatus]);
+  }, [formData.providerId, isNewLeadCreation, duplicateFrom, sortedStages]);
 
   const availableStagesForDropdown = useMemo(() => {
       if (isNewLeadCreation) {
-          return sortedStages.filter(s => s.id === defaultStatus || s.id === formData.status);
+          if (!formData.providerId || formData.providerId === 'DIRECT') {
+              return sortedStages.length > 0 ? [sortedStages[0]] : [];
+          } else {
+              return sortedStages.slice(1, 3);
+          }
       }
+      
       const currentIndex = sortedStages.findIndex(s => s.id === lead?.status);
       if (currentIndex === -1) return sortedStages;
       return sortedStages.filter((s, index) => Math.abs(index - currentIndex) <= 1 || s.type === 'lost' || index === currentIndex);
-  }, [isNewLeadCreation, sortedStages, lead?.status, defaultStatus, formData.status]);
+  }, [isNewLeadCreation, sortedStages, lead?.status, formData.providerId]);
 
   const availableTags = useMemo(() => tags.filter(tag => tag.stageId === formData.status), [formData.status, tags]);
   const selectedStage = useMemo(() => stages.find(s => s.id === formData.status), [formData.status, stages]);
@@ -81,27 +90,25 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
   useEffect(() => {
     const initialOwnerId = user?.role === USER_ROLES.Vendedor ? user?.id : (sellers[0]?.id || ''); 
     if (lead) {
-      // --- MIGRACIÓN AUTOMÁTICA AL VUELO ---
       const mappedEquipments = (lead.equipments || []).map(eq => {
-          if (eq.serie === undefined) {
-              return { ...eq, serie: eq.placa, placa: '' };
-          }
+          if (eq.serie === undefined) { return { ...eq, serie: eq.placa, placa: '' }; }
           return eq;
       });
 
       setFormData({
         name: lead.name || '', company: lead.company || '', email: lead.email || '', phone: lead.phone || '',
         status: lead.status || defaultStatus, ownerId: lead.ownerId || initialOwnerId || '', 
-        productIds: lead.productIds || [], providerId: lead.providerId || '', newObservation: '', 
-        tagId: lead.tagIds?.[0] || '', affiliateNumber: lead.affiliateNumber || '', assignedOffice: lead.assignedOffice || '', 
-        equipments: mappedEquipments,
+        productIds: lead.productIds || [], 
+        providerId: lead.providerId ? lead.providerId : 'DIRECT', 
+        newObservation: '', tagId: lead.tagIds?.[0] || '', affiliateNumber: lead.affiliateNumber || '', 
+        assignedOffice: lead.assignedOffice || '', equipments: mappedEquipments,
         province: lead.province || '', canton: lead.canton || '', district: lead.district || '', addressDetails: lead.addressDetails || ''
       });
     } else if (duplicateFrom) {
       setFormData({
         name: duplicateFrom.name || '', company: duplicateFrom.company || '', email: duplicateFrom.email || '', phone: duplicateFrom.phone || '',
         status: defaultStatus, ownerId: duplicateFrom.ownerId || initialOwnerId || '', productIds: [], 
-        providerId: duplicateFrom.providerId || '', newObservation: '', tagId: '', affiliateNumber: '', 
+        providerId: duplicateFrom.providerId ? duplicateFrom.providerId : 'DIRECT', newObservation: '', tagId: '', affiliateNumber: '', 
         assignedOffice: duplicateFrom.assignedOffice || '', equipments: [],
         province: duplicateFrom.province || '', canton: duplicateFrom.canton || '', district: duplicateFrom.district || '', addressDetails: duplicateFrom.addressDetails || ''
       });
@@ -114,7 +121,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     }
   }, [lead, duplicateFrom, stages, user, sellers, defaultStatus]); 
 
-  // --- CONTROLADOR DE CAMBIOS CON CASCADA PARA UBICACIÓN ---
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     if (name === 'status') {
@@ -129,8 +135,12 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
   };
   
   const provinces = Object.keys(COSTA_RICA_LOCATIONS);
-  const cantons = formData.province ? Object.keys(COSTA_RICA_LOCATIONS[formData.province]) : [];
-  const districts = (formData.province && formData.canton) ? COSTA_RICA_LOCATIONS[formData.province][formData.canton] : [];
+  const cantons = formData.province 
+      ? Object.keys(COSTA_RICA_LOCATIONS[formData.province]).sort((a, b) => a.localeCompare(b)) 
+      : [];
+  const districts = (formData.province && formData.canton) 
+      ? [...COSTA_RICA_LOCATIONS[formData.province][formData.canton]].sort((a, b) => a.localeCompare(b)) 
+      : [];
 
   const handleProductSelectionChange = (selectedValues: string[]) => setFormData(prev => ({ ...prev, productIds: selectedValues }));
 
@@ -204,24 +214,24 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     const normalizedInputName = formData.name.trim().toLowerCase();
     const nameExists = allLeads.some(l => l.id !== lead?.id && l.name.trim().toLowerCase() === normalizedInputName);
     
-    if (nameExists) return alert("⚠️ Error: Ya existe un prospecto con ese nombre exacto.");
-    if (isNewLeadCreation && !formData.providerId) return alert("⚠️ Error: Debes seleccionar el Origen ('Referido por').");
-    if (!formData.productIds || formData.productIds.length !== 1) return alert("⚠️ Error: Debes seleccionar EXACTAMENTE UN (1) producto.");
-    if (availableTags.length > 0 && !formData.tagId) return alert("⚠️ Error: Debes seleccionar una Sub-Etapa.");
+    if (nameExists) return alert("Error: Ya existe un prospecto con ese nombre exacto.");
+    if (isNewLeadCreation && !formData.providerId) return alert("Error: Debes seleccionar el Origen del prospecto.");
+    if (!formData.productIds || formData.productIds.length !== 1) return alert("Error: Debes seleccionar EXACTAMENTE UN (1) producto.");
+    if (availableTags.length > 0 && !formData.tagId) return alert("Error: Debes seleccionar una Sub-Etapa.");
 
     if (selectedStage?.type === 'won') {
         const afNum = formData.affiliateNumber || '';
-        if (afNum.length !== 10) return alert("⚠️ Error: El número de afiliado debe tener exactamente 10 dígitos.");
-        if (!afNum.startsWith('0')) return alert("⚠️ Error: El número de afiliado debe comenzar siempre con un cero (0).");
+        if (afNum.length !== 10) return alert("Error: El número de afiliado debe tener exactamente 10 dígitos.");
+        if (!afNum.startsWith('0')) return alert("Error: El número de afiliado debe comenzar siempre con un cero (0).");
         
         const affiliateExists = allLeads.some(l => l.id !== lead?.id && l.affiliateNumber === afNum);
-        if (affiliateExists) return alert("⚠️ Error: Este Número de Afiliado ya está registrado en otro cliente.");
+        if (affiliateExists) return alert("Error: Este Número de Afiliado ya está registrado en otro cliente.");
     }
 
     for (const eq of formData.equipments) {
-        if (!eq.serie) { return alert("⚠️ Error: El N° de Serie es obligatorio en todos los equipos."); }
-        if (eq.serie.length !== 11) { return alert(`⚠️ Error: El N° de Serie "${eq.serie}" está incompleto. Debe tener 9 dígitos (formato XXX-XXX-XXX).`); }
-        if (eq.placa && eq.placa.length !== 6) { return alert(`⚠️ Error: El N° de Placa "${eq.placa}" debe tener exactamente 6 dígitos.`); }
+        if (!eq.serie) { return alert("Error: El N° de Serie es obligatorio en todos los equipos."); }
+        if (eq.serie.length !== 11) { return alert(`Error: El N° de Serie "${eq.serie}" está incompleto. Debe tener 9 dígitos (formato XXX-XXX-XXX).`); }
+        if (eq.placa && eq.placa.length !== 6) { return alert(`Error: El N° de Placa "${eq.placa}" debe tener exactamente 6 dígitos.`); }
     }
 
     const leadId = lead?.id || doc(collection(db, 'leads')).id; 
@@ -268,6 +278,8 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         updatedObservations = (updatedObservations + observationText).trim();
     }
 
+    const finalProviderId = (formData.providerId === 'DIRECT' || formData.providerId === '') ? null : formData.providerId;
+
     const leadDataToSave: any = { 
         id: leadId, name: formData.name, company: formData.company, email: formData.email,
         phone: formData.phone || '', status: formData.status as LeadStatus, ownerId: formData.ownerId,
@@ -275,7 +287,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         lastUpdate: new Date().toISOString(), _version: (lead?._version || 0) + 1,
         creatorId: isNewLeadCreation ? user.id : (lead?.creatorId || user.id),
         notificationForManagerId: notificationForManagerIdCalc, notificationForSeller: notificationForSellerCalc, 
-        sellerHasViewedNotification: sellerHasViewedNotificationCalc, providerId: formData.providerId || null, 
+        sellerHasViewedNotification: sellerHasViewedNotificationCalc, providerId: finalProviderId, 
         productIds: formData.productIds || [], tagIds: formData.tagId ? [formData.tagId] : [],
         assignedOffice: formData.assignedOffice || null, equipments: formData.equipments,
         province: formData.province || null, canton: formData.canton || null, district: formData.district || null, addressDetails: formData.addressDetails || null
@@ -299,21 +311,13 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
       await setDoc(doc(db, 'leads', leadId), leadDataToSave as Lead, { merge: true }); 
       
       const finalLeadDataForState = { 
-          ...lead, ...leadDataToSave, providerId: leadDataToSave.providerId ?? null,
-          productIds: leadDataToSave.productIds ?? [], tagIds: leadDataToSave.tagIds ?? [],
+          ...lead, ...leadDataToSave,
           statusHistory: leadDataToSave.statusHistory ?? lead?.statusHistory ?? [], 
           tagHistory: leadDataToSave.tagHistory ?? lead?.tagHistory ?? [], 
-          affiliateNumber: leadDataToSave.affiliateNumber ?? null,
-          assignedOffice: leadDataToSave.assignedOffice ?? null,
           clientStatus: leadDataToSave.clientStatus ?? lead?.clientStatus ?? null, 
           billingHistory: leadDataToSave.billingHistory ?? lead?.billingHistory, 
-          creatorId: leadDataToSave.creatorId,
           reassignedAt: leadDataToSave.reassignedAt ?? lead?.reassignedAt ?? undefined,
-          equipments: leadDataToSave.equipments ?? [],
-          province: leadDataToSave.province ?? null,
-          canton: leadDataToSave.canton ?? null,
-          district: leadDataToSave.district ?? null,
-          addressDetails: leadDataToSave.addressDetails ?? null
+          equipments: leadDataToSave.equipments ?? []
       } as Lead;
 
       if (isNewLeadCreation) { dispatch({ type: 'ADD_LEAD', payload: finalLeadDataForState }); } 
@@ -389,7 +393,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         </div>
       </div>
 
-      {/* --- NUEVA SECCIÓN: UBICACIÓN GEOGRÁFICA --- */}
+      {/* --- UBICACIÓN GEOGRÁFICA --- */}
       <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600 flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
@@ -405,14 +409,14 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
             </div>
             <div>
                 <label className={labelClass}>Cantón</label>
-                <select name="canton" value={formData.canton} onChange={handleChange} disabled={!formData.province} className={`${inputClass} ${!formData.province ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed' : ''}`}>
+                <select name="canton" value={formData.canton} onChange={handleChange} disabled={!formData.province} className={`${inputClass} ${!formData.province ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed text-gray-400' : ''}`}>
                     <option value="">Seleccione...</option>
                     {cantons.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
             </div>
             <div>
                 <label className={labelClass}>Distrito</label>
-                <select name="district" value={formData.district} onChange={handleChange} disabled={!formData.canton} className={`${inputClass} ${!formData.canton ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed' : ''}`}>
+                <select name="district" value={formData.district} onChange={handleChange} disabled={!formData.canton} className={`${inputClass} ${!formData.canton ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed text-gray-400' : ''}`}>
                     <option value="">Seleccione...</option>
                     {districts.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
@@ -424,18 +428,60 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         </div>
       </div>
 
-      {/* ESTADO Y CLASIFICACIÓN */}
+      {/* --- ORIGEN Y ASIGNACIÓN --- */}
+      <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+        <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600">Origen y Asignación</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            <div>
+                <label htmlFor="providerId" className={labelClass}>Origen del Prospecto {isNewLeadCreation && '*'}:</label>
+                <select name="providerId" id="providerId" value={formData.providerId} onChange={handleChange} required={isNewLeadCreation} className={inputClass}>
+                    <option value="" disabled hidden>Seleccione una opción...</option>
+                    <option value="DIRECT" className="font-bold text-gray-700 dark:text-gray-300">Venta Directa (Sin Desarrollador)</option>
+                    <optgroup label="Desarrolladores Registrados">
+                        {sortedProviders.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </optgroup>
+                </select>
+            </div>
+            {canReassign && (
+                <div>
+                    <label htmlFor="ownerId" className={labelClass}>Responsable Actual:</label>
+                    <select name="ownerId" id="ownerId" value={formData.ownerId} onChange={handleChange} className={inputClass}>
+                        {sellers.map(seller => <option key={seller.id} value={seller.id}>{seller.name}</option>)}
+                    </select>
+                </div>
+            )}
+        </div>
+      </div>
+
+      {/* --- ESTADO Y CLASIFICACIÓN --- */}
       <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600">Estado y Clasificación</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-                <label htmlFor="status" className={labelClass}>Etapa Actual</label>
-                <select name="status" id="status" value={formData.status} onChange={handleChange} className={`${inputClass} ${isNewLeadCreation && formData.providerId ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200' : ''}`}>
+                <label htmlFor="status" className={labelClass}>Etapa Inicial</label>
+                <select 
+                    name="status" 
+                    id="status" 
+                    value={formData.status} 
+                    onChange={handleChange} 
+                    disabled={isNewLeadCreation && (!formData.providerId || formData.providerId === 'DIRECT')}
+                    className={`${inputClass} ${isNewLeadCreation && (!formData.providerId || formData.providerId === 'DIRECT') ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed text-gray-500' : ''}`}
+                >
                     {availableStagesForDropdown.map(stage => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
                 </select>
-                {isNewLeadCreation && formData.providerId && (
-                    <p className="text-[10px] text-blue-600 font-bold mt-1 uppercase">⚡ Salto automático por Desarrollador</p>
-                )}
+                {isNewLeadCreation && formData.providerId && formData.providerId !== 'DIRECT' ? (
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold mt-1.5 uppercase tracking-wider">
+                        Salto automático activado
+                    </p>
+                ) : isNewLeadCreation && formData.providerId === 'DIRECT' ? (
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold mt-1.5 uppercase tracking-wider">
+                        Etapa inicial por defecto
+                    </p>
+                ) : isNewLeadCreation ? (
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold mt-1.5 uppercase tracking-wider">
+                        Seleccione el origen primero
+                    </p>
+                ) : null}
             </div>
             
             {availableTags.length > 0 ? (
@@ -449,8 +495,8 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
             ) : <div className="hidden md:block"></div>}
 
             {selectedStage && selectedStage.type === 'won' && ( 
-                <div className="md:col-span-2 bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800"> 
-                    <label htmlFor="affiliateNumber" className="block text-sm font-bold text-green-800 dark:text-green-400 mb-1">Número de Afiliado (Requerido para Producción) *</label> 
+                <div className="md:col-span-2 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border border-gray-300 dark:border-gray-600"> 
+                    <label htmlFor="affiliateNumber" className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Número de Afiliado (Requerido para Producción) *</label> 
                     <input 
                         type="text" name="affiliateNumber" id="affiliateNumber" value={formData.affiliateNumber} 
                         onChange={(e) => setFormData(prev => ({ ...prev, affiliateNumber: e.target.value.replace(/\D/g, '').slice(0, 10) }))} 
@@ -463,28 +509,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                 <label className={labelClass}>Productos de Interés *</label>
                 <MultiSelectDropdown options={productOptions} selectedValues={formData.productIds || []} onChange={handleProductSelectionChange} placeholder="Seleccionar producto..."/>
             </div>
-        </div>
-      </div>
-
-      {/* ASIGNACIÓN Y ORIGEN */}
-      <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm">
-        <h4 className="text-base font-bold text-blue-800 dark:text-blue-300 mb-4 border-b pb-2 dark:border-blue-700">Asignación y Origen</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-            <div>
-                <label htmlFor="providerId" className="block text-sm font-bold text-blue-700 dark:text-blue-400 mb-1">Referido por (Desarrollador) {isNewLeadCreation && '*'}:</label>
-                <select name="providerId" id="providerId" value={formData.providerId} onChange={handleChange} required={isNewLeadCreation} className={inputClass}>
-                    <option value="">Seleccione un desarrollador...</option>
-                    {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-            </div>
-            {canReassign && (
-                <div>
-                    <label htmlFor="ownerId" className="block text-sm font-bold text-blue-700 dark:text-blue-400 mb-1">Responsable Actual:</label>
-                    <select name="ownerId" id="ownerId" value={formData.ownerId} onChange={handleChange} className={inputClass}>
-                        {sellers.map(seller => <option key={seller.id} value={seller.id}>{seller.name}</option>)}
-                    </select>
-                </div>
-            )}
         </div>
       </div>
 
@@ -506,7 +530,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
             )}
 
             <div className="flex gap-2 w-full sm:w-auto">
-                <Button type="button" variant="secondary" onClick={() => setShowImportBox(!showImportBox)} className={`text-xs py-1.5 px-3 flex-1 sm:flex-none justify-center shadow-sm ${showImportBox ? 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-300 dark:border-indigo-800' : 'border-gray-300'}`}>
+                <Button type="button" variant="secondary" onClick={() => setShowImportBox(!showImportBox)} className="text-xs py-1.5 px-3 flex-1 sm:flex-none justify-center shadow-sm border-gray-300">
                     Pegar desde Excel
                 </Button>
                 <Button type="button" variant="secondary" onClick={addEquipment} className="text-xs py-1.5 px-3 flex-1 sm:flex-none justify-center shadow-sm border-gray-300">
@@ -516,11 +540,11 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         </div>
 
         {showImportBox && (
-            <div className="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-lg border border-indigo-200 dark:border-indigo-800 mb-6 shadow-inner animate-fade-in-down">
-                <h5 className="font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-2">
-                    ⚡ Pegar desde Excel
+            <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg border border-gray-300 dark:border-gray-600 mb-6 shadow-inner animate-fade-in-down">
+                <h5 className="font-bold text-gray-800 dark:text-gray-300 mb-2">
+                    Pegar desde Excel
                 </h5>
-                <p className="text-xs text-indigo-600 dark:text-indigo-400 mb-3">
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
                     Copia las celdas de tu Excel y pégalas aquí. El formato debe ser: <br/>
                     <strong>N° Placa (Opcional) | N° Serie | Terminal | Sede o Caja (Opcional)</strong>.
                 </p>
@@ -531,15 +555,15 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                             value={pasteData}
                             onChange={(e) => setPasteData(e.target.value)}
                             placeholder="Pega aquí las filas de Excel (Ctrl+V)..."
-                            className="w-full h-32 px-3 py-2 text-sm border border-indigo-300 dark:border-indigo-700 rounded-md focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-800 dark:text-gray-200 custom-scrollbar whitespace-pre"
+                            className="w-full h-32 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-800 dark:text-gray-200 custom-scrollbar whitespace-pre"
                         />
                     </div>
                     <div className="w-48 flex flex-col gap-2">
-                        <label className="text-xs font-bold text-indigo-700 dark:text-indigo-300">Moneda de Terminales:</label>
+                        <label className="text-xs font-bold text-gray-700 dark:text-gray-300">Moneda de Terminales:</label>
                         <select 
                             value={importCurrency}
                             onChange={(e) => setImportCurrency(e.target.value as 'CRC' | 'USD')}
-                            className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border border-indigo-300 dark:border-indigo-600 rounded text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-primary-500 focus:border-primary-500"
                         >
                             <option value="CRC">Colones</option>
                             <option value="USD">Dólares</option>
@@ -547,7 +571,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                         <button 
                             type="button"
                             onClick={processPasteData}
-                            className="mt-auto w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded shadow transition-colors text-sm"
+                            className="mt-auto w-full py-2 bg-slate-700 hover:bg-slate-800 text-white font-bold rounded shadow transition-colors text-sm"
                         >
                             Procesar Filas
                         </button>
@@ -622,7 +646,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                                             type="button" 
                                             onClick={() => addTerminal(eq.id)}
                                             disabled={eq.terminals.length >= 8}
-                                            className={`text-xs font-bold py-1.5 px-3 rounded-md transition-colors shadow-sm border ${eq.terminals.length >= 8 ? 'bg-gray-200 text-gray-400 border-gray-200 cursor-not-allowed dark:bg-gray-700' : 'bg-white text-primary-600 border-primary-200 hover:bg-primary-50 dark:bg-gray-700 dark:text-primary-400 dark:border-primary-900/50 dark:hover:bg-gray-600'}`}
+                                            className={`text-xs font-bold py-1.5 px-3 rounded-md transition-colors shadow-sm border ${eq.terminals.length >= 8 ? 'bg-gray-200 text-gray-400 border-gray-200 cursor-not-allowed dark:bg-gray-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'}`}
                                         >
                                             + Añadir Terminal
                                         </button>
@@ -677,7 +701,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                     <button
                         type="button"
                         onClick={addEquipment}
-                        className="w-full py-3 mt-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm font-semibold text-gray-500 dark:text-gray-400 hover:text-primary-600 hover:border-primary-400 dark:hover:text-primary-400 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-gray-800 transition-all flex items-center justify-center gap-2"
+                        className="w-full py-3 mt-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-700 hover:border-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all flex items-center justify-center gap-2"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         Añadir otro Equipo
@@ -693,10 +717,14 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         <textarea name="newObservation" id="newObservation" value={formData.newObservation} onChange={handleChange} rows={3} className="mt-1 block w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm" placeholder="Escribe aquí la nueva nota, minutas de reunión o estatus..."/>
       </div>
       
-      {/* BOTÓN GUARDAR */}
+      {/* BOTÓN GUARDAR CON NUEVO DISEÑO */}
       <div className="flex justify-end pt-4 pb-2 sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-2 z-20">
-        <Button type="submit" className="bg-primary-600 hover:bg-primary-700 text-white w-full sm:w-auto text-lg px-8 py-2">
-          {lead ? 'Guardar Cambios' : duplicateFrom ? 'Crear Prospecto Duplicado' : 'Crear Prospecto'}
+        <Button 
+          type="submit" 
+          className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white w-full sm:w-auto text-sm font-medium px-6 py-2 rounded-lg shadow-sm transition-all"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          {lead ? 'Guardar Cambios' : duplicateFrom ? 'Crear Duplicado' : 'Crear Prospecto'}
         </Button>
       </div>
     </form>

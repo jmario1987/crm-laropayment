@@ -1,25 +1,42 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useState } from 'react';
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
-  // NUEVO: Permite personalizar el ancho cuando lo necesites
   maxWidth?: string; 
 }
 
-// Cambiamos el valor por defecto de max-w-lg a max-w-4xl
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidth = 'max-w-4xl' }) => {
+  // --- NUEVO: Estado para rastrear dónde empezó el clic ---
+  const [isMouseDownOnBackdrop, setIsMouseDownOnBackdrop] = useState(false);
+
   if (!isOpen) return null;
+
+  // Registramos si el clic INICIÓ exactamente en el fondo oscuro
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) {
+      setIsMouseDownOnBackdrop(true);
+    }
+  };
+
+  // Solo cerramos si el clic INICIÓ y TERMINÓ en el fondo oscuro
+  const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isMouseDownOnBackdrop && e.target === e.currentTarget) {
+      onClose();
+    }
+    setIsMouseDownOnBackdrop(false); // Reseteamos el estado
+  };
 
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4 sm:p-6"
-      onClick={onClose}
+      // Reemplazamos el onClick antiguo por estos dos eventos
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
     >
       <div
-        // Inyectamos el maxWidth dinámico y controlamos la altura máxima (max-h)
         className={`bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full ${maxWidth} max-h-[95vh] flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >

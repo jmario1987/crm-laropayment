@@ -3,7 +3,7 @@ import { useLeads } from '../hooks/useLeads';
 import Button from '../components/ui/Button';
 import * as XLSX from 'xlsx';
 import Select from 'react-select';
-import { COSTA_RICA_LOCATIONS } from '../data/locations'; // <-- IMPORTAMOS EL CATÁLOGO
+import { COSTA_RICA_LOCATIONS } from '../data/locations';
 
 const ReportsPage: React.FC = () => {
     const { allLeads, stages, providers } = useLeads();
@@ -17,7 +17,6 @@ const ReportsPage: React.FC = () => {
     const [filterCurrency, setFilterCurrency] = useState<'ALL' | 'CRC' | 'USD'>('ALL');
     const [filterProvider, setFilterProvider] = useState<string>('');
 
-    // --- NUEVOS ESTADOS DE UBICACIÓN ---
     const [filterProvince, setFilterProvince] = useState<string>('');
     const [filterCanton, setFilterCanton] = useState<string>('');
     const [filterDistrict, setFilterDistrict] = useState<string>('');
@@ -28,20 +27,24 @@ const ReportsPage: React.FC = () => {
             .sort((a, b) => a.label.localeCompare(b.label));
     }, [allLeads]);
 
-    // --- LÓGICA DE CASCADA PARA LOS FILTROS ---
+    // --- LISTAS ORDENADAS ALFABÉTICAMENTE ---
     const provinces = Object.keys(COSTA_RICA_LOCATIONS);
-    const cantons = filterProvince ? Object.keys(COSTA_RICA_LOCATIONS[filterProvince]) : [];
-    const districts = (filterProvince && filterCanton) ? COSTA_RICA_LOCATIONS[filterProvince][filterCanton] : [];
+    const cantons = filterProvince 
+        ? Object.keys(COSTA_RICA_LOCATIONS[filterProvince]).sort((a, b) => a.localeCompare(b)) 
+        : [];
+    const districts = (filterProvince && filterCanton) 
+        ? [...COSTA_RICA_LOCATIONS[filterProvince][filterCanton]].sort((a, b) => a.localeCompare(b)) 
+        : [];
 
     const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         setFilterProvince(e.target.value);
-        setFilterCanton(''); // Limpia cantón y distrito al cambiar provincia
+        setFilterCanton(''); 
         setFilterDistrict('');
     };
 
     const handleCantonChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         setFilterCanton(e.target.value);
-        setFilterDistrict(''); // Limpia distrito al cambiar cantón
+        setFilterDistrict(''); 
     };
 
     const handleExportEquipments = () => {
@@ -61,7 +64,6 @@ const ReportsPage: React.FC = () => {
         if (filterLeadId) filteredLeads = filteredLeads.filter(lead => lead.id === filterLeadId);
         if (filterProvider) filteredLeads = filteredLeads.filter(lead => lead.providerId === filterProvider);
 
-        // --- APLICAR FILTROS GEOGRÁFICOS ---
         if (filterProvince) filteredLeads = filteredLeads.filter(lead => lead.province === filterProvince);
         if (filterCanton) filteredLeads = filteredLeads.filter(lead => lead.canton === filterCanton);
         if (filterDistrict) filteredLeads = filteredLeads.filter(lead => lead.district === filterDistrict);
@@ -126,21 +128,10 @@ const ReportsPage: React.FC = () => {
         const worksheet = XLSX.utils.json_to_sheet(exportData);
         const workbook = XLSX.utils.book_new();
         
-        // Ajustamos los anchos de columna para que entren las direcciones
         worksheet['!cols'] = [
-            { wch: 35 }, // Comercio
-            { wch: 18 }, // Afiliado
-            { wch: 15 }, // Provincia
-            { wch: 15 }, // Cantón
-            { wch: 20 }, // Distrito
-            { wch: 40 }, // Otras Señas
-            { wch: 20 }, // Oficina Asignada
-            { wch: 20 }, // Sede
-            { wch: 12 }, // Placa
-            { wch: 15 }, // Serie
-            { wch: 10 }, // Moneda
-            { wch: 15 }, // Terminal
-            { wch: 18 }  // Fecha
+            { wch: 35 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, 
+            { wch: 40 }, { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 15 }, 
+            { wch: 10 }, { wch: 15 }, { wch: 18 }
         ];
 
         XLSX.utils.book_append_sheet(workbook, worksheet, "Terminales");
@@ -218,7 +209,6 @@ const ReportsPage: React.FC = () => {
                         />
                     </div>
 
-                    {/* --- NUEVA SECCIÓN DE FILTROS GEOGRÁFICOS --- */}
                     <div className="md:col-span-2 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
                         <label className="block text-sm font-bold text-gray-800 dark:text-gray-300 mb-3 flex items-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
