@@ -131,6 +131,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                             <NavIcon path="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707a1 1 0 011.414 0l4.707 4.707H20a1 1 0 011 1v4a1 1 0 01-1 1h-1.586l-4.707 4.707a1 1 0 01-1.414 0l-4.707-4.707zM15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <span className="ml-3">Sub-Etapas</span>
                         </NavLink>
+                        
+                        {/* --- NUEVO: ENLACE A AUDITORÍA --- */}
+                        <NavLink to="/auditoria" onClick={handleLinkClick} className={getLinkClassName}>
+                            <NavIcon path="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            <span className="ml-3">Auditoría</span>
+                        </NavLink>
                     </div>
                 )}
               </>

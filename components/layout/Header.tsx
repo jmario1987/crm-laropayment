@@ -95,7 +95,9 @@ const Header: React.FC<HeaderProps> = ({ onNewLeadClick, userName, onLogout, onM
       case '/products': return 'Catálogo de Productos';
       case '/providers': return 'Catálogo de Desarrolladores';
       case '/stages': return 'Gestionar Etapas';
-      default: return 'CRM';
+      case '/tags': return 'Sub Etapas';
+      case '/auditpage': return 'Bitácora de Cambios';
+      default: return 'CRM LAROPAYMENTS';
     }
   };
 

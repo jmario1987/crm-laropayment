@@ -19,9 +19,10 @@ import ProtectedRoute from '../auth/ProtectedRoute';
 import { USER_ROLES } from '../../types';
 
 import Tags from '../../pages/Tags';
-
-// --- IMPORTACIÓN DEL NUEVO CENTRO DE REPORTES ---
 import ReportsPage from '../../pages/ReportsPage'; 
+
+// --- IMPORTACIÓN DE LA NUEVA PANTALLA DE AUDITORÍA ---
+import AuditPage from '../../pages/AuditPage';
 
 const MainLayout: React.FC = () => {
   const { user, logout } = useAuth();
@@ -47,14 +48,18 @@ const MainLayout: React.FC = () => {
               <Route path="/won-leads" element={<WonLeadsPage />} />
               <Route path="/leads" element={<LeadsListPage />} />
               
-              {/* --- NUEVA RUTA: CENTRO DE REPORTES --- */}
+              {/* --- RUTAS DE REPORTES --- */}
               <Route path="/reports" element={<ReportsPage />} />
 
+              {/* --- RUTAS PROTEGIDAS PARA ADMINISTRADORES --- */}
               <Route path="/users" element={<ProtectedRoute roles={[USER_ROLES.Admin]}><Users /></ProtectedRoute>} />
               <Route path="/products" element={<ProtectedRoute roles={[USER_ROLES.Admin]}><Products /></ProtectedRoute>} />
               <Route path="/providers" element={<ProtectedRoute roles={[USER_ROLES.Admin]}><Providers /></ProtectedRoute>} />
               <Route path="/stages" element={<ProtectedRoute roles={[USER_ROLES.Admin]}><Stages /></ProtectedRoute>} />
               <Route path="/tags" element={<ProtectedRoute roles={[USER_ROLES.Admin]}><Tags /></ProtectedRoute>} />
+              
+              {/* NUEVA RUTA: BITÁCORA DE AUDITORÍA */}
+              <Route path="/auditoria" element={<ProtectedRoute roles={[USER_ROLES.Admin]}><AuditPage /></ProtectedRoute>} />
 
             </Routes>
           </main>

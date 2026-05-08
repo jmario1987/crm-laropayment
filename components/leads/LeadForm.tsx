@@ -7,6 +7,7 @@ import MultiSelectDropdown from '../ui/MultiSelectDropdown';
 import { doc, setDoc, collection, writeBatch } from 'firebase/firestore'; 
 import { db } from '../../firebaseConfig';
 import { COSTA_RICA_LOCATIONS } from '../../data/locations';
+import { saveAuditLog } from '../../services/audit';
 
 interface LeadFormProps {
   lead?: Lead;
@@ -309,6 +310,55 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
 
     try {
       await setDoc(doc(db, 'leads', leadId), leadDataToSave as Lead, { merge: true }); 
+      
+      // --- DETECCIÓN INTELIGENTE DE CAMBIOS PARA BITÁCORA ---
+      let changesDetails = isNewLeadCreation ? 'Creó un nuevo prospecto.' : 'Actualizó la información general.';
+      
+      if (!isNewLeadCreation && lead) {
+          const changes: string[] = [];
+          
+          if (lead.name !== formData.name) changes.push(`Nombre: '${lead.name}' ➔ '${formData.name}'`);
+          if (lead.phone !== formData.phone) changes.push(`Teléfono: '${lead.phone || 'N/A'}' ➔ '${formData.phone}'`);
+          if (lead.email !== formData.email) changes.push(`Correo: '${lead.email || 'N/A'}' ➔ '${formData.email}'`);
+          if (lead.company !== formData.company) changes.push(`Empresa: '${lead.company || 'N/A'}' ➔ '${formData.company}'`);
+          if (lead.assignedOffice !== formData.assignedOffice) changes.push(`Oficina: '${lead.assignedOffice || 'N/A'}' ➔ '${formData.assignedOffice}'`);
+          if (lead.providerId !== finalProviderId) {
+              const oldProvider = providers.find(p => p.id === lead.providerId)?.name || 'Venta Directa';
+              const newProvider = providers.find(p => p.id === finalProviderId)?.name || 'Venta Directa';
+              changes.push(`Origen: '${oldProvider}' ➔ '${newProvider}'`);
+          }
+          if (lead.affiliateNumber !== formData.affiliateNumber && selectedStage?.type === 'won') {
+              changes.push(`Afiliado: '${lead.affiliateNumber || 'N/A'}' ➔ '${formData.affiliateNumber}'`);
+          }
+          if (lead.status !== formData.status) {
+              const oldStage = stages.find(s => s.id === lead.status)?.name || 'Desconocida';
+              const newStage = stages.find(s => s.id === formData.status)?.name || 'Desconocida';
+              changes.push(`Etapa: [${oldStage}] ➔ [${newStage}]`);
+          }
+          if (JSON.stringify(lead.equipments) !== JSON.stringify(formData.equipments)) {
+              changes.push(`Se modificaron equipos/terminales`);
+          }
+
+          if (changes.length > 0) {
+              changesDetails = changes.join(' | ');
+          } else if (newObservationAdded) {
+              changesDetails = 'Agregó una nueva observación.';
+          } else {
+              changesDetails = 'Guardó sin detectar cambios específicos.';
+          }
+      }
+
+      await saveAuditLog({
+          userId: user.id,
+          userName: user.name,
+          action: isNewLeadCreation ? 'CREAR' : 'EDITAR',
+          module: 'PROSPECTOS',
+          entityId: leadId,
+          entityName: formData.name,
+          details: changesDetails,
+          timestamp: new Date().toISOString()
+      });
+      // -------------------------------------------------------------
       
       const finalLeadDataForState = { 
           ...lead, ...leadDataToSave,
