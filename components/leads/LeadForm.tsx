@@ -212,10 +212,21 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     e.preventDefault();
     if (!user) return alert("Error: Usuario no autenticado.");
 
+    // --- NUEVA VALIDACIÓN INTELIGENTE DE DUPLICADOS ---
     const normalizedInputName = formData.name.trim().toLowerCase();
-    const nameExists = allLeads.some(l => l.id !== lead?.id && l.name.trim().toLowerCase() === normalizedInputName);
+    const currentLeadId = lead?.id || ''; 
     
-    if (nameExists) return alert("Error: Ya existe un prospecto con ese nombre exacto.");
+    // Buscamos si hay OTRO lead diferente que tenga exactamente el mismo nombre
+    const duplicatedLead = allLeads.find(l => 
+        l.id !== currentLeadId && 
+        (l.name || '').trim().toLowerCase() === normalizedInputName
+    );
+
+    if (duplicatedLead) {
+        return alert(`⚠️ Error de Duplicado: El nombre "${formData.name}" ya le pertenece a OTRO cliente en el sistema. Por favor, modifícalo un poco (ej. agregando la sucursal o ciudad) para diferenciarlo.`);
+    }
+    // --------------------------------------------------
+
     if (isNewLeadCreation && !formData.providerId) return alert("Error: Debes seleccionar el Origen del prospecto.");
     if (!formData.productIds || formData.productIds.length !== 1) return alert("Error: Debes seleccionar EXACTAMENTE UN (1) producto.");
     if (availableTags.length > 0 && !formData.tagId) return alert("Error: Debes seleccionar una Sub-Etapa.");
