@@ -52,13 +52,16 @@ const ReportsPage: React.FC = () => {
 
         if (filterStage) filteredLeads = filteredLeads.filter(lead => lead.status === filterStage);
         
-        // --- NUEVA LÓGICA DE FILTRADO POR FECHA DE INSTALACIÓN ---
+        // --- LÓGICA DE FECHAS CON "SALVAVIDAS" PARA DATOS ANTIGUOS ---
         if (filterStartDate) {
             const start = new Date(filterStartDate);
             start.setHours(0, 0, 0, 0);
             filteredLeads = filteredLeads.filter(lead => {
-                if (!lead.installationDate) return false; // Si no tiene fecha de instalación, no pasa el filtro
-                const instDate = new Date(lead.installationDate);
+                // Si no hay fecha de instalación, usa la fecha de creación (createdAt)
+                const dateToEvaluate = lead.installationDate || lead.createdAt;
+                if (!dateToEvaluate) return false;
+                
+                const instDate = new Date(dateToEvaluate);
                 return instDate >= start;
             });
         }
@@ -66,8 +69,10 @@ const ReportsPage: React.FC = () => {
             const end = new Date(filterEndDate);
             end.setHours(23, 59, 59, 999);
             filteredLeads = filteredLeads.filter(lead => {
-                if (!lead.installationDate) return false;
-                const instDate = new Date(lead.installationDate);
+                const dateToEvaluate = lead.installationDate || lead.createdAt;
+                if (!dateToEvaluate) return false;
+                
+                const instDate = new Date(dateToEvaluate);
                 return instDate <= end;
             });
         }
@@ -89,10 +94,13 @@ const ReportsPage: React.FC = () => {
                     const displaySerie = eq.serie !== undefined ? eq.serie : eq.placa;
                     const displayPlaca = eq.serie !== undefined ? eq.placa : '';
                     
-                    // Formatear la fecha para el Excel
-                    const displayInstallationDate = lead.installationDate 
-                        ? new Date(lead.installationDate + 'T12:00:00Z').toLocaleDateString() // Evita desfaces de zona horaria
-                        : 'No Registrada';
+                    // Lógica visual para el Excel: Usa Instalación, si no, Creación
+                    let displayInstallationDate = 'No Registrada';
+                    if (lead.installationDate) {
+                        displayInstallationDate = new Date(lead.installationDate + 'T12:00:00Z').toLocaleDateString();
+                    } else if (lead.createdAt) {
+                        displayInstallationDate = new Date(lead.createdAt).toLocaleDateString();
+                    }
 
                     if (eq.terminals && eq.terminals.length > 0) {
                         eq.terminals.forEach((term: any) => {
@@ -111,7 +119,7 @@ const ReportsPage: React.FC = () => {
                                 "N° Serie": displaySerie || 'N/A',
                                 "Moneda": term.currency,
                                 "Terminal": term.number,
-                                "Fecha de Instalación": displayInstallationDate // <-- CAMBIO AQUÍ
+                                "Fecha de Instalación": displayInstallationDate
                             });
                         });
                     } else {
@@ -129,7 +137,7 @@ const ReportsPage: React.FC = () => {
                                 "N° Serie": displaySerie || 'N/A',
                                 "Moneda": "Sin configurar",
                                 "Terminal": "Sin configurar",
-                                "Fecha de Instalación": displayInstallationDate // <-- CAMBIO AQUÍ
+                                "Fecha de Instalación": displayInstallationDate
                             });
                         }
                     }
@@ -148,7 +156,7 @@ const ReportsPage: React.FC = () => {
         worksheet['!cols'] = [
             { wch: 35 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, 
             { wch: 40 }, { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 15 }, 
-            { wch: 10 }, { wch: 15 }, { wch: 18 } // Ajustado ancho de la última columna
+            { wch: 10 }, { wch: 15 }, { wch: 18 } 
         ];
 
         XLSX.utils.book_append_sheet(workbook, worksheet, "Terminales");
