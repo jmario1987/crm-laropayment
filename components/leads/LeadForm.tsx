@@ -19,6 +19,9 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
   const { dispatch, sellers, products, providers, stages, tags, allLeads } = useLeads(); 
   const { user } = useAuth();
   
+  // Verificamos si el usuario actual es Administrador o Supervisor
+  const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
+  
   const sortedStages = useMemo(() => [...stages].sort((a,b) => a.order - b.order), [stages]);
   const defaultStatus = sortedStages.find(s => s.type === 'open')?.id || sortedStages[0]?.id || '';
 
@@ -39,6 +42,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     tagId: '',
     affiliateNumber: '',
     assignedOffice: '', 
+    installationDate: '', // <-- NUEVO ESTADO PARA LA FECHA
     equipments: [] as Equipment[],
     province: '',
     canton: '',
@@ -86,7 +90,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
   const availableTags = useMemo(() => tags.filter(tag => tag.stageId === formData.status), [formData.status, tags]);
   const selectedStage = useMemo(() => stages.find(s => s.id === formData.status), [formData.status, stages]);
   const productOptions = useMemo(() => products.map(p => ({ value: p.id, label: p.name })), [products]);
-  const canReassign = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor || (lead && (lead.ownerId === user?.id || lead.creatorId === user?.id));
+  const canReassign = isManager || (lead && (lead.ownerId === user?.id || lead.creatorId === user?.id));
 
   useEffect(() => {
     const initialOwnerId = user?.role === USER_ROLES.Vendedor ? user?.id : (sellers[0]?.id || ''); 
@@ -102,7 +106,9 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         productIds: lead.productIds || [], 
         providerId: lead.providerId ? lead.providerId : 'DIRECT', 
         newObservation: '', tagId: lead.tagIds?.[0] || '', affiliateNumber: lead.affiliateNumber || '', 
-        assignedOffice: lead.assignedOffice || '', equipments: mappedEquipments,
+        assignedOffice: lead.assignedOffice || '', 
+        installationDate: lead.installationDate || '', // <-- CARGAMOS LA FECHA SI EXISTE
+        equipments: mappedEquipments,
         province: lead.province || '', canton: lead.canton || '', district: lead.district || '', addressDetails: lead.addressDetails || ''
       });
     } else if (duplicateFrom) {
@@ -110,14 +116,17 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         name: duplicateFrom.name || '', company: duplicateFrom.company || '', email: duplicateFrom.email || '', phone: duplicateFrom.phone || '',
         status: defaultStatus, ownerId: duplicateFrom.ownerId || initialOwnerId || '', productIds: [], 
         providerId: duplicateFrom.providerId ? duplicateFrom.providerId : 'DIRECT', newObservation: '', tagId: '', affiliateNumber: '', 
-        assignedOffice: duplicateFrom.assignedOffice || '', equipments: [],
+        assignedOffice: duplicateFrom.assignedOffice || '', 
+        installationDate: '', // No duplicamos la fecha porque es un cliente nuevo
+        equipments: [],
         province: duplicateFrom.province || '', canton: duplicateFrom.canton || '', district: duplicateFrom.district || '', addressDetails: duplicateFrom.addressDetails || ''
       });
     } else {
       setFormData({
         name: '', company: '', email: '', phone: '', status: defaultStatus, ownerId: initialOwnerId || '', 
-        productIds: [], providerId: '', newObservation: '', tagId: '', affiliateNumber: '', assignedOffice: '', equipments: [],
-        province: '', canton: '', district: '', addressDetails: ''
+        productIds: [], providerId: '', newObservation: '', tagId: '', affiliateNumber: '', assignedOffice: '', 
+        installationDate: '',
+        equipments: [], province: '', canton: '', district: '', addressDetails: ''
       });
     }
   }, [lead, duplicateFrom, stages, user, sellers, defaultStatus]); 
@@ -212,11 +221,9 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     e.preventDefault();
     if (!user) return alert("Error: Usuario no autenticado.");
 
-    // --- NUEVA VALIDACIÓN INTELIGENTE DE DUPLICADOS ---
     const normalizedInputName = formData.name.trim().toLowerCase();
     const currentLeadId = lead?.id || ''; 
     
-    // Buscamos si hay OTRO lead diferente que tenga exactamente el mismo nombre
     const duplicatedLead = allLeads.find(l => 
         l.id !== currentLeadId && 
         (l.name || '').trim().toLowerCase() === normalizedInputName
@@ -225,7 +232,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     if (duplicatedLead) {
         return alert(`⚠️ Error de Duplicado: El nombre "${formData.name}" ya le pertenece a OTRO cliente en el sistema. Por favor, modifícalo un poco (ej. agregando la sucursal o ciudad) para diferenciarlo.`);
     }
-    // --------------------------------------------------
 
     if (isNewLeadCreation && !formData.providerId) return alert("Error: Debes seleccionar el Origen del prospecto.");
     if (!formData.productIds || formData.productIds.length !== 1) return alert("Error: Debes seleccionar EXACTAMENTE UN (1) producto.");
@@ -262,7 +268,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     let sellerHasViewedNotificationCalc = lead?.sellerHasViewedNotification || false;
     let notificationForManagerIdCalc = lead?.notificationForManagerId ?? null; 
     
-    const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
     const newObservationAdded = formData.newObservation.trim() !== '';
 
     if (isManager) {
@@ -291,6 +296,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     }
 
     const finalProviderId = (formData.providerId === 'DIRECT' || formData.providerId === '') ? null : formData.providerId;
+    const finalInstallationDate = formData.installationDate || null; // Limpiamos campos vacíos
 
     const leadDataToSave: any = { 
         id: leadId, name: formData.name, company: formData.company, email: formData.email,
@@ -301,7 +307,9 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         notificationForManagerId: notificationForManagerIdCalc, notificationForSeller: notificationForSellerCalc, 
         sellerHasViewedNotification: sellerHasViewedNotificationCalc, providerId: finalProviderId, 
         productIds: formData.productIds || [], tagIds: formData.tagId ? [formData.tagId] : [],
-        assignedOffice: formData.assignedOffice || null, equipments: formData.equipments,
+        assignedOffice: formData.assignedOffice || null, 
+        installationDate: finalInstallationDate, // <-- SE GUARDA LA FECHA
+        equipments: formData.equipments,
         province: formData.province || null, canton: formData.canton || null, district: formData.district || null, addressDetails: formData.addressDetails || null
     };
 
@@ -333,6 +341,12 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
           if (lead.email !== formData.email) changes.push(`Correo: '${lead.email || 'N/A'}' ➔ '${formData.email}'`);
           if (lead.company !== formData.company) changes.push(`Empresa: '${lead.company || 'N/A'}' ➔ '${formData.company}'`);
           if (lead.assignedOffice !== formData.assignedOffice) changes.push(`Oficina: '${lead.assignedOffice || 'N/A'}' ➔ '${formData.assignedOffice}'`);
+          
+          // Auditar cambio de fecha de instalación
+          if ((lead.installationDate || null) !== finalInstallationDate) {
+              changes.push(`Fecha Instalación: '${lead.installationDate || 'N/A'}' ➔ '${finalInstallationDate || 'N/A'}'`);
+          }
+
           if (lead.providerId !== finalProviderId) {
               const oldProvider = providers.find(p => p.id === lead.providerId)?.name || 'Venta Directa';
               const newProvider = providers.find(p => p.id === finalProviderId)?.name || 'Venta Directa';
@@ -378,6 +392,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
           clientStatus: leadDataToSave.clientStatus ?? lead?.clientStatus ?? null, 
           billingHistory: leadDataToSave.billingHistory ?? lead?.billingHistory, 
           reassignedAt: leadDataToSave.reassignedAt ?? lead?.reassignedAt ?? undefined,
+          installationDate: leadDataToSave.installationDate ?? null,
           equipments: leadDataToSave.equipments ?? []
       } as Lead;
 
@@ -517,7 +532,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
       {/* --- ESTADO Y CLASIFICACIÓN --- */}
       <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600">Estado y Clasificación</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
             <div>
                 <label htmlFor="status" className={labelClass}>Etapa Inicial</label>
                 <select 
@@ -556,8 +571,8 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
             ) : <div className="hidden md:block"></div>}
 
             {selectedStage && selectedStage.type === 'won' && ( 
-                <div className="md:col-span-2 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border border-gray-300 dark:border-gray-600"> 
-                    <label htmlFor="affiliateNumber" className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Número de Afiliado (Requerido para Producción) *</label> 
+                <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border border-gray-300 dark:border-gray-600"> 
+                    <label htmlFor="affiliateNumber" className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Número de Afiliado *</label> 
                     <input 
                         type="text" name="affiliateNumber" id="affiliateNumber" value={formData.affiliateNumber} 
                         onChange={(e) => setFormData(prev => ({ ...prev, affiliateNumber: e.target.value.replace(/\D/g, '').slice(0, 10) }))} 
@@ -566,7 +581,24 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                 </div> 
             )}
 
-            <div className="md:col-span-2 z-10">
+            {/* --- NUEVA FECHA DE INSTALACIÓN --- */}
+            <div className={selectedStage?.type === 'won' ? "" : "md:col-span-2"}>
+                <label htmlFor="installationDate" className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center justify-between">
+                    <span>Fecha de Instalación</span>
+                    {!isManager && <span className="text-[10px] font-normal text-gray-400 uppercase tracking-wider">(Solo Lectura)</span>}
+                </label>
+                <input 
+                    type="date" 
+                    name="installationDate" 
+                    id="installationDate" 
+                    value={formData.installationDate} 
+                    onChange={handleChange} 
+                    readOnly={!isManager}
+                    className={`${inputClass} ${!isManager ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed opacity-80 text-gray-500 font-medium' : 'border-blue-300 dark:border-blue-700'}`}
+                />
+            </div>
+
+            <div className="md:col-span-2 z-10 mt-2">
                 <label className={labelClass}>Productos de Interés *</label>
                 <MultiSelectDropdown options={productOptions} selectedValues={formData.productIds || []} onChange={handleProductSelectionChange} placeholder="Seleccionar producto..."/>
             </div>

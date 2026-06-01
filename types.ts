@@ -83,6 +83,9 @@ export type Lead = {
   _version?: number;
   assignedOffice: string | null; 
   
+  // --- NUEVA FECHA DE INSTALACIÓN ---
+  installationDate?: string | null;
+  
   // --- NUEVO: UBICACIÓN GEOGRÁFICA ---
   province?: string;
   canton?: string;
