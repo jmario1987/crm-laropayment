@@ -51,16 +51,28 @@ const ReportsPage: React.FC = () => {
         let filteredLeads = allLeads;
 
         if (filterStage) filteredLeads = filteredLeads.filter(lead => lead.status === filterStage);
+        
+        // --- NUEVA LÓGICA DE FILTRADO POR FECHA DE INSTALACIÓN ---
         if (filterStartDate) {
             const start = new Date(filterStartDate);
             start.setHours(0, 0, 0, 0);
-            filteredLeads = filteredLeads.filter(lead => new Date(lead.createdAt) >= start);
+            filteredLeads = filteredLeads.filter(lead => {
+                if (!lead.installationDate) return false; // Si no tiene fecha de instalación, no pasa el filtro
+                const instDate = new Date(lead.installationDate);
+                return instDate >= start;
+            });
         }
         if (filterEndDate) {
             const end = new Date(filterEndDate);
             end.setHours(23, 59, 59, 999);
-            filteredLeads = filteredLeads.filter(lead => new Date(lead.createdAt) <= end);
+            filteredLeads = filteredLeads.filter(lead => {
+                if (!lead.installationDate) return false;
+                const instDate = new Date(lead.installationDate);
+                return instDate <= end;
+            });
         }
+        // -----------------------------------------------------------
+
         if (filterLeadId) filteredLeads = filteredLeads.filter(lead => lead.id === filterLeadId);
         if (filterProvider) filteredLeads = filteredLeads.filter(lead => lead.providerId === filterProvider);
 
@@ -76,6 +88,11 @@ const ReportsPage: React.FC = () => {
                     
                     const displaySerie = eq.serie !== undefined ? eq.serie : eq.placa;
                     const displayPlaca = eq.serie !== undefined ? eq.placa : '';
+                    
+                    // Formatear la fecha para el Excel
+                    const displayInstallationDate = lead.installationDate 
+                        ? new Date(lead.installationDate + 'T12:00:00Z').toLocaleDateString() // Evita desfaces de zona horaria
+                        : 'No Registrada';
 
                     if (eq.terminals && eq.terminals.length > 0) {
                         eq.terminals.forEach((term: any) => {
@@ -94,7 +111,7 @@ const ReportsPage: React.FC = () => {
                                 "N° Serie": displaySerie || 'N/A',
                                 "Moneda": term.currency,
                                 "Terminal": term.number,
-                                "Fecha Ingreso CRM": new Date(lead.createdAt).toLocaleDateString()
+                                "Fecha de Instalación": displayInstallationDate // <-- CAMBIO AQUÍ
                             });
                         });
                     } else {
@@ -112,7 +129,7 @@ const ReportsPage: React.FC = () => {
                                 "N° Serie": displaySerie || 'N/A',
                                 "Moneda": "Sin configurar",
                                 "Terminal": "Sin configurar",
-                                "Fecha Ingreso CRM": new Date(lead.createdAt).toLocaleDateString()
+                                "Fecha de Instalación": displayInstallationDate // <-- CAMBIO AQUÍ
                             });
                         }
                     }
@@ -131,7 +148,7 @@ const ReportsPage: React.FC = () => {
         worksheet['!cols'] = [
             { wch: 35 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, 
             { wch: 40 }, { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 15 }, 
-            { wch: 10 }, { wch: 15 }, { wch: 18 }
+            { wch: 10 }, { wch: 15 }, { wch: 18 } // Ajustado ancho de la última columna
         ];
 
         XLSX.utils.book_append_sheet(workbook, worksheet, "Terminales");
@@ -240,12 +257,12 @@ const ReportsPage: React.FC = () => {
                     </div>
 
                     <div>
-                        <label className={labelClass}>Fecha de Ingreso al CRM (Desde)</label>
+                        <label className={labelClass}>Fecha de Instalación (Desde)</label>
                         <input type="date" value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} className={inputClass} />
                     </div>
                     
                     <div>
-                        <label className={labelClass}>Fecha de Ingreso al CRM (Hasta)</label>
+                        <label className={labelClass}>Fecha de Instalación (Hasta)</label>
                         <input type="date" value={filterEndDate} onChange={e => setFilterEndDate(e.target.value)} className={inputClass} />
                     </div>
 
