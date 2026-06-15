@@ -23,6 +23,9 @@ const LeadsListPage: React.FC = () => {
     const [selectedProviders, setSelectedProviders] = useState<{ value: string; label: string; }[]>([]);
     const [selectedProducts, setSelectedProducts] = useState<{ value: string; label: string; }[]>([]); 
     
+    // --- ESTADO PARA LA BARRA DE BÚSQUEDA ---
+    const [searchQuery, setSearchQuery] = useState('');
+    
     // --- ESTADOS PARA LAS FECHAS ---
     const [startDate, setStartDate] = useState<string>('');
     const [endDate, setEndDate] = useState<string>('');
@@ -72,13 +75,13 @@ const LeadsListPage: React.FC = () => {
         // --- LÓGICA DE FILTRADO POR FECHAS ---
         if (startDate) {
             const start = new Date(startDate);
-            start.setHours(0, 0, 0, 0); // Inicio del día
+            start.setHours(0, 0, 0, 0); 
             filteredList = filteredList.filter(lead => new Date(lead.createdAt) >= start);
         }
         
         if (endDate) {
             const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999); // Final del día
+            end.setHours(23, 59, 59, 999); 
             filteredList = filteredList.filter(lead => new Date(lead.createdAt) <= end);
         }
 
@@ -108,8 +111,19 @@ const LeadsListPage: React.FC = () => {
             }
         }
 
+        // --- NUEVA LÓGICA DE BÚSQUEDA INTERNA ---
+        if (searchQuery.trim() !== '') {
+            const lowerQuery = searchQuery.toLowerCase();
+            filteredList = filteredList.filter(lead => 
+                lead.name.toLowerCase().includes(lowerQuery) || 
+                (lead.company && lead.company.toLowerCase().includes(lowerQuery)) ||
+                (lead.email && lead.email.toLowerCase().includes(lowerQuery)) ||
+                (lead.affiliateNumber && lead.affiliateNumber.toLowerCase().includes(lowerQuery))
+            );
+        }
+
         return filteredList; 
-    }, [leadsCopy, user, isManager, stages, selectedStages, selectedTags, selectedSellers, selectedProviders, providers, selectedProducts, startDate, endDate]);
+    }, [leadsCopy, user, isManager, stages, selectedStages, selectedTags, selectedSellers, selectedProviders, providers, selectedProducts, startDate, endDate, searchQuery]);
 
     const getTagInfo = (tagId?: string) => tags.find(t => t.id === tagId);
 
@@ -241,7 +255,7 @@ const LeadsListPage: React.FC = () => {
                         )}
                     </div>
                     
-                    {/* --- NUEVA SECCIÓN: FILTROS DE FECHA --- */}
+                    {/* FILTROS DE FECHA */}
                     <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-gray-100 dark:border-gray-700">
                         <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Fecha de Ingreso:</span>
                         <div className="flex items-center gap-2">
@@ -274,26 +288,45 @@ const LeadsListPage: React.FC = () => {
                 </div>
             )}
 
-            <div className="flex justify-between items-center px-1">
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+            {/* --- NUEVA CABECERA CON BÚSQUEDA Y BOTONES --- */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center px-1 gap-4">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">
                     {sortedLeads.length} Prospectos encontrados
                 </h3>
                 
-                {user && (
-                    <div className="flex space-x-3">
-                        {isManager && (
-                            <Button onClick={handleExportExcel} variant="secondary" className="flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h2l2 3 2-3h2"></path><path d="M8 17h2l2-3 2 3h2"></path></svg>
-                                Exportar Excel
-                            </Button>
-                        )}
-                        <Button onClick={handleOpenImportModal} className="flex items-center gap-2"> 
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                            Importación Masiva
-                        </Button>
+                <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                    <div className="relative flex-1 lg:min-w-[280px]">
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+                                <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
+                            </svg>
+                        </div>
+                        <input 
+                            type="text" 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="block w-full py-2 pl-10 pr-3 text-sm border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
+                            placeholder="Buscar nombre, empresa o correo..." 
+                        />
                     </div>
-                )}
+
+                    {user && (
+                        <div className="flex space-x-3 w-full sm:w-auto justify-end">
+                            {isManager && (
+                                <Button onClick={handleExportExcel} variant="secondary" className="flex items-center gap-2 whitespace-nowrap">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h2l2 3 2-3h2"></path><path d="M8 17h2l2-3 2 3h2"></path></svg>
+                                    Exportar Excel
+                                </Button>
+                            )}
+                            <Button onClick={handleOpenImportModal} className="flex items-center gap-2 whitespace-nowrap"> 
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                Importación Masiva
+                            </Button>
+                        </div>
+                    )}
+                </div>
             </div>
+            {/* ------------------------------------------- */}
 
             <div className="relative overflow-x-auto shadow-md sm:rounded-lg border border-gray-200 dark:border-gray-700">
                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
