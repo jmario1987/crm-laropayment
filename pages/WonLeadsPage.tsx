@@ -94,6 +94,10 @@ const WonLeadRow: React.FC<{
 const WonLeadsPage: React.FC = () => {
     const { allLeads, stages, getUserById, providers, getProviderById, dispatch, products } = useLeads();
     const { user } = useAuth();
+    
+    // --- NUEVO ESTADO: BARRA DE BÚSQUEDA ---
+    const [searchQuery, setSearchQuery] = useState('');
+    
     const [selectedProviderId, setSelectedProviderId] = useState('all');
     const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
     const [includeInactive, setIncludeInactive] = useState(false);
@@ -108,7 +112,6 @@ const WonLeadsPage: React.FC = () => {
 
     const productOptions = useMemo(() => products.map(p => ({ value: p.id, label: p.name })), [products]);
 
-    // --- NUEVO: ORDENAMOS LOS DESARROLLADORES ALFABÉTICAMENTE ---
     const sortedProviders = useMemo(() => {
         return [...providers].sort((a, b) => a.name.localeCompare(b.name));
     }, [providers]);
@@ -137,6 +140,16 @@ const WonLeadsPage: React.FC = () => {
                 lead.clientStatus !== 'Inactivo'
             );
         }
+
+        // --- NUEVA LÓGICA DE BÚSQUEDA INTERNA ---
+        if (searchQuery.trim() !== '') {
+            const lowerQuery = searchQuery.toLowerCase();
+            leads = leads.filter(lead => 
+                lead.name.toLowerCase().includes(lowerQuery) || 
+                (lead.affiliateNumber && lead.affiliateNumber.toLowerCase().includes(lowerQuery))
+            );
+        }
+        // ----------------------------------------
         
         leads.sort((a, b) => {
             let valA: string | number | undefined;
@@ -159,7 +172,7 @@ const WonLeadsPage: React.FC = () => {
         });
         
         return leads;
-    }, [allLeads, stages, user, selectedProviderId, includeInactive, sortColumn, sortDirection, getUserById, selectedProducts]); 
+    }, [allLeads, stages, user, selectedProviderId, includeInactive, sortColumn, sortDirection, getUserById, selectedProducts, searchQuery]); 
     
     const handleSaveBilling = async (updatedData: Partial<Lead>) => {
         if (!billingLead) return;
@@ -400,6 +413,23 @@ const WonLeadsPage: React.FC = () => {
                 <div className="flex flex-col lg:flex-row justify-between gap-4 mb-6 w-full">
                     
                     <div className="flex flex-wrap gap-3 items-center flex-1">
+                        {/* --- NUEVA BARRA DE BÚSQUEDA INTERNA --- */}
+                        <div className="w-full sm:w-auto min-w-[250px] relative">
+                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+                                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
+                                </svg>
+                            </div>
+                            <input 
+                                type="text" 
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="block w-full py-2 pl-10 pr-3 text-sm border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
+                                placeholder="Buscar comercio o N° afiliado..." 
+                            />
+                        </div>
+                        {/* -------------------------------------- */}
+
                         {isManager && (
                             <>
                                 {isAdmin && (
@@ -413,7 +443,6 @@ const WonLeadsPage: React.FC = () => {
                                 <div className="w-full sm:w-auto min-w-[220px]">
                                     <select value={selectedProviderId} onChange={(e) => setSelectedProviderId(e.target.value)} className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                         <option value="all">Todos los Desarrolladores</option> 
-                                        {/* --- USAMOS EL NUEVO ARREGLO ORDENADO --- */}
                                         {sortedProviders.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                     </select>
                                 </div>
@@ -503,6 +532,13 @@ const WonLeadsPage: React.FC = () => {
                                             selectedMonth={selectedMonth} 
                                         />;
                             })}
+                            {wonLeads.length === 0 && (
+                                <tr>
+                                    <td colSpan={isAdmin ? 6 : 4} className="px-6 py-8 text-center text-gray-500">
+                                        No se encontraron resultados para tu búsqueda.
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
