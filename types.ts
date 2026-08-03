@@ -121,7 +121,8 @@ export interface Provider {
   email: string | null; 
   phone: string | null; 
   // --- NUEVO CAMPO: Tipo de Software (Comercial / Propietario) ---
-  softwareType?: string; 
+  softwareType?: string;
+  contractStatus?: 'No contactado' | 'Contrato enviado/Revisión' | 'Firmado' | 'En espera de respuesta' | 'Descartado';
 }
 
 // Definición de la Etapa del Pipeline

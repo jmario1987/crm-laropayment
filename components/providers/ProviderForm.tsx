@@ -16,13 +16,14 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ providerToEdit, onSuccess }
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- 1. AGREGAMOS softwareType AL ESTADO INICIAL ---
+  // --- AGREGAMOS contractStatus AL ESTADO INICIAL ---
   const [formData, setFormData] = useState({
     name: '',
     contactPerson: '',
     email: '',
     phone: '',
-    softwareType: '', // Nuevo campo
+    softwareType: '', 
+    contractStatus: 'No contactado', // Estado por defecto
   });
 
   useEffect(() => {
@@ -32,7 +33,8 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ providerToEdit, onSuccess }
         contactPerson: providerToEdit.contactPerson,
         email: providerToEdit.email || '', 
         phone: providerToEdit.phone || '', 
-        softwareType: providerToEdit.softwareType || '', // Cargamos el dato si existe
+        softwareType: providerToEdit.softwareType || '', 
+        contractStatus: providerToEdit.contractStatus || 'No contactado', // Cargamos el dato si existe
       });
     } else {
       setFormData({
@@ -41,11 +43,11 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ providerToEdit, onSuccess }
         email: '',
         phone: '',
         softwareType: '',
+        contractStatus: 'No contactado',
       });
     }
   }, [providerToEdit]);
 
-  // --- 2. AMPLIAMOS EL TIPO DEL EVENTO PARA ACEPTAR <select> ---
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -62,26 +64,26 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ providerToEdit, onSuccess }
         const providerId = providerToEdit.id;
         const docRef = doc(db, 'providers', providerId);
         
-        // Incluimos el nuevo campo en la actualización
         const dataToUpdate = {
           name: formData.name,
           contactPerson: formData.contactPerson,
           email: formData.email,
           phone: formData.phone,
           softwareType: formData.softwareType,
+          contractStatus: formData.contractStatus, // Incluimos el estado del contrato
         };
 
         await updateDoc(docRef, dataToUpdate);
         dispatch({ type: 'UPDATE_PROVIDER', payload: { ...dataToUpdate, id: providerId } as Provider });
 
       } else {
-        // Incluimos el nuevo campo en la creación
         const dataToSave = {
           name: formData.name,
           contactPerson: formData.contactPerson,
           email: formData.email,
           phone: formData.phone,
           softwareType: formData.softwareType,
+          contractStatus: formData.contractStatus, // Incluimos el estado del contrato
         };
 
         const docRef = await addDoc(collection(db, 'providers'), dataToSave);
@@ -105,21 +107,41 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ providerToEdit, onSuccess }
         <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
       </div>
       
-      {/* --- 3. NUEVO CAMPO: TIPO DE SOFTWARE --- */}
-      <div>
-        <label htmlFor="softwareType" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Software</label>
-        <select 
-            name="softwareType" 
-            id="softwareType" 
-            value={formData.softwareType} 
-            onChange={handleChange} 
-            required 
-            className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-        >
-            <option value="" disabled>Seleccione una opción...</option>
-            <option value="Comercial">Comercial</option>
-            <option value="Propietario">Propietario</option>
-        </select>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="softwareType" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Software</label>
+            <select 
+                name="softwareType" 
+                id="softwareType" 
+                value={formData.softwareType} 
+                onChange={handleChange} 
+                required 
+                className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+            >
+                <option value="" disabled>Seleccione una opción...</option>
+                <option value="Comercial">Comercial</option>
+                <option value="Propietario">Propietario</option>
+            </select>
+          </div>
+
+          {/* --- NUEVO CAMPO: ESTADO DEL CONTRATO --- */}
+          <div>
+            <label htmlFor="contractStatus" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Estado del Contrato</label>
+            <select 
+                name="contractStatus" 
+                id="contractStatus" 
+                value={formData.contractStatus} 
+                onChange={handleChange} 
+                required 
+                className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 font-semibold"
+            >
+                <option value="No contactado">No contactado</option>
+                <option value="Contrato enviado/Revisión">Contrato enviado/Revisión</option>
+                <option value="Firmado">Firmado</option>
+                <option value="En espera de respuesta">En espera de respuesta</option>
+                <option value="Descartado">Descartado</option>
+            </select>
+          </div>
       </div>
 
       <div>
@@ -136,8 +158,7 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ providerToEdit, onSuccess }
         <input type="tel" name="phone" id="phone" value={formData.phone} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
       </div>
 
-      <div className="flex justify-end pt-4">
-        {/* --- 4. ACTUALIZAMOS LOS TEXTOS DEL BOTÓN --- */}
+      <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700 mt-2">
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Guardando...' : (isEditMode ? 'Actualizar Software' : 'Crear Software')}
         </Button>

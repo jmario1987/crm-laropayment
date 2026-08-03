@@ -67,6 +67,7 @@ const Desarrolladores: React.FC = () => {
                                 <th scope="col" className="px-6 py-3">Persona de Contacto</th>
                                 <th scope="col" className="px-6 py-3">Email</th>
                                 <th scope="col" className="px-6 py-3">Teléfono</th>
+                                <th scope="col" className="px-6 py-3">Estado del Contrato</th>
                                 <th scope="col" className="px-6 py-3"><span className="sr-only">Acciones</span></th>
                             </tr>
                         </thead>
