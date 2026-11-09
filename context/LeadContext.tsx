@@ -1,7 +1,6 @@
 import React, { createContext, useReducer, useEffect, ReactNode, Dispatch, useState, useMemo } from 'react';
 import { Lead, User, UserRole, Product, Provider, Stage, USER_ROLES, Tag } from '../types'; 
 import { db } from '../firebaseConfig';
-// --- AÑADIMOS EL OPERADOR 'or' DE FIREBASE ---
 import { collection, getDocs, doc, query, where, or } from 'firebase/firestore'; 
 import { useAuth } from '../hooks/useAuth';
 
@@ -121,11 +120,12 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           Object.values(collectionsToFetch).map(getDocs)
         );
 
-        const isManager = user.role === USER_ROLES.Admin || user.role === USER_ROLES.Supervisor;
+        // --- SOLUCIÓN: Agregamos al Soportista a la regla mágica de descarga global ---
+        const canDownloadAllLeads = user.role === USER_ROLES.Admin || 
+                                    user.role === USER_ROLES.Supervisor || 
+                                    user.role === USER_ROLES.Soportista;
         
-        // --- LA NUEVA REGLA MÁGICA DE DESCARGA ---
-        // Si no es jefe, descargamos donde sea el DUEÑO actual *O* donde sea el CREADOR original.
-        const leadsQuery = isManager 
+        const leadsQuery = canDownloadAllLeads 
           ? collection(db, "leads") 
           : query(
               collection(db, "leads"), 

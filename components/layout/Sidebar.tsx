@@ -19,8 +19,10 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { user, logout } = useAuth(); 
   const isAdmin = user?.role === USER_ROLES.Admin;
+  
+  // --- NUEVA VALIDACIÓN: ¿ES SOPORTISTA? ---
+  const isSupport = user?.role === USER_ROLES.Soportista;
 
-  // --- ESTADOS PARA CONTROLAR QUÉ MENÚ ESTÁ ABIERTO ---
   const [isOpsOpen, setIsOpsOpen] = useState(true);
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(true);
 
@@ -50,11 +52,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             <img src={logoLaro} alt="Logo Laro Payment" className="h-14 w-auto" />
         </div>
 
-        {/* Contenedor principal con scrollbar oculta/estilizada */}
         <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar pb-4">
           <nav className="flex-1 w-full pt-2">
             
-            {/* --- SECCIÓN: OPERACIONES (DESPLEGABLE) --- */}
             <button 
                 onClick={() => setIsOpsOpen(!isOpsOpen)}
                 className="w-full flex items-center justify-between px-6 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors focus:outline-none group"
@@ -69,26 +69,38 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
             {isOpsOpen && (
                 <div className="space-y-1 mb-2 animate-fade-in-down">
-                    <NavLink to="/dashboard" onClick={handleLinkClick} className={getLinkClassName}>
-                        <NavIcon path="M3 12l2-2m0 0l7-7 7 7M5 10v10a2 2 0 002 2h10a2 2 0 002-2V10M9 20v-6a2 2 0 012-2h2a2 2 0 012 2v6" />
-                        <span className="ml-3">Dashboard</span>
-                    </NavLink>
-                    <NavLink to="/pipeline" onClick={handleLinkClick} className={getLinkClassName}>
-                        <NavIcon path="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        <span className="ml-3">Pipeline</span>
-                    </NavLink>
-                    <NavLink to="/won-leads" onClick={handleLinkClick} className={getLinkClassName}>
-                        <NavIcon path="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        <span className="ml-3">En Producción</span>
-                    </NavLink>
+                    
+                    {/* --- RESTRICCIÓN: EL SOPORTISTA NO VE ESTOS ENLACES --- */}
+                    {!isSupport && (
+                        <>
+                            <NavLink to="/dashboard" onClick={handleLinkClick} className={getLinkClassName}>
+                                <NavIcon path="M3 12l2-2m0 0l7-7 7 7M5 10v10a2 2 0 002 2h10a2 2 0 002-2V10M9 20v-6a2 2 0 012-2h2a2 2 0 012 2v6" />
+                                <span className="ml-3">Dashboard</span>
+                            </NavLink>
+                            <NavLink to="/pipeline" onClick={handleLinkClick} className={getLinkClassName}>
+                                <NavIcon path="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                <span className="ml-3">Pipeline</span>
+                            </NavLink>
+                            <NavLink to="/won-leads" onClick={handleLinkClick} className={getLinkClassName}>
+                                <NavIcon path="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                <span className="ml-3">En Producción</span>
+                            </NavLink>
+                        </>
+                    )}
+
+                    {/* Este sí lo ven todos, incluyendo el Soportista */}
                     <NavLink to="/leads" onClick={handleLinkClick} className={getLinkClassName}>
                         <NavIcon path="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                         <span className="ml-3">Directorio</span>
                     </NavLink>
-                    <NavLink to="/reports" onClick={handleLinkClick} className={getLinkClassName}>
-                        <NavIcon path="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        <span className="ml-3 leading-tight">Reporte de Equipos y Terminales</span>
-                    </NavLink>
+                    
+                    {/* --- RESTRICCIÓN: EL SOPORTISTA TAMPOCO VE REPORTES --- */}
+                    {!isSupport && (
+                        <NavLink to="/reports" onClick={handleLinkClick} className={getLinkClassName}>
+                            <NavIcon path="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            <span className="ml-3 leading-tight">Reporte de Equipos y Terminales</span>
+                        </NavLink>
+                    )}
                 </div>
             )}
             
@@ -96,7 +108,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               <>
                 <div className="w-full h-px bg-gray-100 dark:bg-gray-700 my-2"></div>
                 
-                {/* --- SECCIÓN: ADMINISTRACIÓN (DESPLEGABLE) --- */}
                 <button 
                     onClick={() => setIsAdminMenuOpen(!isAdminMenuOpen)}
                     className="w-full flex items-center justify-between px-6 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors focus:outline-none group"
@@ -131,8 +142,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                             <NavIcon path="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707a1 1 0 011.414 0l4.707 4.707H20a1 1 0 011 1v4a1 1 0 01-1 1h-1.586l-4.707 4.707a1 1 0 01-1.414 0l-4.707-4.707zM15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <span className="ml-3">Sub-Etapas</span>
                         </NavLink>
-                        
-                        {/* --- NUEVO: ENLACE A AUDITORÍA --- */}
                         <NavLink to="/auditoria" onClick={handleLinkClick} className={getLinkClassName}>
                             <NavIcon path="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             <span className="ml-3">Auditoría</span>
@@ -144,7 +153,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           </nav>
         </div>
 
-        {/* --- PERFIL Y CERRAR SESIÓN --- */}
         <div className="mt-auto p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex-shrink-0">
             <div className="flex items-center space-x-3 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-primary-500 shadow-sm text-white flex items-center justify-center font-bold text-lg">

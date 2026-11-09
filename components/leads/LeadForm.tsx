@@ -19,8 +19,8 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
   const { dispatch, sellers, products, providers, stages, tags, allLeads } = useLeads(); 
   const { user } = useAuth();
   
-  // Verificamos si el usuario actual es Administrador o Supervisor
   const isManager = user?.role === USER_ROLES.Admin || user?.role === USER_ROLES.Supervisor;
+  const isSupport = user?.role === USER_ROLES.Soportista;
   
   const sortedStages = useMemo(() => [...stages].sort((a,b) => a.order - b.order), [stages]);
   const defaultStatus = sortedStages.find(s => s.type === 'open')?.id || sortedStages[0]?.id || '';
@@ -34,6 +34,10 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     company: '',
     email: '',
     phone: '',
+    phoneCaja: '', nameCaja: '',       
+    phoneAdmin: '', nameAdmin: '',     
+    phoneGerente: '', nameGerente: '', 
+    phoneTecnico: '', nameTecnico: '', 
     status: defaultStatus,
     ownerId: '',
     productIds: [] as string[],
@@ -42,7 +46,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     tagId: '',
     affiliateNumber: '',
     assignedOffice: '', 
-    installationDate: '', // <-- NUEVO ESTADO PARA LA FECHA
+    installationDate: '', 
     equipments: [] as Equipment[],
     province: '',
     canton: '',
@@ -101,29 +105,41 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
       });
 
       setFormData({
-        name: lead.name || '', company: lead.company || '', email: lead.email || '', phone: lead.phone || '',
+        name: lead.name || '', company: lead.company || '', email: lead.email || '', 
+        phone: lead.phone || '',
+        phoneCaja: lead.phoneCaja || '', nameCaja: lead.nameCaja || '',             
+        phoneAdmin: lead.phoneAdmin || '', nameAdmin: lead.nameAdmin || '',         
+        phoneGerente: lead.phoneGerente || '', nameGerente: lead.nameGerente || '', 
+        phoneTecnico: lead.phoneTecnico || '', nameTecnico: lead.nameTecnico || '', 
         status: lead.status || defaultStatus, ownerId: lead.ownerId || initialOwnerId || '', 
         productIds: lead.productIds || [], 
         providerId: lead.providerId ? lead.providerId : 'DIRECT', 
         newObservation: '', tagId: lead.tagIds?.[0] || '', affiliateNumber: lead.affiliateNumber || '', 
         assignedOffice: lead.assignedOffice || '', 
-        installationDate: lead.installationDate || '', // <-- CARGAMOS LA FECHA SI EXISTE
+        installationDate: lead.installationDate || '', 
         equipments: mappedEquipments,
         province: lead.province || '', canton: lead.canton || '', district: lead.district || '', addressDetails: lead.addressDetails || ''
       });
     } else if (duplicateFrom) {
       setFormData({
-        name: duplicateFrom.name || '', company: duplicateFrom.company || '', email: duplicateFrom.email || '', phone: duplicateFrom.phone || '',
+        name: duplicateFrom.name || '', company: duplicateFrom.company || '', email: duplicateFrom.email || '', 
+        phone: duplicateFrom.phone || '',
+        phoneCaja: duplicateFrom.phoneCaja || '', nameCaja: duplicateFrom.nameCaja || '',             
+        phoneAdmin: duplicateFrom.phoneAdmin || '', nameAdmin: duplicateFrom.nameAdmin || '',         
+        phoneGerente: duplicateFrom.phoneGerente || '', nameGerente: duplicateFrom.nameGerente || '', 
+        phoneTecnico: duplicateFrom.phoneTecnico || '', nameTecnico: duplicateFrom.nameTecnico || '', 
         status: defaultStatus, ownerId: duplicateFrom.ownerId || initialOwnerId || '', productIds: [], 
         providerId: duplicateFrom.providerId ? duplicateFrom.providerId : 'DIRECT', newObservation: '', tagId: '', affiliateNumber: '', 
         assignedOffice: duplicateFrom.assignedOffice || '', 
-        installationDate: '', // No duplicamos la fecha porque es un cliente nuevo
+        installationDate: '', 
         equipments: [],
         province: duplicateFrom.province || '', canton: duplicateFrom.canton || '', district: duplicateFrom.district || '', addressDetails: duplicateFrom.addressDetails || ''
       });
     } else {
       setFormData({
-        name: '', company: '', email: '', phone: '', status: defaultStatus, ownerId: initialOwnerId || '', 
+        name: '', company: '', email: '', 
+        phone: '', phoneCaja: '', nameCaja: '', phoneAdmin: '', nameAdmin: '', phoneGerente: '', nameGerente: '', phoneTecnico: '', nameTecnico: '', 
+        status: defaultStatus, ownerId: initialOwnerId || '', 
         productIds: [], providerId: '', newObservation: '', tagId: '', affiliateNumber: '', assignedOffice: '', 
         installationDate: '',
         equipments: [], province: '', canton: '', district: '', addressDetails: ''
@@ -296,11 +312,16 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     }
 
     const finalProviderId = (formData.providerId === 'DIRECT' || formData.providerId === '') ? null : formData.providerId;
-    const finalInstallationDate = formData.installationDate || null; // Limpiamos campos vacíos
+    const finalInstallationDate = formData.installationDate || null; 
 
     const leadDataToSave: any = { 
         id: leadId, name: formData.name, company: formData.company, email: formData.email,
-        phone: formData.phone || '', status: formData.status as LeadStatus, ownerId: formData.ownerId,
+        phone: formData.phone || '', 
+        phoneCaja: formData.phoneCaja || null, nameCaja: formData.nameCaja || null,             
+        phoneAdmin: formData.phoneAdmin || null, nameAdmin: formData.nameAdmin || null,         
+        phoneGerente: formData.phoneGerente || null, nameGerente: formData.nameGerente || null, 
+        phoneTecnico: formData.phoneTecnico || null, nameTecnico: formData.nameTecnico || null, 
+        status: formData.status as LeadStatus, ownerId: formData.ownerId,
         observations: updatedObservations, createdAt: lead?.createdAt || new Date().toISOString(),
         lastUpdate: new Date().toISOString(), _version: (lead?._version || 0) + 1,
         creatorId: isNewLeadCreation ? user.id : (lead?.creatorId || user.id),
@@ -308,7 +329,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         sellerHasViewedNotification: sellerHasViewedNotificationCalc, providerId: finalProviderId, 
         productIds: formData.productIds || [], tagIds: formData.tagId ? [formData.tagId] : [],
         assignedOffice: formData.assignedOffice || null, 
-        installationDate: finalInstallationDate, // <-- SE GUARDA LA FECHA
+        installationDate: finalInstallationDate, 
         equipments: formData.equipments,
         province: formData.province || null, canton: formData.canton || null, district: formData.district || null, addressDetails: formData.addressDetails || null
     };
@@ -330,7 +351,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
     try {
       await setDoc(doc(db, 'leads', leadId), leadDataToSave as Lead, { merge: true }); 
       
-      // --- DETECCIÓN INTELIGENTE DE CAMBIOS PARA BITÁCORA ---
       let changesDetails = isNewLeadCreation ? 'Creó un nuevo prospecto.' : 'Actualizó la información general.';
       
       if (!isNewLeadCreation && lead) {
@@ -338,11 +358,14 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
           
           if (lead.name !== formData.name) changes.push(`Nombre: '${lead.name}' ➔ '${formData.name}'`);
           if (lead.phone !== formData.phone) changes.push(`Teléfono: '${lead.phone || 'N/A'}' ➔ '${formData.phone}'`);
+          if ((lead.phoneCaja || '') !== formData.phoneCaja || (lead.nameCaja || '') !== formData.nameCaja) changes.push(`Contacto Caja modificado`);
+          if ((lead.phoneAdmin || '') !== formData.phoneAdmin || (lead.nameAdmin || '') !== formData.nameAdmin) changes.push(`Contacto Admin modificado`);
+          if ((lead.phoneGerente || '') !== formData.phoneGerente || (lead.nameGerente || '') !== formData.nameGerente) changes.push(`Contacto Gerente modificado`);
+          if ((lead.phoneTecnico || '') !== formData.phoneTecnico || (lead.nameTecnico || '') !== formData.nameTecnico) changes.push(`Contacto Técnico modificado`);
           if (lead.email !== formData.email) changes.push(`Correo: '${lead.email || 'N/A'}' ➔ '${formData.email}'`);
           if (lead.company !== formData.company) changes.push(`Empresa: '${lead.company || 'N/A'}' ➔ '${formData.company}'`);
           if (lead.assignedOffice !== formData.assignedOffice) changes.push(`Oficina: '${lead.assignedOffice || 'N/A'}' ➔ '${formData.assignedOffice}'`);
           
-          // Auditar cambio de fecha de instalación
           if ((lead.installationDate || null) !== finalInstallationDate) {
               changes.push(`Fecha Instalación: '${lead.installationDate || 'N/A'}' ➔ '${finalInstallationDate || 'N/A'}'`);
           }
@@ -383,7 +406,6 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
           details: changesDetails,
           timestamp: new Date().toISOString()
       });
-      // -------------------------------------------------------------
       
       const finalLeadDataForState = { 
           ...lead, ...leadDataToSave,
@@ -462,9 +484,68 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                 <label htmlFor="email" className={labelClass}>Correo Electrónico</label>
                 <input type="email" name="email" id="email" value={formData.email} onChange={handleChange} className={inputClass}/>
             </div>
-            <div>
-                <label htmlFor="phone" className={labelClass}>Teléfono *</label>
-                <input type="tel" name="phone" id="phone" value={formData.phone} onChange={handleChange} required className={inputClass}/>
+        </div>
+      </div>
+
+      {/* --- SECCIÓN DE CONTACTOS --- */}
+      <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+        <h4 className="text-base font-bold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-600 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            Contactos Telefónicos
+        </h4>
+        
+        <div className="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
+            <label htmlFor="phone" className={labelClass}>Teléfono Principal *</label>
+            <input type="tel" name="phone" id="phone" value={formData.phone} onChange={handleChange} required className={inputClass} placeholder="Número principal del comercio"/>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6">
+            <div className="space-y-3 bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                <h5 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-100 dark:border-gray-600 pb-1">Contacto en Caja</h5>
+                <div>
+                    <label htmlFor="nameCaja" className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Nombre</label>
+                    <input type="text" name="nameCaja" id="nameCaja" value={formData.nameCaja} onChange={handleChange} className={inputClass} placeholder="Ej: Juan Pérez"/>
+                </div>
+                <div>
+                    <label htmlFor="phoneCaja" className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Teléfono</label>
+                    <input type="tel" name="phoneCaja" id="phoneCaja" value={formData.phoneCaja} onChange={handleChange} className={inputClass} placeholder="Ej: 8888-8888"/>
+                </div>
+            </div>
+
+            <div className="space-y-3 bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                <h5 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-100 dark:border-gray-600 pb-1">Administrador</h5>
+                <div>
+                    <label htmlFor="nameAdmin" className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Nombre</label>
+                    <input type="text" name="nameAdmin" id="nameAdmin" value={formData.nameAdmin} onChange={handleChange} className={inputClass} />
+                </div>
+                <div>
+                    <label htmlFor="phoneAdmin" className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Teléfono</label>
+                    <input type="tel" name="phoneAdmin" id="phoneAdmin" value={formData.phoneAdmin} onChange={handleChange} className={inputClass} />
+                </div>
+            </div>
+
+            <div className="space-y-3 bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                <h5 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-100 dark:border-gray-600 pb-1">Gerente</h5>
+                <div>
+                    <label htmlFor="nameGerente" className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Nombre</label>
+                    <input type="text" name="nameGerente" id="nameGerente" value={formData.nameGerente} onChange={handleChange} className={inputClass} />
+                </div>
+                <div>
+                    <label htmlFor="phoneGerente" className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Teléfono</label>
+                    <input type="tel" name="phoneGerente" id="phoneGerente" value={formData.phoneGerente} onChange={handleChange} className={inputClass} />
+                </div>
+            </div>
+
+            <div className="space-y-3 bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                <h5 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-100 dark:border-gray-600 pb-1">Técnico / Sistemas</h5>
+                <div>
+                    <label htmlFor="nameTecnico" className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Nombre</label>
+                    <input type="text" name="nameTecnico" id="nameTecnico" value={formData.nameTecnico} onChange={handleChange} className={inputClass} />
+                </div>
+                <div>
+                    <label htmlFor="phoneTecnico" className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Teléfono</label>
+                    <input type="tel" name="phoneTecnico" id="phoneTecnico" value={formData.phoneTecnico} onChange={handleChange} className={inputClass} />
+                </div>
             </div>
         </div>
       </div>
@@ -581,11 +662,10 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                 </div> 
             )}
 
-            {/* --- NUEVA FECHA DE INSTALACIÓN --- */}
             <div className={selectedStage?.type === 'won' ? "" : "md:col-span-2"}>
                 <label htmlFor="installationDate" className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center justify-between">
                     <span>Fecha de Instalación</span>
-                    {!isManager && <span className="text-[10px] font-normal text-gray-400 uppercase tracking-wider">(Solo Lectura)</span>}
+                    {!isManager && !isSupport && <span className="text-[10px] font-normal text-gray-400 uppercase tracking-wider">(Solo Lectura)</span>}
                 </label>
                 <input 
                     type="date" 
@@ -593,8 +673,8 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                     id="installationDate" 
                     value={formData.installationDate} 
                     onChange={handleChange} 
-                    readOnly={!isManager}
-                    className={`${inputClass} ${!isManager ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed opacity-80 text-gray-500 font-medium' : 'border-blue-300 dark:border-blue-700'}`}
+                    readOnly={!isManager && !isSupport}
+                    className={`${inputClass} ${!isManager && !isSupport ? 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed opacity-80 text-gray-500 font-medium' : 'border-blue-300 dark:border-blue-700'}`}
                 />
             </div>
 
@@ -623,11 +703,11 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
             )}
 
             <div className="flex gap-2 w-full sm:w-auto">
-                <Button type="button" variant="secondary" onClick={() => setShowImportBox(!showImportBox)} className="text-xs py-1.5 px-3 flex-1 sm:flex-none justify-center shadow-sm border-gray-300">
-                    Pegar desde Excel
+                <Button type="button" variant="secondary" onClick={() => setShowImportBox(!showImportBox)} className="text-xs py-1.5 px-3 flex-1 justify-center shadow-sm border-gray-300">
+                    Pegar de Excel
                 </Button>
-                <Button type="button" variant="secondary" onClick={addEquipment} className="text-xs py-1.5 px-3 flex-1 sm:flex-none justify-center shadow-sm border-gray-300">
-                    + Agregar Equipo
+                <Button type="button" variant="secondary" onClick={addEquipment} className="text-xs py-1.5 px-3 flex-1 justify-center shadow-sm border-gray-300">
+                    + Añadir
                 </Button>
             </div>
         </div>
@@ -642,7 +722,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                     <strong>N° Placa (Opcional) | N° Serie | Terminal | Sede o Caja (Opcional)</strong>.
                 </p>
                 
-                <div className="flex gap-4 mb-3">
+                <div className="flex flex-col md:flex-row gap-4 mb-3">
                     <div className="flex-1">
                         <textarea 
                             value={pasteData}
@@ -651,7 +731,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                             className="w-full h-32 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:ring-primary-500 focus:border-primary-500 bg-white dark:bg-gray-800 dark:text-gray-200 custom-scrollbar whitespace-pre"
                         />
                     </div>
-                    <div className="w-48 flex flex-col gap-2">
+                    <div className="w-full md:w-48 flex flex-col gap-2">
                         <label className="text-xs font-bold text-gray-700 dark:text-gray-300">Moneda de Terminales:</label>
                         <select 
                             value={importCurrency}
@@ -751,21 +831,22 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                                         </div>
                                     ) : (
                                         <div className="space-y-2 flex-1">
+                                            {/* MEJORA MÓVIL: flex-wrap permite que si el teléfono es muy angosto, la terminal y la moneda no escondan el botón de eliminar */}
                                             {eq.terminals.map((term, termIndex) => (
-                                                <div key={term.id} className="flex items-center gap-2">
-                                                    <span className="text-xs text-gray-400 font-medium w-4">{termIndex + 1}.</span>
+                                                <div key={term.id} className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-white p-2 sm:p-0 rounded border sm:border-none border-gray-200 dark:border-gray-700 dark:bg-transparent">
+                                                    <span className="text-xs text-gray-400 font-medium w-4 hidden sm:inline-block">{termIndex + 1}.</span>
                                                     <input 
                                                         type="text" 
                                                         value={term.number} 
                                                         onChange={(e) => updateTerminal(eq.id, term.id, 'number', e.target.value)} 
-                                                        className="block w-full px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-primary-500 focus:border-primary-500"
+                                                        className="block w-full sm:flex-1 px-2 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-primary-500 focus:border-primary-500"
                                                         placeholder="N° Terminal"
                                                         required
                                                     />
                                                     <select 
                                                         value={term.currency} 
                                                         onChange={(e) => updateTerminal(eq.id, term.id, 'currency', e.target.value)}
-                                                        className="block w-28 px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-medium focus:ring-primary-500 focus:border-primary-500"
+                                                        className="block w-full sm:w-28 px-2 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-medium focus:ring-primary-500 focus:border-primary-500"
                                                     >
                                                         <option value="CRC">Colones</option>
                                                         <option value="USD">Dólares</option>
@@ -773,7 +854,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
                                                     <button 
                                                         type="button" 
                                                         onClick={() => removeTerminal(eq.id, term.id)}
-                                                        className="text-red-400 hover:text-red-600 p-1.5 bg-white border border-gray-200 hover:bg-red-50 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-red-900/30 rounded ml-1 transition-colors shadow-sm"
+                                                        className="text-red-400 hover:text-red-600 p-1.5 bg-gray-50 sm:bg-white border border-gray-200 hover:bg-red-50 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-red-900/30 rounded sm:ml-1 transition-colors shadow-sm w-full sm:w-auto mt-1 sm:mt-0 flex justify-center"
                                                         title="Eliminar Terminal"
                                                     >
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -810,7 +891,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, duplicateFrom, onSuccess }) =
         <textarea name="newObservation" id="newObservation" value={formData.newObservation} onChange={handleChange} rows={3} className="mt-1 block w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm" placeholder="Escribe aquí la nueva nota, minutas de reunión o estatus..."/>
       </div>
       
-      {/* BOTÓN GUARDAR CON NUEVO DISEÑO */}
+      {/* BOTÓN GUARDAR */}
       <div className="flex justify-end pt-4 pb-2 sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-2 z-20">
         <Button 
           type="submit" 

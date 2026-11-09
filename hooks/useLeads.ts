@@ -1,6 +1,6 @@
 import { useContext, useMemo } from 'react';
 import { LeadContext } from '../context/LeadContext';
-import { USER_ROLES, User } from '../types'; // Agregamos la importación de 'User'
+import { USER_ROLES, User } from '../types'; 
 
 export const useLeads = () => {
   const context = useContext(LeadContext);
@@ -22,8 +22,12 @@ export const useLeads = () => {
   const getVisibleLeads = (currentUser: User | null) => {
       if (!currentUser) return [];
       
-      const isManager = currentUser.role === USER_ROLES.Admin || currentUser.role === USER_ROLES.Supervisor;
-      if (isManager) return state.leads; // Si es jefe, ve el 100% de la base de datos
+      // Agregamos al Soportista para que pueda ver todos los clientes en el Directorio
+      const canSeeAllLeads = currentUser.role === USER_ROLES.Admin || 
+                             currentUser.role === USER_ROLES.Supervisor || 
+                             currentUser.role === USER_ROLES.Soportista;
+                             
+      if (canSeeAllLeads) return state.leads; // Si es jefe o soporte, ve el 100% de la base de datos
 
       // LA NUEVA REGLA DE ORO PARA VENDEDORES:
       // Lo veo si soy el responsable actual (ownerId) O si yo fui quien lo trajo (creatorId)
@@ -46,6 +50,6 @@ export const useLeads = () => {
     getStageById,
     getProviderById,
     getUserById,
-    getVisibleLeads, // <-- Exportamos nuestra nueva herramienta
+    getVisibleLeads, 
   };
 };

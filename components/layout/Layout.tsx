@@ -29,6 +29,10 @@ const MainLayout: React.FC = () => {
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
 
+  // --- VALIDACIÓN DEL ROL PARA RUTAS ---
+  const isSupport = user?.role === USER_ROLES.Soportista;
+  const standardOperationRoles = [USER_ROLES.Admin, USER_ROLES.Supervisor, USER_ROLES.Vendedor];
+
   return (
     <>
       <div className="flex bg-gray-50 dark:bg-gray-900 min-h-screen">
@@ -42,14 +46,17 @@ const MainLayout: React.FC = () => {
           />
           <main className="flex-grow p-4 md:p-8 overflow-y-auto">
             <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/pipeline" element={<Pipeline />} />
-              <Route path="/won-leads" element={<WonLeadsPage />} />
-              <Route path="/leads" element={<LeadsListPage />} />
+              {/* --- REDIRECCIÓN AUTOMÁTICA SEGÚN ROL --- */}
+              <Route path="/" element={<Navigate to={isSupport ? "/leads" : "/dashboard"} replace />} />
               
-              {/* --- RUTAS DE REPORTES --- */}
-              <Route path="/reports" element={<ReportsPage />} />
+              {/* --- RUTAS OPERATIVAS (BLOQUEADAS PARA SOPORTISTA) --- */}
+              <Route path="/dashboard" element={<ProtectedRoute roles={standardOperationRoles}><Dashboard /></ProtectedRoute>} />
+              <Route path="/pipeline" element={<ProtectedRoute roles={standardOperationRoles}><Pipeline /></ProtectedRoute>} />
+              <Route path="/won-leads" element={<ProtectedRoute roles={standardOperationRoles}><WonLeadsPage /></ProtectedRoute>} />
+              <Route path="/reports" element={<ProtectedRoute roles={standardOperationRoles}><ReportsPage /></ProtectedRoute>} />
+
+              {/* --- RUTAS ACCESIBLES PARA TODOS (INCLUYENDO SOPORTISTA) --- */}
+              <Route path="/leads" element={<LeadsListPage />} />
 
               {/* --- RUTAS PROTEGIDAS PARA ADMINISTRADORES --- */}
               <Route path="/users" element={<ProtectedRoute roles={[USER_ROLES.Admin]}><Users /></ProtectedRoute>} />
@@ -58,7 +65,7 @@ const MainLayout: React.FC = () => {
               <Route path="/stages" element={<ProtectedRoute roles={[USER_ROLES.Admin]}><Stages /></ProtectedRoute>} />
               <Route path="/tags" element={<ProtectedRoute roles={[USER_ROLES.Admin]}><Tags /></ProtectedRoute>} />
               
-              {/* NUEVA RUTA: BITÁCORA DE AUDITORÍA */}
+              {/* BITÁCORA DE AUDITORÍA */}
               <Route path="/auditoria" element={<ProtectedRoute roles={[USER_ROLES.Admin]}><AuditPage /></ProtectedRoute>} />
 
             </Routes>

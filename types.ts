@@ -3,6 +3,7 @@ export const USER_ROLES = {
   Admin: 'Administrador',
   Supervisor: 'Supervisor',
   Vendedor: 'Vendedor',
+  Soportista: 'Soportista', // <-- NUEVO ROL
 } as const;
 
 export type UserRole = typeof USER_ROLES[keyof typeof USER_ROLES];
@@ -57,7 +58,19 @@ export type Lead = {
   name: string;
   company: string;
   email: string;
-  phone: string; // Es string, no puede ser null/undefined
+  phone: string; 
+  // --- NUEVOS TELÉFONOS Y NOMBRES ---
+  phoneCaja?: string;
+  nameCaja?: string;     // <-- NUEVO
+  
+  phoneAdmin?: string;
+  nameAdmin?: string;    // <-- NUEVO
+  
+  phoneGerente?: string;
+  nameGerente?: string;  // <-- NUEVO
+  
+  phoneTecnico?: string;
+  nameTecnico?: string;  // <-- NUEVO
   status: LeadStatus;
   ownerId: string;
   observations: string;
