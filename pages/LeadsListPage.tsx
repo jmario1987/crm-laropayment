@@ -23,10 +23,7 @@ const LeadsListPage: React.FC = () => {
     const [selectedProviders, setSelectedProviders] = useState<{ value: string; label: string; }[]>([]);
     const [selectedProducts, setSelectedProducts] = useState<{ value: string; label: string; }[]>([]); 
     
-    // --- ESTADO PARA LA BARRA DE BÚSQUEDA ---
     const [searchQuery, setSearchQuery] = useState('');
-    
-    // --- ESTADOS PARA LAS FECHAS ---
     const [startDate, setStartDate] = useState<string>('');
     const [endDate, setEndDate] = useState<string>('');
 
@@ -34,6 +31,9 @@ const LeadsListPage: React.FC = () => {
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+
+    // --- NUEVO ESTADO MÓVIL: Controla si se muestran los filtros avanzados ---
+    const [showMobileFilters, setShowMobileFilters] = useState(false);
 
     const filtersRef = useClickOutside<HTMLDivElement>(() => {
         setOpenMenu(null);
@@ -72,7 +72,6 @@ const LeadsListPage: React.FC = () => {
        
         let filteredList = baseLeads;
 
-        // --- LÓGICA DE FILTRADO POR FECHAS ---
         if (startDate) {
             const start = new Date(startDate);
             start.setHours(0, 0, 0, 0); 
@@ -111,7 +110,6 @@ const LeadsListPage: React.FC = () => {
             }
         }
 
-        // --- NUEVA LÓGICA DE BÚSQUEDA INTERNA ---
         if (searchQuery.trim() !== '') {
             const lowerQuery = searchQuery.toLowerCase();
             filteredList = filteredList.filter(lead => 
@@ -240,10 +238,62 @@ const LeadsListPage: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
+            
+            {/* --- CABECERA PRINCIPAL Y BÚSQUEDA --- */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center px-1 gap-4">
+                <h3 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-gray-200">
+                    {sortedLeads.length} Prospectos
+                </h3>
+                
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+                    {/* BÚSQUEDA PRINCIPAL */}
+                    <div className="relative w-full lg:min-w-[320px]">
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+                                <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
+                            </svg>
+                        </div>
+                        <input 
+                            type="text" 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="block w-full py-2.5 pl-10 pr-3 text-sm border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white" 
+                            placeholder="Buscar nombre, empresa o afiliado..." 
+                        />
+                    </div>
+
+                    {user && (
+                        <div className="flex w-full sm:w-auto gap-2">
+                            {/* BOTÓN FILTROS EN MÓVIL */}
+                            <Button 
+                                onClick={() => setShowMobileFilters(!showMobileFilters)} 
+                                variant="secondary" 
+                                className="flex-1 sm:hidden flex items-center justify-center gap-2"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                                Filtros {showMobileFilters ? '▲' : '▼'}
+                            </Button>
+
+                            {isManager && (
+                                <Button onClick={handleExportExcel} variant="secondary" className="hidden sm:flex items-center gap-2 whitespace-nowrap">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h2l2 3 2-3h2"></path><path d="M8 17h2l2-3 2 3h2"></path></svg>
+                                    Exportar
+                                </Button>
+                            )}
+                            {/* Importación masiva (oculto en móvil para ahorrar espacio) */}
+                            <Button onClick={handleOpenImportModal} className="hidden sm:flex items-center gap-2 whitespace-nowrap"> 
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                Importar
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* --- SECCIÓN DE FILTROS AVANZADOS --- */}
             {user && (
-                <div ref={filtersRef} className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
-                    {/* SELECTORES ORIGINALES */}
+                <div ref={filtersRef} className={`p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 space-y-4 transition-all duration-300 ${showMobileFilters ? 'block' : 'hidden md:block'}`}>
                     <div className={`grid grid-cols-1 ${isManager ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-4 items-center`}>
                         <Select isMulti options={stageOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => { setSelectedStages(selected as any); setSelectedTags([]); }} placeholder="Filtrar por Etapa..." onMenuOpen={() => setOpenMenu('stage')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'stage'} />
                         <Select isMulti options={tagOptions} closeMenuOnSelect={false} hideSelectedOptions={false} components={{ Option: OptionWithCheckbox, ValueContainer: CustomValueContainer }} onChange={(selected) => setSelectedTags(selected as any)} placeholder="Filtrar por Sub-Etapa..." onMenuOpen={() => setOpenMenu('tag')} onMenuClose={() => setOpenMenu(null)} menuIsOpen={openMenu === 'tag'} isDisabled={!isManager && selectedStages.length === 0} value={selectedTags} />
@@ -255,32 +305,18 @@ const LeadsListPage: React.FC = () => {
                         )}
                     </div>
                     
-                    {/* FILTROS DE FECHA */}
-                    <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+                    <div className="flex flex-col md:flex-row md:items-center gap-4 pt-3 border-t border-gray-100 dark:border-gray-700">
                         <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Fecha de Ingreso:</span>
                         <div className="flex items-center gap-2">
                             <label className="text-xs text-gray-500 dark:text-gray-400">Desde</label>
-                            <input 
-                                type="date" 
-                                value={startDate} 
-                                onChange={e => setStartDate(e.target.value)} 
-                                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500" 
-                            />
+                            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500" />
                         </div>
                         <div className="flex items-center gap-2">
                             <label className="text-xs text-gray-500 dark:text-gray-400">Hasta</label>
-                            <input 
-                                type="date" 
-                                value={endDate} 
-                                onChange={e => setEndDate(e.target.value)} 
-                                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500" 
-                            />
+                            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500" />
                         </div>
                         {(startDate || endDate) && (
-                            <button 
-                                onClick={() => { setStartDate(''); setEndDate(''); }} 
-                                className="text-xs font-semibold text-red-500 hover:text-red-700 transition-colors bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 px-3 py-1.5 rounded-md"
-                            >
+                            <button onClick={() => { setStartDate(''); setEndDate(''); }} className="text-xs font-semibold text-red-500 hover:text-red-700 transition-colors bg-red-50 hover:bg-red-100 dark:bg-red-900/20 px-3 py-1.5 rounded-md mt-2 md:mt-0">
                                 Limpiar Fechas
                             </button>
                         )}
@@ -288,49 +324,60 @@ const LeadsListPage: React.FC = () => {
                 </div>
             )}
 
-            {/* --- NUEVA CABECERA CON BÚSQUEDA Y BOTONES --- */}
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center px-1 gap-4">
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">
-                    {sortedLeads.length} Prospectos encontrados
-                </h3>
-                
-                <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                    <div className="relative flex-1 lg:min-w-[280px]">
-                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                            <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
-                                <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
-                            </svg>
-                        </div>
-                        <input 
-                            type="text" 
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="block w-full py-2 pl-10 pr-3 text-sm border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
-                            placeholder="Buscar nombre, empresa o correo..." 
-                        />
+            {/* --- LISTA DE CLIENTES --- */}
+            {/* 1. VERSIÓN MÓVIL (TARJETAS) */}
+            <div className="grid grid-cols-1 gap-4 md:hidden">
+                {sortedLeads.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                        No se encontraron prospectos con los filtros actuales.
                     </div>
+                ) : (
+                    sortedLeads.map(lead => {
+                        const currentStage = getStageById(lead.status);
+                        const currentTag = getTagInfo(lead.tagIds?.[0]);
+                        const ownerName = users.find(u => u.id === lead.ownerId)?.name || 'Sin asignar';
+                        const daysInProcess = getDaysInProcess(lead);
+                        const isClosed = currentStage?.type === 'won' || currentStage?.type === 'lost';
 
-                    {user && (
-                        <div className="flex space-x-3 w-full sm:w-auto justify-end">
-                            {isManager && (
-                                <Button onClick={handleExportExcel} variant="secondary" className="flex items-center gap-2 whitespace-nowrap">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h2l2 3 2-3h2"></path><path d="M8 17h2l2-3 2 3h2"></path></svg>
-                                    Exportar Excel
-                                </Button>
-                            )}
-                            <Button onClick={handleOpenImportModal} className="flex items-center gap-2 whitespace-nowrap"> 
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                                Importación Masiva
-                            </Button>
-                        </div>
-                    )}
-                </div>
+                        return (
+                            <div 
+                                key={lead.id} 
+                                onClick={() => setSelectedLead(lead)}
+                                className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md transition-shadow active:bg-gray-50"
+                            >
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className="flex-1 pr-2">
+                                        <h4 className="font-bold text-gray-900 dark:text-white text-base leading-tight mb-1">{lead.name}</h4>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">{lead.company || lead.email}</p>
+                                    </div>
+                                    <div className="text-right flex-shrink-0">
+                                        <div className="text-xs font-bold text-gray-800 dark:text-gray-200">{currentStage?.name || 'N/A'}</div>
+                                        {currentTag && (
+                                            <span className="inline-block mt-1 px-2 py-0.5 text-[10px] font-bold rounded-full text-white tracking-wide uppercase shadow-sm" style={{ backgroundColor: currentTag.color }}>
+                                                {currentTag.name}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex items-end justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                                    <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                        <span className="truncate max-w-[120px]">{ownerName}</span>
+                                    </div>
+                                    <span className={`text-[11px] px-2 py-1 rounded font-medium ${isClosed ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>
+                                        {isClosed ? 'Cerrado:' : 'Proceso:'} {daysInProcess}d
+                                    </span>
+                                </div>
+                            </div>
+                        );
+                    })
+                )}
             </div>
-            {/* ------------------------------------------- */}
 
-            <div className="relative overflow-x-auto shadow-md sm:rounded-lg border border-gray-200 dark:border-gray-700">
+            {/* 2. VERSIÓN ESCRITORIO (TABLA) */}
+            <div className="hidden md:block relative overflow-x-auto shadow-sm sm:rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                    <thead className="text-xs text-gray-700 uppercase bg-gray-100 dark:bg-gray-800 dark:text-gray-400">
+                    <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-800/80 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                         <tr>
                             <th scope="col" className="px-6 py-4 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition" onClick={() => requestSort('name')}>Prospecto {getSortIndicator('name')}</th>
                             <th scope="col" className="px-6 py-4">Etapa / Sub-Etapa</th>
@@ -340,84 +387,87 @@ const LeadsListPage: React.FC = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {sortedLeads.map(lead => {
-                            const currentStage = getStageById(lead.status);
-                            const currentTag = getTagInfo(lead.tagIds?.[0]);
-                            const daysInTag = getDaysInTag(lead);
-                            const productNames = getProductNames(lead.productIds);
-                            
-                            const ownerName = users.find(u => u.id === lead.ownerId)?.name || 'Sin asignar';
-                            const creatorName = lead.creatorId ? users.find(u => u.id === lead.creatorId)?.name : null;
-                            const isCoOwned = lead.creatorId && lead.creatorId !== lead.ownerId;
-                            
-                            const providerName = providers.find(p => p.id === lead.providerId)?.name || 'Directo';
+                        {sortedLeads.length === 0 ? (
+                            <tr>
+                                <td colSpan={5} className="p-10 text-center text-gray-500 dark:text-gray-400">
+                                    No se encontraron prospectos con los filtros actuales.
+                                </td>
+                            </tr>
+                        ) : (
+                            sortedLeads.map(lead => {
+                                const currentStage = getStageById(lead.status);
+                                const currentTag = getTagInfo(lead.tagIds?.[0]);
+                                const daysInTag = getDaysInTag(lead);
+                                const productNames = getProductNames(lead.productIds);
+                                
+                                const ownerName = users.find(u => u.id === lead.ownerId)?.name || 'Sin asignar';
+                                const creatorName = lead.creatorId ? users.find(u => u.id === lead.creatorId)?.name : null;
+                                const isCoOwned = lead.creatorId && lead.creatorId !== lead.ownerId;
+                                
+                                const providerName = providers.find(p => p.id === lead.providerId)?.name || 'Directo';
 
-                            const daysInProcess = getDaysInProcess(lead);
-                            const isClosed = currentStage?.type === 'won' || currentStage?.type === 'lost';
+                                const daysInProcess = getDaysInProcess(lead);
+                                const isClosed = currentStage?.type === 'won' || currentStage?.type === 'lost';
 
-                            return (
-                                <tr 
-                                    key={lead.id} 
-                                    onClick={() => setSelectedLead(lead)}
-                                    className="bg-white border-b dark:bg-gray-900 dark:border-gray-700 hover:bg-blue-50/50 dark:hover:bg-gray-800 transition-colors cursor-pointer group"
-                                >
-                                    <td className="px-6 py-4">
-                                        <div className="font-semibold text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{lead.name}</div>
-                                        <div className="text-xs text-gray-500 mt-1">{lead.company || lead.email || 'Sin empresa'}</div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="font-medium text-gray-800 dark:text-gray-300">{currentStage?.name || 'N/A'}</div>
-                                        {currentTag && (
-                                            <div className="mt-1.5">
-                                                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full text-white tracking-wide uppercase shadow-sm" style={{ backgroundColor: currentTag.color }}>
-                                                    {currentTag.name}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {isCoOwned && (
-                                            <div className="text-xs font-semibold text-yellow-600 dark:text-yellow-500 mb-1 flex items-center gap-1.5" title="Creador (SDR)">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                                                {creatorName} (SDR)
-                                            </div>
-                                        )}
-                                        <div className="font-medium text-gray-800 dark:text-gray-300 flex items-center gap-1.5" title={isCoOwned ? "Responsable Actual" : "Responsable"}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isCoOwned ? "text-blue-500" : "text-gray-400"}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                            {ownerName}
-                                        </div>
-                                        <div className="text-xs text-gray-500 mt-1 flex items-center gap-1.5" title="Referido por">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><path d="M20 6h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zM10 4h4v2h-4V4z"/></svg>
-                                            Ref: {providerName}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate" title={productNames}>
-                                            {productNames}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex flex-col gap-1">
-                                            <span className={`text-xs px-2 py-1 rounded w-fit ${isClosed ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border border-blue-100 dark:border-blue-800' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}>
-                                                {isClosed ? 'Cerrado en:' : 'En proceso:'} <strong className={isClosed ? 'text-blue-800 dark:text-blue-300' : 'text-gray-900 dark:text-white'}>{daysInProcess} d</strong>
-                                            </span>
-                                            {daysInTag !== null && !isClosed && (
-                                                <span className="text-xs bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded text-red-600 dark:text-red-400 w-fit">
-                                                    En sub-etapa: <strong>{daysInTag} d</strong>
-                                                </span>
+                                return (
+                                    <tr 
+                                        key={lead.id} 
+                                        onClick={() => setSelectedLead(lead)}
+                                        className="bg-white border-b dark:bg-gray-900 dark:border-gray-700 hover:bg-blue-50/50 dark:hover:bg-gray-800 transition-colors cursor-pointer group"
+                                    >
+                                        <td className="px-6 py-4">
+                                            <div className="font-semibold text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{lead.name}</div>
+                                            <div className="text-xs text-gray-500 mt-1">{lead.company || lead.email || 'Sin empresa'}</div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="font-medium text-gray-800 dark:text-gray-300">{currentStage?.name || 'N/A'}</div>
+                                            {currentTag && (
+                                                <div className="mt-1.5">
+                                                    <span className="px-2 py-0.5 text-[10px] font-bold rounded-full text-white tracking-wide uppercase shadow-sm" style={{ backgroundColor: currentTag.color }}>
+                                                        {currentTag.name}
+                                                    </span>
+                                                </div>
                                             )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {isCoOwned && (
+                                                <div className="text-xs font-semibold text-yellow-600 dark:text-yellow-500 mb-1 flex items-center gap-1.5" title="Creador (SDR)">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                                                    {creatorName} (SDR)
+                                                </div>
+                                            )}
+                                            <div className="font-medium text-gray-800 dark:text-gray-300 flex items-center gap-1.5" title={isCoOwned ? "Responsable Actual" : "Responsable"}>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isCoOwned ? "text-blue-500" : "text-gray-400"}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                                {ownerName}
+                                            </div>
+                                            <div className="text-xs text-gray-500 mt-1 flex items-center gap-1.5" title="Referido por">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><path d="M20 6h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zM10 4h4v2h-4V4z"/></svg>
+                                                Ref: {providerName}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate" title={productNames}>
+                                                {productNames}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col gap-1">
+                                                <span className={`text-xs px-2 py-1 rounded w-fit ${isClosed ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border border-blue-100 dark:border-blue-800' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}>
+                                                    {isClosed ? 'Cerrado en:' : 'En proceso:'} <strong className={isClosed ? 'text-blue-800 dark:text-blue-300' : 'text-gray-900 dark:text-white'}>{daysInProcess} d</strong>
+                                                </span>
+                                                {daysInTag !== null && !isClosed && (
+                                                    <span className="text-xs bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded text-red-600 dark:text-red-400 w-fit">
+                                                        En sub-etapa: <strong>{daysInTag} d</strong>
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })
+                        )}
                     </tbody>
                 </table>
-                {sortedLeads.length === 0 && (
-                    <div className="p-10 text-center text-gray-500 dark:text-gray-400">
-                        No se encontraron prospectos con los filtros actuales.
-                    </div>
-                )}
             </div>
 
             <BulkImportModal 
